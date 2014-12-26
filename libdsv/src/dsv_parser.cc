@@ -49,7 +49,7 @@ namespace detail {
 
 extern "C" {
 
-  int obj_parser_create(dsv_parser_t *parser)
+  int dsv_parser_create(dsv_parser_t *parser)
   {
     int err = 0;
 
@@ -166,7 +166,7 @@ extern "C" {
     catch(...) {
       abort();
     }
-    
+
     return err;
   }
 
