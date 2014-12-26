@@ -32,7 +32,7 @@
 /**
  *  \file This file is only here to seperate out uses of the forward-declared
  *  bison functions to avoid circular inclusion problems. ie the Bison parser
- *  needs the contents of \c parser_state.h for the types in 
+ *  needs the contents of \c parser_state.h for the types in
  *  \c dsv_parser_parse() and \c dsv_parser_parse() needs the definition of
  *  \c basic_parser_state and \c parse_operations.
  *
@@ -128,7 +128,7 @@ namespace detail {
     dsv_parser_set_extra(&wrapper.parser_state,wrapper.scanner);
 
     // start parsing
-    int err = dsv_parser_parse(wrapper.scanner,this,operations);
+    int err = dsv_parser_parse(wrapper.scanner,*this,operations);
 
     state_stack.pop_back();
 

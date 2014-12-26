@@ -4,19 +4,6 @@
   */
   typedef void* yyscan_t;
 
-  namespace detail {
-
-    // forward declarations
-    template<typename CharT>
-    class basic_dsv_parser;
-
-    typedef basic_dsv_parser<char> dsv_parser;
-
-    struct parse_operations;
-
-
-  }
-
   #include "parser_state.h"
 
 }
@@ -36,13 +23,13 @@
   #include "parser_state_detail.h"
 
 
-  void dsv_parser_error(yyscan_t scanner, detail::dsv_parser* parser,
+  void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
     const detail::parse_operations &operations, const char *s);
 
   /**
    *  Error reporting function as required by yacc
    */
-  void dsv_parser_error(yyscan_t scanner, detail::dsv_parser* parser,
+  void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
     const detail::parse_operations &operations, const char *s)
   {
 //    detail::verbose_output_formatter(detail::get_state(scanner),s);
@@ -73,7 +60,7 @@
 
 %lex-param {yyscan_t scanner}
 %parse-param {yyscan_t scanner}
-%parse-param {detail::dsv_parser* parser}
+%parse-param {detail::dsv_parser &parser}
 %parse-param {const detail::parse_operations &operations}
 
 
