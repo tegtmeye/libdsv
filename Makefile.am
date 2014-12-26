@@ -11,6 +11,7 @@ libdsv_la_SOURCES= \
 	dsv_rules.cc \
 	dsv_grammar.yy \
 	parser_state.h \
+	parser_state_detail.h \
 	dsv_parser.h \
 	dsv_parser.cc
 
