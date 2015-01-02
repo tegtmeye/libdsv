@@ -125,7 +125,7 @@ namespace detail {
     state_wrapper &wrapper = *state_stack.back();
 
     dsv_parser_set_in(wrapper.parser_state.file,wrapper.scanner);
-    dsv_parser_set_extra(&wrapper.parser_state,wrapper.scanner);
+    dsv_parser_set_extra(this,wrapper.scanner);
 
     // start parsing
     int err = dsv_parser_parse(wrapper.scanner,*this,operations);

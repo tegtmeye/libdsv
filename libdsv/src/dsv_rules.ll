@@ -64,6 +64,7 @@
 
 /* State Definitions Section */
 
+%x CRLF_STRICT
 
 /* Definitions Section */
 
@@ -71,8 +72,17 @@ lf  \x0A
 cr  \x0D
 
 %%
+%{
+  detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
+  if(parser.newline_behavior() == dsv_newline_crlf_strict)
+    BEGIN(INITIAL);
+%}
 
 {lf}      {return LF;}
 {cr}      {return CR;}
-.                   { return yytext[0]; }
+
+.         {
+            detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
+            return yytext[0];
+          }
 %%
