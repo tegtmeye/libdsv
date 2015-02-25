@@ -33,7 +33,6 @@ typedef void* yyscan_t;
 #include "dsv_rules.h"
 
 #include "dsv_parser.h"
-#include "parser_state_detail.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -54,7 +53,7 @@ extern "C" {
     int err = 0;
 
     try {
-      parser->p = new detail::dsv_parser;
+//       parser->p = new detail::dsv_parser;
     }
     catch (std::bad_alloc &) {
       err = ENOMEM;
@@ -69,48 +68,48 @@ extern "C" {
   void dsv_parser_destroy(dsv_parser_t parser)
   {
     try {
-      delete static_cast<detail::dsv_parser*>(parser.p);
+//       delete static_cast<detail::dsv_parser*>(parser.p);
     }
     catch(...) {
       abort();
     }
   }
-
+#if 0
   int dsv_parser_set_newline_handling(dsv_parser_t _parser, dsv_newline_behavior behavior)
   {
     assert(_parser.p);
 
-    if(!(behavior >= dsv_newline_permissive && behavior <= dsv_newline_crlf_strict))
-      return EINVAL;
-
-    detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
-
+//     if(!(behavior >= dsv_newline_permissive && behavior <= dsv_newline_crlf_strict))
+//       return EINVAL;
+//
+//     detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
+//
     int result = 0;
-
-    try {
-      parser.newline_behavior(behavior);
-    }
-    catch(...) {
-      abort();
-    }
-
-    return result;
+//
+//     try {
+//       parser.newline_behavior(behavior);
+//     }
+//     catch(...) {
+//       abort();
+//     }
+// //
+// //     return result;
   }
 
   dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t _parser)
   {
     assert(_parser.p);
 
-    detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
-
+//     detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
+//
     dsv_newline_behavior result;
-
-    try {
-      result = parser.newline_behavior();
-    }
-    catch(...) {
-      abort();
-    }
+//
+//     try {
+//       result = parser.newline_behavior();
+//     }
+//     catch(...) {
+//       abort();
+//     }
 
     return result;
   }
@@ -127,9 +126,9 @@ extern "C" {
       detail::parse_operations *operations = new detail::parse_operations;
       operations->record_callback = 0;
       operations->record_context = 0;
-
+//
       _operations->p = operations;
-
+//
     }
     catch (std::bad_alloc &) {
       err = ENOMEM;
@@ -276,7 +275,7 @@ extern "C" {
 
     return result;
   }
-
+#endif
 
 
 }

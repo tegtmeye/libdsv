@@ -73,16 +73,16 @@ cr  \x0D
 
 %%
 %{
-  detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
-  if(parser.newline_behavior() == dsv_newline_crlf_strict)
-    BEGIN(INITIAL);
+//  detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
+//  if(parser.newline_behavior() == dsv_newline_crlf_strict)
+//   BEGIN(INITIAL);
 %}
 
 {lf}      {return LF;}
 {cr}      {return CR;}
 
 .         {
-            detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
+//            detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(yyextra);
             return yytext[0];
           }
 %%

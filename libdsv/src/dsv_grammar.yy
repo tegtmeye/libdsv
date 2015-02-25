@@ -55,11 +55,17 @@
   /**
    *  Error reporting function as required by yacc
    */
-  void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
+  void dsv_parser_error(yyscan_t scanner,
     const detail::parse_operations &operations, const char *s)
   {
     std::cerr << "HERE!!!!!!!!'" << s << "'\n";
   }
+
+//   void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
+//     const detail::parse_operations &operations, const char *s)
+//   {
+//     std::cerr << "HERE!!!!!!!!'" << s << "'\n";
+//   }
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -76,7 +82,7 @@
 
 }
 
-%pure-parser
+%define api.pure full
 
 %union {
   float real;
@@ -87,7 +93,7 @@
 
 %lex-param {yyscan_t scanner}
 %parse-param {yyscan_t scanner}
-%parse-param {detail::dsv_parser &parser}
+// %parse-param {detail::dsv_parser &parser}
 %parse-param {const detail::parse_operations &operations}
 
 %token CR
@@ -111,17 +117,17 @@ record:
 newline
   : LF
     {
-      if(parser.newline_behavior() == dsv_newline_crlf_strict) {
-        parser.push_msg("LFSeenOnCRLFStrict",dsv_log_error);
-        YYABORT;
-      }
+//       if(parser.newline_behavior() == dsv_newline_crlf_strict) {
+//         parser.push_msg("LFSeenOnCRLFStrict",dsv_log_error);
+//         YYABORT;
+//       }
     }
   | CR LF
     {
-      if(parser.newline_behavior() == dsv_newline_lf_strict) {
-        parser.push_msg("CRSeenOnLFStrict",dsv_log_error);
-        YYABORT;
-      }
+//       if(parser.newline_behavior() == dsv_newline_lf_strict) {
+//         parser.push_msg("CRSeenOnLFStrict",dsv_log_error);
+//         YYABORT;
+//       }
     }
 
 %%
