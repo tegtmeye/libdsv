@@ -40,21 +40,13 @@
 #include <utility>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem.hpp>
+
+namespace fs=boost::filesystem;
+namespace bs=boost::system;
+
 
 namespace detail {
-
-  class file_error : public std::runtime_error {
-    public:
-      explicit file_error(const std::string &what_arg, int err)
-        :std::runtime_error(what_arg), error_num(err) {}
-
-      int error_code(void) const {
-        return error_num;
-      }
-
-    private:
-      int error_num;
-  };
 
   struct parse_operations {
     record_callback_t record_callback;
@@ -63,136 +55,62 @@ namespace detail {
 
 
 
-  template<typename CharT>
-  struct basic_parse_state {
-    typedef typename std::basic_string<CharT> string_type;
-
-    string_type filename;
-    string_type dir;
-    std::size_t lineno;
-    FILE *file;
-
-    basic_parse_state(const std::basic_string<CharT> &fname);
-    ~basic_parse_state(void);
-  };
-
-
-
-
-
   /**
    *  Composition object for dealing with lex/lacc reentrant interface.
    *  ie all extra info gets attached via a void * in lex/yacc
    *
-   *  Lifetime is only until the parse completion. That is, do not retain parser
-   *  state that only lasts the length of the parse operation
    */
-  template<typename CharT>
-  class basic_dsv_parser {
-    private:
-      typedef std::vector<std::pair<dsv_log_level,std::string> > msg_stack_type;
-
+  class parser_state {
     public:
-      typedef basic_parse_state<CharT> parser_state_type;
+      parser_state(const fs::path &filepath);
 
-      typedef typename msg_stack_type::const_iterator const_msg_iterator;
+      FILE * file(void) const;
+      const fs::path & filepath(void) const;
 
-      basic_dsv_parser(void);
-
-      dsv_newline_behavior newline_behavior(void) const;
+      const dsv_newline_behavior & newline_behavior(void) const;
       dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
-
-      int parse_file(const char *filename, const parse_operations &operations);
-
-      parser_state_type & state(void) const {
-        return state_stack.back()->parser_state;
-      }
-
-      void push_msg(const std::string &what, dsv_log_level log_level);
-
-      const_msg_iterator msg_begin(void) const;
-      const_msg_iterator msg_end(void) const;
-
     private:
-      struct state_wrapper;
-      typedef std::list<boost::shared_ptr<state_wrapper> > state_stack_type;
-
-      std::string localized_include(void);
+      boost::shared_ptr<FILE> file_ptr;
+      fs::path file_path;
 
       dsv_newline_behavior newline_flag;
-
-      state_stack_type state_stack;
-
-      msg_stack_type msg_vec;
   };
 
-  template<typename CharT>
-  inline basic_dsv_parser<CharT>::basic_dsv_parser(void)
-    :newline_flag(dsv_newline_permissive)
+  inline parser_state::parser_state(const fs::path &filepath) :file_path(filepath)
   {
+    errno = 0;
+    FILE *tmp = fopen(filepath.c_str(),"r");
+    if(!tmp)
+      throw fs::filesystem_error("Unable to open file",filepath,
+        bs::error_code(errno,bs::system_category()));
+
+    file_ptr = boost::shared_ptr<FILE>(tmp,fclose);
   }
 
-  template<typename CharT>
-  inline dsv_newline_behavior basic_dsv_parser<CharT>::newline_behavior(void) const
+  inline FILE * parser_state::file(void) const
+  {
+    return file_ptr.get();
+  }
+
+  inline const fs::path & parser_state::filepath(void) const
+  {
+    return file_path;
+  }
+
+  inline const dsv_newline_behavior &
+  parser_state::newline_behavior(void) const
   {
     return newline_flag;
   }
 
-  template<typename CharT>
   inline dsv_newline_behavior
-  basic_dsv_parser<CharT>::newline_behavior(dsv_newline_behavior behavior)
+  parser_state::newline_behavior(dsv_newline_behavior behavior)
   {
     dsv_newline_behavior tmp = newline_flag;
     newline_flag = behavior;
     return tmp;
   }
-
-  template<typename CharT>
-  void basic_dsv_parser<CharT>::push_msg(const std::string &what, dsv_log_level log_level)
-  {
-    std::stringstream msg;
-
-    msg << localized_include() << "\n";
-
-    // need to localize this
-    msg << what;
-
-    msg_vec.push_back(std::make_pair(log_level,msg.str()));
-  }
-
-  template<typename CharT>
-  typename basic_dsv_parser<CharT>::const_msg_iterator
-  basic_dsv_parser<CharT>::msg_begin(void) const
-  {
-    return msg_vec.begin();
-  }
-
-  template<typename CharT>
-  typename basic_dsv_parser<CharT>::const_msg_iterator
-  basic_dsv_parser<CharT>::msg_end(void) const
-  {
-    return msg_vec.end();
-  }
-
-
-  template<typename CharT>
-  std::string basic_dsv_parser<CharT>::localized_include(void)
-  {
-    std::stringstream out;
-
-    typename state_stack_type::const_reverse_iterator rcur = state_stack.rbegin();
-    assert(rcur != state_stack.rend());
-
-    out << "In file: '" << (*rcur)->parser_state.filename << "'";
-
-    for(++rcur; rcur != state_stack.rend(); ++rcur)
-      out << "\n\tIncluded from: '" << (*rcur)->parser_state.filename << "'";
-
-    return out.str();
-  }
-
-  typedef detail::basic_dsv_parser<char> dsv_parser;
 
 }
 

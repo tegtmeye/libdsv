@@ -9,7 +9,6 @@ libdsv_la_SOURCES= \
 	dsv_rules.cc \
 	dsv_grammar.yy \
 	parser_state.h \
-	parser_state_detail.h \
 	dsv_parser.cc
 
 dsv_rules.cc: dsv_rules.ll

@@ -50,11 +50,7 @@
   #include "dsv_grammar.hh"
   #include "dsv_rules.h"
 
-  #include "parser_state_detail.h"
 
-
-//   void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
-//     const detail::parse_operations &operations, const char *s);
 
   /**
    *  Error reporting function as required by yacc
