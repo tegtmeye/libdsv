@@ -35,7 +35,7 @@
   typedef void* yyscan_t;
 
   #include "parser_state.h"
-
+  #include "parse_operations.h"
 }
 
 
@@ -55,8 +55,8 @@
   /**
    *  Error reporting function as required by yacc
    */
-  void dsv_parser_error(yyscan_t scanner,
-    const detail::parse_operations &operations, const char *s)
+  void parser_error(yyscan_t scanner, const detail::parse_operations &operations,
+    yyscan_t context, const char *s)
   {
     std::cerr << "HERE!!!!!!!!'" << s << "'\n";
   }
@@ -93,8 +93,8 @@
 
 %lex-param {yyscan_t scanner}
 %parse-param {yyscan_t scanner}
-// %parse-param {detail::dsv_parser &parser}
 %parse-param {const detail::parse_operations &operations}
+%parse-param {yyscan_t context}
 
 %token CR
 %token LF

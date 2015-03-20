@@ -28,55 +28,38 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBDSV_PARSER_STATE_H
-#define LIBDSV_PARSER_STATE_H
-
-#include "dsv_parser.h"
-
-#include <string>
-#include <sstream>
-#include <list>
-#include <vector>
-#include <utility>
+#include "file_parser.h"
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
 
-namespace fs=boost::filesystem;
-namespace bs=boost::system;
+#include <system_error>
 
+namespace fs=boost::filesystem;
 
 namespace detail {
 
-  /**
-   *  Composition object for dealing with lex/lacc reentrant interface.
-   *  ie all extra info gets attached via a void * in lex/yacc
-   *
-   */
-  class parser_state {
-    public:
-      parser_state(const fs::path &filepath);
-
-      FILE * file(void) const;
-      const fs::path & filepath(void) const;
-
-    private:
-      boost::shared_ptr<FILE> file_ptr;
-      fs::path file_path;
-  };
-
-  inline FILE * parser_state::file(void) const
+  void parse_file(const fs::path &filepath, detail::parser &parser,
+    const parse_operations &operations, yyscan_t context)
   {
-    return file_ptr.get();
-  }
+    parser_state state(filepath);
+    yyscan_t scanner;
+    if(parser_lex_init_extra(&state,&scanner))
+      throw std::system_error(errno,std::system_category(),"Unable to initialize lexer");
 
-  inline const fs::path & parser_state::filepath(void) const
-  {
-    return file_path;
-  }
+    boost::shared_ptr<void> scanner_sentry(scanner,parser_lex_destroy);
 
+    parser_set_in(state.file(),scanner);
+
+    // start parsing
+    int err = parser_parse(scanner,operations,context);
+
+    if(err != 0) {
+      if(err == 2)
+        throw std::system_error(ENOMEM,std::system_category());
+
+      throw std::system_error(-1,std::generic_category(),"Parse failed");
+    }
+  }
 
 }
-
-
-#endif

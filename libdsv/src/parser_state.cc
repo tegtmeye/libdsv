@@ -28,55 +28,21 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBDSV_PARSER_STATE_H
-#define LIBDSV_PARSER_STATE_H
-
-#include "dsv_parser.h"
-
-#include <string>
-#include <sstream>
-#include <list>
-#include <vector>
-#include <utility>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
-namespace fs=boost::filesystem;
-namespace bs=boost::system;
-
+#include "parser_state.h"
 
 namespace detail {
 
-  /**
-   *  Composition object for dealing with lex/lacc reentrant interface.
-   *  ie all extra info gets attached via a void * in lex/yacc
-   *
-   */
-  class parser_state {
-    public:
-      parser_state(const fs::path &filepath);
-
-      FILE * file(void) const;
-      const fs::path & filepath(void) const;
-
-    private:
-      boost::shared_ptr<FILE> file_ptr;
-      fs::path file_path;
-  };
-
-  inline FILE * parser_state::file(void) const
+  parser_state::parser_state(const fs::path &filepath) :file_path(filepath)
   {
-    return file_ptr.get();
+    errno = 0;
+    FILE *tmp = fopen(filepath.c_str(),"r");
+    if(!tmp)
+      throw fs::filesystem_error("Unable to open file",filepath,
+        bs::error_code(errno,bs::system_category()));
+
+    file_ptr = boost::shared_ptr<FILE>(tmp,fclose);
   }
 
-  inline const fs::path & parser_state::filepath(void) const
-  {
-    return file_path;
-  }
 
 
 }
-
-
-#endif

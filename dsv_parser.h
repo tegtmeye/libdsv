@@ -28,8 +28,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef LIBDSV_PARSER_H
-#define LIBDSV_PARSER_H
+#ifndef LIBDSV_DSV_PARSER_H
+#define LIBDSV_DSV_PARSER_H
 
 #include <unistd.h>
 
@@ -219,43 +219,119 @@ extern "C" {
     dsv_log_all = (dsv_log_error|dsv_log_warning|dsv_log_info) /*!< Do not filter messages */
   } dsv_log_level;
 
+  /**
+   *  \brief Logging message codes
+   */
+  typedef enum {
+
+  } dsv_log_code;
 
   /**
-   *  \brief Filter the log messages associated with the last parse operation
-   *  according to the given \c log_level and place the first \c len characters into
-   *  the buffer pointed to by \c buf returning the total size of the filtered log
-   *  messages. Providing a 0 \c buf value is permitted.
-   *
-   *  To avoid memory ownership and potential buffer overflow issues, the recommended
-   *  pattern for use of \c dsv_parse_error is:
-   *
-   *      // Get the size of the filtered messages
-   *      size_t len = dsv_parse_error(aParser,dsv_parse_error,0,0);
-   *
-   *      // checks for a zero len and errors ommitted
-   *
-   *      // Allocate buf based on the returned size 'len'
-   *      char *buf = (char*)malloc(sizeof(char)*len);
-   *
-   *      // copy the messages to buf
-   *      dsv_parse_error(aParser,dsv_parse_error,&buf,len);
-   *
-   *  \note All messages are concatenated together
+   *  \brief Return the number of log messages associated with the last parse operation
+   *  according to the given \c log_level.
    *
    *  \param[in] parser A \c dsv_parser_t object previously initialized with
    *                    \c dsv_parser_create
    *  \param[in] log_level A valid value of \c dsv_log_level indicating how the
    *                        the list of all log messages should be filtered.
+   *  \retval num Number of message filtered according to \c log_level
+   */
+  size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level);
+
+  /**
+   *  \brief Filter the log messages associated with the last parse operation
+   *  according to the given \c log_level retrieve the \c num message and copy the code
+   *  into the location pointed to by \c code and copy the message into the formatted
+   *  string pointed to \c buf limited it to the first \c len characters. Providing
+   *  a 0 \c buf value is permitted.
+   *
+   *  A log message has two attributes; a dsv_log_code that discribes the type of
+   *  log message it is as well as a list of parameters that make up that particular
+   *  message. The number of parameters is determined by the dsv_log_code.
+   *
+   *  An instance of a log message is tagged with a log level that can be filtered
+   *  for easy retrieval.
+   *
+   *  \note The nth log message is determined by the application of the given filter.
+   *  For example, if there are 10 total log_messages but only 4 tagged as
+   *  \c dsv_log_warning, the 3rd message (\c num=3) will be the 3rd message tagged as
+   *  \c dsv_log_warning not necessarily the 3rd message in the sequence of 10.
+   *
+   *  The provided string pointed to by \c buf is a format string to which the parameters
+   *  defined by the log_code are replaced based on the placeholders it contains. The
+   *  placeholders are identified by "$n" where \c n is the parameter number. For
+   *  example, if the format string is: "param 1 is $2 and param 2 is $1" and the
+   *  the two paramers associated with the log message are "foo" and "bar", \c buf
+   *  will then contain "param 1 is bar and param 2 is foo". Each $n may appear anywhere
+   *  within the format string. If there are more placeholders than parameters, they
+   *  will be ignored. There is no requirement to have a placeholder for each param.
+   *  If \c buf is 0, the return value is the number of characters needed to hold all
+   *  parameter strings concatenated together.
+   *
+   *  To avoid memory ownership and potential buffer overflow issues while minimizing
+   *  the number of function calls to obtain the needed information, the recommended
+   *  pattern for use of \c dsv_parse_log is:
+   *
+   *      // Get the number of log messages for \c log_level
+   *      size_t num_msgs = dsv_parse_log_count(aParser,aLevel);
+   *
+   *      // assume want msg number \c num < \c num_msgs
+   *      // This message contains 2 parameters "foo" and "bar" determined by the
+   *      // error code
+   *
+   *      // Get the code and minimum storage requirement for the msg parameters
+   *      dsv_log_code msg_code;
+   *      ssize_t len = dsv_parse_error(aParser,aLevel,num,&msg_code,0,0);
+   *
+   *      // msg_code now holds the code associated with the msg
+   *      // len now holds the storage needed for the the total number of parameters
+   *      // associated with msg_code.
+   *
+   *      const char *fmt_str;
+   *      switch(msg_code) {  // or equivalent
+   *        case ...:
+   *          fmt_str = "param 1 is $2 and param 2 is $1";
+   *          break;
+   *
+   *        ...
+   *      }
+   *
+   *      size_t fmt_len = strlen(fmt_str);
+   *
+   *      // Allocate buf based on minimum needed to store the parameters and the
+   *      // length needed to store the format string potentially trimmed of the
+   *      // placeholders. Do not forget to add space for the null terminator
+   *      size_t storage_len = sizeof(char)*(fmt_len+len+1);
+   *      char *buf = (char*)malloc(storage_len);
+   *
+   *      // copy the formated messages to buf
+   *      len = dsv_parse_error(aParser,aLevel,num,&msg_code,buff,storage_len);
+   *
+   *  \param[in] parser A \c dsv_parser_t object previously initialized with
+   *                    \c dsv_parser_create
+   *  \param[in] log_level A valid value of \c dsv_log_level indicating how the
+   *                        the list of all log messages should be filtered.
+   *  \param[in] num The nth log_message where n is less than the value returned by
+   *                    dsv_parse_log_count for the given \c log_level.
+   *  \param[in,out] code A pointer to a dsv_log_code. The error code associated with
+   *                        the error message will be stored in this location.
    *  \param[in,out] buf A pointer to a character buffer appropriately sized. If \c buf
    *                      is nonzero, the first \c len characters of messages are copied
    *                      to buf including the terminating null character
    *  \param[in] len The size of the character buffer pointed to by \c buf.
-   *  \retval 0 An error has occurred. Possible reasons could be out of memory.
-   *  \retval nonzero The size of the message buffer filtered to \c log_level including
-   *                  the null terminator. This value is appropriate for allocating the
-   *                  character buffer \c buf in subsequent calls.
+   *  \retval <0 An error has occurred. errno is set.
+   *                      EINVAL Either num is greater than the number of messages
+   *                                filtered by \c log_level OR \c code is zero
+   *                      ENOMEM Out of memory
+   *  \retval 0 There are no parameters associated with the log_message with the
+   *              stated error code. This log message is nonetheless valid.
+   *  \retval nonnegative The size of the message buffer filtered to \c log_level
+   *                        including the null terminator. This value is appropriate
+   *                        for allocating the character buffer \c buf in subsequent
+   *                        calls.
    */
-  size_t dsv_parse_error(dsv_parser_t parser, dsv_log_level log_level, char *buf, size_t len);
+  ssize_t dsv_parse_log(dsv_parser_t parser, dsv_log_level log_level, size_t num,
+    dsv_log_code *code, char *buf, size_t len);
 
 
 

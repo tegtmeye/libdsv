@@ -1,14 +1,19 @@
 lib_LTLIBRARIES= libdsv.la
 
 BUILT_SOURCES=dsv_grammar.hh
-AM_YFLAGS= -d -p dsv_parser_
-AM_LFLAGS= -Pdsv_parser_ -odsv_rules.cc --header-file=dsv_rules.h
+AM_YFLAGS= -d -p parser_
+AM_LFLAGS= -Pparser_ -odsv_rules.cc --header-file=dsv_rules.h
 
 
 libdsv_la_SOURCES= \
 	dsv_rules.cc \
 	dsv_grammar.yy \
 	parser_state.h \
+	parser_state.cc \
+	file_parser.h \
+	file_parser.cc \
+	parse_operations.h \
+	parser.h \
 	dsv_parser.cc
 
 dsv_rules.cc: dsv_rules.ll

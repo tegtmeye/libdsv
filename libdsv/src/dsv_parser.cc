@@ -28,254 +28,314 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-typedef void* yyscan_t;
-#include "dsv_grammar.hh"
-#include "dsv_rules.h"
-
 #include "dsv_parser.h"
+#include "file_parser.h"
 
 #include <errno.h>
 #include <stdlib.h>
 
-
-
-
-namespace detail {
-
-
-}
+#include <system_error>
+#include <regex>
 
 
 extern "C" {
 
-  int dsv_parser_create(dsv_parser_t *parser)
-  {
-    int err = 0;
+int dsv_parser_create(dsv_parser_t *parser)
+{
+  int err = 0;
 
-    try {
-//       parser->p = new detail::dsv_parser;
+  try {
+     parser->p = new detail::parser;
+  }
+  catch (std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+void dsv_parser_destroy(dsv_parser_t parser)
+{
+  try {
+     delete static_cast<detail::parser*>(parser.p);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+int dsv_parser_set_newline_handling(dsv_parser_t _parser, dsv_newline_behavior behavior)
+{
+  assert(_parser.p);
+
+  if(!(behavior >= dsv_newline_permissive && behavior <= dsv_newline_crlf_strict))
+    return EINVAL;
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = 0;
+
+  try {
+    parser.newline_behavior(behavior);
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  dsv_newline_behavior result;
+
+  try {
+    result = parser.newline_behavior();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+int dsv_operations_create(dsv_operations_t *_operations)
+{
+  int err = 0;
+
+  try {
+    detail::parse_operations *operations = new detail::parse_operations;
+    operations->record_callback = 0;
+    operations->record_context = 0;
+
+    _operations->p = operations;
+
+  }
+  catch (std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+void dsv_operations_destroy(dsv_operations_t operations)
+{
+  try {
+    delete static_cast<detail::parse_operations*>(operations.p);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+record_callback_t dsv_get_record_callback(dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  record_callback_t result = 0;
+
+  try {
+    result = operations.record_callback;
+
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+void * dsv_get_record_context(dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  void * result = 0;
+
+  try {
+    result = operations.record_context;
+
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+
+void dsv_set_record_callback(record_callback_t fn, void *context,
+  dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  try {
+    operations.record_callback = fn;
+    operations.record_context = context;
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+int dsv_parse(const char *filename, dsv_parser_t _parser,
+              dsv_operations_t _operations)
+{
+  assert(_parser.p && _operations.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  detail::parse_operations &operations = *static_cast<detail::parse_operations*>(_operations.p);
+
+  int err = 0;
+
+  try {
+    detail::parse_file(filename,parser,operations,0);
+  }
+  catch(std::system_error &ex) {
+    // system errors due to failed parser_lex_init_extra or memory error from parse
+    if(ex.code().category() == std::system_category()) {
+      if(ex.code().value() == std::errc::not_enough_memory)
+        err = ENOMEM;
+      else if(ex.code().value() == std::errc::invalid_argument)
+        err = EINVAL;
+      else
+        abort();
     }
-    catch (std::bad_alloc &) {
-      err = ENOMEM;
+    else if(ex.code().category() == std::generic_category()) {
+      if(ex.code().value() == -1)
+        err = -1;
+      else
+        abort();
     }
-    catch (...) {
+    else
       abort();
-    }
-
-    return err;
   }
-
-  void dsv_parser_destroy(dsv_parser_t parser)
-  {
-    try {
-//       delete static_cast<detail::dsv_parser*>(parser.p);
+  catch(fs::filesystem_error &ex) {
+    if(ex.code().category() == bs::system_category()) {
+      err = ex.code().value();
     }
-    catch(...) {
+    else
       abort();
-    }
   }
-#if 0
-  int dsv_parser_set_newline_handling(dsv_parser_t _parser, dsv_newline_behavior behavior)
-  {
-    assert(_parser.p);
-
-//     if(!(behavior >= dsv_newline_permissive && behavior <= dsv_newline_crlf_strict))
-//       return EINVAL;
-//
-//     detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
-//
-    int result = 0;
-//
-//     try {
-//       parser.newline_behavior(behavior);
-//     }
-//     catch(...) {
-//       abort();
-//     }
-// //
-// //     return result;
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch(...) {
+    abort();
   }
 
-  dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t _parser)
-  {
-    assert(_parser.p);
+  return 0;
+}
 
-//     detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
-//
-    dsv_newline_behavior result;
-//
-//     try {
-//       result = parser.newline_behavior();
-//     }
-//     catch(...) {
-//       abort();
-//     }
+size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level)
+{
+  assert(_parser.p);
 
-    return result;
-  }
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
+  size_t result = 0;
 
-
-
-
-  int dsv_operations_create(dsv_operations_t *_operations)
-  {
-    int err = 0;
-
-    try {
-      detail::parse_operations *operations = new detail::parse_operations;
-      operations->record_callback = 0;
-      operations->record_context = 0;
-//
-      _operations->p = operations;
-//
-    }
-    catch (std::bad_alloc &) {
-      err = ENOMEM;
-    }
-    catch (...) {
-      abort();
-    }
-
-    return err;
-  }
-
-  void dsv_operations_destroy(dsv_operations_t operations)
-  {
-    try {
-      delete static_cast<detail::parse_operations*>(operations.p);
-    }
-    catch(...) {
-      abort();
+  try {
+    detail::parser::const_log_iterator cur = parser.log_begin();
+    while(cur != parser.log_end()) {
+      if(cur->first & log_level)
+        ++result;
     }
   }
-
-  record_callback_t dsv_get_record_callback(dsv_operations_t _operations)
-  {
-    assert(_operations.p);
-
-    detail::parse_operations &operations =
-      *static_cast<detail::parse_operations*>(_operations.p);
-
-    record_callback_t result = 0;
-
-    try {
-      result = operations.record_callback;
-
-    }
-    catch(...) {
-      abort();
-    }
-
-    return result;
+  catch(...) {
+    abort();
   }
 
-  void * dsv_get_record_context(dsv_operations_t _operations)
-  {
-    assert(_operations.p);
+  return result;
+}
 
-    detail::parse_operations &operations =
-      *static_cast<detail::parse_operations*>(_operations.p);
+ssize_t dsv_parse_log(dsv_parser_t _parser, dsv_log_level log_level, size_t num,
+  dsv_log_code *code, char *buf, size_t len)
+{
+  assert(_parser.p);
 
-    void * result = 0;
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-    try {
-      result = operations.record_context;
+  ssize_t result = 0;
 
-    }
-    catch(...) {
-      abort();
-    }
+  try {
+    size_t i = 0;
+    detail::parser::const_log_iterator cur = parser.log_begin();
+    while(cur != parser.log_end()) {
+      if(cur->first & log_level && ++i < num)
+        break;
 
-    return result;
-  }
-
-
-
-  void dsv_set_record_callback(record_callback_t fn, void *context,
-    dsv_operations_t _operations)
-  {
-    assert(_operations.p);
-
-    detail::parse_operations &operations =
-      *static_cast<detail::parse_operations*>(_operations.p);
-
-    try {
-      operations.record_callback = fn;
-      operations.record_context = context;
-    }
-    catch(...) {
-      abort();
-    }
-  }
-
-  int dsv_parse(const char *filename, dsv_parser_t _parser,
-                dsv_operations_t _operations)
-  {
-    assert(_parser.p && _operations.p);
-
-    detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
-    detail::parse_operations &operations = *static_cast<detail::parse_operations*>(_operations.p);
-
-    int err = 0;
-
-    try {
-      err = parser.parse_file(filename,operations);
-    }
-    catch(detail::file_error &ex) {
-      err = ex.error_code();
-    }
-    catch(std::bad_alloc &) {
-      err = ENOMEM;
-    }
-    catch(...) {
-      abort();
+      ++cur;
     }
 
-    return err;
-  }
+    // num is greater than number of filtered messages
+    if(cur == parser.log_end()) {
+      errno = EINVAL;
+      return -1;
+    }
 
-  size_t dsv_parse_error(dsv_parser_t _parser, dsv_log_level log_level, char *buf, size_t len)
-  {
-    assert(_parser.p);
+    // cur now hold the selected message
+    const detail::log_description &desc = cur->second;
 
-    detail::dsv_parser &parser = *static_cast<detail::dsv_parser*>(_parser.p);
+    *code = desc.code();
 
-    size_t result = 0;
-
-    try {
-      // add the null terminator
-      result = 1;
-      if(buf && len)
-        *buf = 0;
-
-      size_t buf_len = (len>0?len-1:0);
-      detail::dsv_parser::const_msg_iterator cur = parser.msg_begin();
-      while(cur != parser.msg_end()) {
-        if(cur->first & log_level) {
-          std::size_t msg_size = cur->second.size();
-          std::size_t copy_size = std::min(msg_size,buf_len);
-          if(buf && buf_len) {
-            buf = std::copy(cur->second.begin(),cur->second.begin()+copy_size,buf);
-            *buf = 0;
-          }
-
-          result += msg_size;
-          buf_len -= copy_size;
-        }
-        ++cur;
+    if(!buf) {
+      detail::log_description::const_param_iterator param = desc.param_begin();
+      while(param != desc.param_end()) {
+        result += param->size();
+        ++param;
       }
     }
-    catch(std::bad_alloc &) {
-      result = 0;
-    }
-    catch(...) {
-      abort();
-    }
+    else {
+      // for each parameter, copy it into the corresponding placeholder deducting the
+      // length of the parameter from len. If len is smaller than the length of the
+      // parameter, just copy len characters. Stop on the last parameter or if len is
+      // zero
+      std::string tmp_str(buf);
+      detail::log_description::const_param_iterator param = desc.param_begin();
+      for(std::size_t i=0; param != desc.param_end(); ++i, ++param) {
+        // create the placeholder string
+        std::stringstream n;
+        n << "$" << i;
 
-    return result;
+        std::regex exp(n.str());
+        tmp_str = std::regex_replace(tmp_str,exp,*param);
+      }
+
+      buf = std::copy_n(tmp_str.begin(),std::min(tmp_str.size(),len-1),buf);
+
+      // add null character to the end
+      *buf = 0;
+    }
   }
-#endif
+  catch(std::bad_alloc &) {
+    errno = ENOMEM;
+    result = -1;
+  }
+  catch(...) {
+    abort();
+  }
 
+  return result;
+}
 
 }

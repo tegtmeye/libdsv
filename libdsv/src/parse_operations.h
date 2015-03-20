@@ -28,55 +28,19 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBDSV_PARSER_STATE_H
-#define LIBDSV_PARSER_STATE_H
+#ifndef LIBDSV_PARSE_OPERATIONS_H
+#define LIBDSV_PARSE_OPERATIONS_H
+
 
 #include "dsv_parser.h"
 
-#include <string>
-#include <sstream>
-#include <list>
-#include <vector>
-#include <utility>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
-namespace fs=boost::filesystem;
-namespace bs=boost::system;
-
-
 namespace detail {
 
-  /**
-   *  Composition object for dealing with lex/lacc reentrant interface.
-   *  ie all extra info gets attached via a void * in lex/yacc
-   *
-   */
-  class parser_state {
-    public:
-      parser_state(const fs::path &filepath);
-
-      FILE * file(void) const;
-      const fs::path & filepath(void) const;
-
-    private:
-      boost::shared_ptr<FILE> file_ptr;
-      fs::path file_path;
+  struct parse_operations {
+    record_callback_t record_callback;
+    void *record_context;
   };
 
-  inline FILE * parser_state::file(void) const
-  {
-    return file_ptr.get();
-  }
-
-  inline const fs::path & parser_state::filepath(void) const
-  {
-    return file_path;
-  }
-
-
 }
-
 
 #endif
