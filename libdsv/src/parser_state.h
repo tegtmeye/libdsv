@@ -38,9 +38,11 @@
 #include <list>
 #include <vector>
 #include <utility>
+#include <iterator>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 namespace fs=boost::filesystem;
 namespace bs=boost::system;
@@ -55,19 +57,23 @@ namespace detail {
    */
   class parser_state {
     public:
+      typedef std::istreambuf_iterator<char> iterator;
+
       parser_state(const fs::path &filepath);
 
-      FILE * file(void) const;
       const fs::path & filepath(void) const;
 
+      iterator begin(void);
+      iterator end(void);
+
     private:
-      boost::shared_ptr<FILE> file_ptr;
+      fs::ifstream ifile;
+
       fs::path file_path;
   };
 
-  inline FILE * parser_state::file(void) const
+  inline parser_state::parser_state(const fs::path &filepath) :ifile(filepath)
   {
-    return file_ptr.get();
   }
 
   inline const fs::path & parser_state::filepath(void) const
@@ -75,7 +81,15 @@ namespace detail {
     return file_path;
   }
 
+  inline parser_state::iterator parser_state::begin(void)
+  {
+    return iterator(ifile);
+  }
 
+  inline parser_state::iterator parser_state::end(void)
+  {
+    return iterator();
+  }
 }
 
 

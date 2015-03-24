@@ -31,9 +31,7 @@
 #ifndef LIBDSV_FILE_PARSER_H
 #define LIBDSV_FILE_PARSER_H
 
-typedef void* yyscan_t;
 #include "dsv_grammar.hh"
-#include "dsv_rules.h"
 
 #include "parser.h"
 #include "parse_operations.h"
@@ -45,7 +43,7 @@ namespace fs=boost::filesystem;
 namespace detail {
 
   void parse_file(const fs::path &filepath, detail::parser &parser,
-    const parse_operations &operations, yyscan_t context);
+    const parse_operations &operations);
 
 
 }

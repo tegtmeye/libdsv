@@ -32,34 +32,32 @@
   /*
     Forward declarations for forward declarations of bison types
   */
-  typedef void* yyscan_t;
-
+  #include "parser.h"
   #include "parser_state.h"
   #include "parse_operations.h"
+
+  #include <memory>
 }
 
 
 %code {
-  /*
-  This is needed because the flex-bison bridge is broke as of this writing.
-  That is, the generated rules.h file requires YYSTYPE to be defined and
-  grammar.hh requires yyscan_t to be defined. So there is no combination of
-  includes that will not give you a compiler error.
-  */
-  typedef void* yyscan_t;
   #include "dsv_grammar.hh"
-  #include "dsv_rules.h"
+
 
 
 
   /**
    *  Error reporting function as required by yacc
    */
-  void parser_error(yyscan_t scanner, const detail::parse_operations &operations,
-    yyscan_t context, const char *s)
+  void parser_error(const detail::parser_state &scanner, const detail::parser &parser,
+    const detail::parse_operations &operations,
+    const std::unique_ptr<detail::parser_state> &context, const char *s)
   {
     std::cerr << "HERE!!!!!!!!'" << s << "'\n";
   }
+
+int parser_lex(YYSTYPE *lvalp, const detail::parser_state &scanner,
+  const detail::parser &parser);
 
 //   void dsv_parser_error(yyscan_t scanner, detail::dsv_parser &parser,
 //     const detail::parse_operations &operations, const char *s)
@@ -91,10 +89,13 @@
   bool toggle;
 }
 
-%lex-param {yyscan_t scanner}
-%parse-param {yyscan_t scanner}
+%lex-param {const detail::parser_state &scanner}
+%lex-param {const detail::parser &parser}
+
+%parse-param {const detail::parser_state &scanner}
+%parse-param {const detail::parser &parser}
 %parse-param {const detail::parse_operations &operations}
-%parse-param {yyscan_t context}
+%parse-param {const std::unique_ptr<detail::parser_state> &context}
 
 %token CR
 %token LF
@@ -131,3 +132,9 @@ newline
     }
 
 %%
+
+int parser_lex(YYSTYPE *lvalp, const detail::parser_state &scanner,
+  const detail::parser &parser)
+{
+  return 0;
+}

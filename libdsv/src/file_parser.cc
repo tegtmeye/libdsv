@@ -40,26 +40,26 @@ namespace fs=boost::filesystem;
 namespace detail {
 
   void parse_file(const fs::path &filepath, detail::parser &parser,
-    const parse_operations &operations, yyscan_t context)
+    const parse_operations &operations)
   {
-    parser_state state(filepath);
-    yyscan_t scanner;
-    if(parser_lex_init_extra(&state,&scanner))
-      throw std::system_error(errno,std::system_category(),"Unable to initialize lexer");
-
-    boost::shared_ptr<void> scanner_sentry(scanner,parser_lex_destroy);
-
-    parser_set_in(state.file(),scanner);
-
-    // start parsing
-    int err = parser_parse(scanner,operations,context);
-
-    if(err != 0) {
-      if(err == 2)
-        throw std::system_error(ENOMEM,std::system_category());
-
-      throw std::system_error(-1,std::generic_category(),"Parse failed");
-    }
+//     parser_state state(filepath);
+//     yyscan_t scanner;
+//     if(parser_lex_init_extra(&state,&scanner))
+//       throw std::system_error(errno,std::system_category(),"Unable to initialize lexer");
+//
+//     boost::shared_ptr<void> scanner_sentry(scanner,parser_lex_destroy);
+//
+//     parser_set_in(state.file(),scanner);
+//
+//     // start parsing
+//     int err = parser_parse(scanner,operations,context);
+//
+//     if(err != 0) {
+//       if(err == 2)
+//         throw std::system_error(ENOMEM,std::system_category());
+//
+//       throw std::system_error(-1,std::generic_category(),"Parse failed");
+//     }
   }
 
 }

@@ -208,7 +208,7 @@ int dsv_parse(const char *filename, dsv_parser_t _parser,
   int err = 0;
 
   try {
-    detail::parse_file(filename,parser,operations,0);
+    detail::parse_file(filename,parser,operations);
   }
   catch(std::system_error &ex) {
     // system errors due to failed parser_lex_init_extra or memory error from parse
