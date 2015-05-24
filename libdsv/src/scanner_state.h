@@ -59,6 +59,11 @@ namespace detail {
     public:
       typedef std::istreambuf_iterator<char> iterator;
 
+      enum sstate {
+        initial = 0
+
+      };
+
       parser_state(const fs::path &filepath);
 
       const fs::path & filepath(void) const;
@@ -66,13 +71,20 @@ namespace detail {
       iterator begin(void);
       iterator end(void);
 
+      sstate seek_state(void) const;
+      sstate seek_state(sstate s);
+
+
     private:
       fs::ifstream ifile;
 
       fs::path file_path;
+
+      sstate state;
   };
 
-  inline parser_state::parser_state(const fs::path &filepath) :ifile(filepath)
+  inline parser_state::parser_state(const fs::path &filepath)
+    :ifile(filepath), state(initial)
   {
   }
 
@@ -89,6 +101,18 @@ namespace detail {
   inline parser_state::iterator parser_state::end(void)
   {
     return iterator();
+  }
+
+  inline parser_state::sstate parser_state::seek_state(void) const
+  {
+    return state;
+  }
+
+  inline parser_state::sstate parser_state::seek_state(parser_state::sstate s)
+  {
+    sstate tmp = state;
+    state = s;
+    return tmp;
   }
 }
 

@@ -33,18 +33,20 @@
     Forward declarations for forward declarations of bison types
   */
   #include "parser.h"
-  #include "parser_state.h"
+  #include "scanner_state.h"
   #include "parse_operations.h"
 
   #include <memory>
+  #include <string>
+
+  // Change me with bison version > 3
+  //%define api.value.type {std::string}
+  #define YYSTYPE std::string
 }
 
 
 %code {
   #include "dsv_grammar.hh"
-
-
-
 
   /**
    *  Error reporting function as required by yacc
@@ -82,17 +84,12 @@ int parser_lex(YYSTYPE *lvalp, const detail::parser_state &scanner,
 
 %define api.pure full
 
-%union {
-  float real;
-  int integer;
-  int reference[3];
-  bool toggle;
-}
 
-%lex-param {const detail::parser_state &scanner}
+
+%lex-param {detail::parser_state &scanner}
 %lex-param {const detail::parser &parser}
 
-%parse-param {const detail::parser_state &scanner}
+%parse-param {detail::parser_state &scanner}
 %parse-param {const detail::parser &parser}
 %parse-param {const detail::parse_operations &operations}
 %parse-param {const std::unique_ptr<detail::parser_state> &context}
@@ -133,8 +130,43 @@ newline
 
 %%
 
-int parser_lex(YYSTYPE *lvalp, const detail::parser_state &scanner,
+int parser_lex(YYSTYPE *lvalp, detail::parser_state &scanner,
   const detail::parser &parser)
 {
+  std::string &value = *lvalp;
+
+  detail::parser_state::iterator cur = scanner.begin();
+
+  while(cur != scanner.end()) {
+    if(scanner.seek_state() == detail::parser_state::initial) {
+      switch(*cur) {
+        case 0x0D: { // CR
+          if(/*dsv_newline_crlf_strict*/true) {
+            ++cur;
+            if(*cur == 0x0A) { // LF
+              // return NL but need to return the field value. ??
+            }
+            else {
+              error.
+            }
+          }
+          else if(/*dsv_newline_lf_strict*/true) {
+            // just push. valid character? or error?
+          }
+        }
+          break;
+
+        default:
+          value.push_back(*cur);
+          break;
+      };
+    }
+    else {
+      abort();
+    }
+
+    ++cur;
+  }
+
   return 0;
 }
