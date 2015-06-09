@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define LIBDSV_DSV_PARSER_H
 
 #include <unistd.h>
+#include <stdio.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -72,6 +73,18 @@ extern "C" {
 
   /**
    *  \brief Behavior flag for handling newlines
+   *
+   *  There are three types of supported newline behaviors:
+   *  permissive (\c dsv_newline_permissive), strict carriage-return followed by a
+   *  line-feed (\c dsv_newline_crlf_strict), and strict line-feed
+   *  (\c dsv_newline_lf_strict). A fourth supported designator
+   *  \c dsv_newline_RFC4180_strict is a synonym for \c dsv_newline_crlf_strict.
+   *
+   *  Permissive mode (\c dsv_newline_permissive) means that the first occurrence of one
+   *  of the supported newline types will set the newline behavior for the remainder of
+   *  of the parsing. For example, an input of CRLF CRLF is accepted in permissive mode
+   *  as is LF LF but CRLF LF is an error as is LF CRLF.
+   *
    */
   typedef enum {
     dsv_newline_permissive = 0, /*!< Accept all supported newlines [DEFAULT] */
@@ -183,8 +196,9 @@ extern "C" {
   void dsv_set_record_callback(record_callback_t fn, void *context, dsv_operations_t operations);
 
   /**
-   *  \brief Parse the file \c filename with \c parser, using the operations
-   *  contained in \c operations
+   *  \brief Parse the file stream \c stream with description \location_str with
+   *  \c parser, using the operations contained in \c operations. If \c stream is \c NULL,
+   *  then attempt to open the location \location_str using fopen.
    *
    *  If the filename begins with the '/' character, then the file is
    *  understood to be an absolute path starting at the root directory. If the
@@ -204,7 +218,7 @@ extern "C" {
    *  \retval >0 Any error code returned by fopen
    *  \retval <0 failure, see dsv_parse_error
    */
-  int dsv_parse(const char *filename, dsv_parser_t parser,
+  int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t parser,
                 dsv_operations_t operations);
 
 
@@ -223,7 +237,13 @@ extern "C" {
    *  \brief Logging message codes
    */
   typedef enum {
+    /*
+      \brief An error strictly associated with incorrect syntax based on the current
+      parser behavior.
 
+      \param string A string containing the unexpected value
+    */
+    dsv_parse_error = 0
   } dsv_log_code;
 
   /**
@@ -281,7 +301,7 @@ extern "C" {
    *
    *      // Get the code and minimum storage requirement for the msg parameters
    *      dsv_log_code msg_code;
-   *      ssize_t len = dsv_parse_error(aParser,aLevel,num,&msg_code,0,0);
+   *      ssize_t len = dsv_parse_log(aParser,aLevel,num,&msg_code,0,0);
    *
    *      // msg_code now holds the code associated with the msg
    *      // len now holds the storage needed for the the total number of parameters
@@ -305,30 +325,34 @@ extern "C" {
    *      char *buf = (char*)malloc(storage_len);
    *
    *      // copy the formated messages to buf
-   *      len = dsv_parse_error(aParser,aLevel,num,&msg_code,buff,storage_len);
+   *      len = dsv_parse_log(aParser,aLevel,num,&msg_code,buff,storage_len);
    *
    *  \param[in] parser A \c dsv_parser_t object previously initialized with
    *                    \c dsv_parser_create
    *  \param[in] log_level A valid value of \c dsv_log_level indicating how the
    *                        the list of all log messages should be filtered.
-   *  \param[in] num The nth log_message where n is less than the value returned by
-   *                    dsv_parse_log_count for the given \c log_level.
+   *  \param[in] num The zero-indexed nth log_message where n is less than the value
+   *                 returned by dsv_parse_log_count for the given \c log_level.
    *  \param[in,out] code A pointer to a dsv_log_code. The error code associated with
    *                        the error message will be stored in this location.
-   *  \param[in,out] buf A pointer to a character buffer appropriately sized. If \c buf
-   *                      is nonzero, the first \c len characters of messages are copied
-   *                      to buf including the terminating null character
+   *  \param[in,out] buf A pointer to a null-terminated character buffer appropriately
+   *                      sized. If \c buf is nonzero, the first \c len characters of
+   *                      messages are copied to buf including the terminating null
+   *                      character.
    *  \param[in] len The size of the character buffer pointed to by \c buf.
    *  \retval <0 An error has occurred. errno is set.
    *                      EINVAL Either num is greater than the number of messages
-   *                                filtered by \c log_level OR \c code is zero
+   *                             filtered by \c log_level OR \c code is zero
    *                      ENOMEM Out of memory
    *  \retval 0 There are no parameters associated with the log_message with the
    *              stated error code. This log message is nonetheless valid.
-   *  \retval nonnegative The size of the message buffer filtered to \c log_level
-   *                        including the null terminator. This value is appropriate
-   *                        for allocating the character buffer \c buf in subsequent
-   *                        calls.
+   *  \retval nonnegative The size of the message buffer including the null terminator.
+   *                      If \c buf is zero, this value is the is the number of characters
+   *                      needed to hold all parameter strings concatenated together
+   *                      and is appropriate for allocating the character buffer \c buf
+   *                      in subsequent calls. If \c buf is non-zero, the return value
+   *                      contains the length of the fully formatted string contained in
+   *                      \c buf including the null terminator.
    */
   ssize_t dsv_parse_log(dsv_parser_t parser, dsv_log_level log_level, size_t num,
     dsv_log_code *code, char *buf, size_t len);

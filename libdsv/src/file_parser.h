@@ -36,14 +36,10 @@
 #include "parser.h"
 #include "parse_operations.h"
 
-#include <boost/filesystem.hpp>
-
-namespace fs=boost::filesystem;
-
 namespace detail {
 
-  void parse_file(const fs::path &filepath, detail::parser &parser,
-    const parse_operations &operations);
+void parse_file(const char *filepath, FILE *stream, detail::parser &parser,
+  const parse_operations &operations);
 
 
 }

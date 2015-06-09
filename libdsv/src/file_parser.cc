@@ -29,37 +29,26 @@
  */
 
 #include "file_parser.h"
+#include "scanner_state.h"
 
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
+#include <memory>
 #include <system_error>
 
-namespace fs=boost::filesystem;
 
 namespace detail {
 
-  void parse_file(const fs::path &filepath, detail::parser &parser,
+  void parse_file(const char *filepath, FILE *stream, detail::parser &parser,
     const parse_operations &operations)
   {
-//     parser_state state(filepath);
-//     yyscan_t scanner;
-//     if(parser_lex_init_extra(&state,&scanner))
-//       throw std::system_error(errno,std::system_category(),"Unable to initialize lexer");
-//
-//     boost::shared_ptr<void> scanner_sentry(scanner,parser_lex_destroy);
-//
-//     parser_set_in(state.file(),scanner);
-//
-//     // start parsing
-//     int err = parser_parse(scanner,operations,context);
-//
-//     if(err != 0) {
-//       if(err == 2)
-//         throw std::system_error(ENOMEM,std::system_category());
-//
-//       throw std::system_error(-1,std::generic_category(),"Parse failed");
-//     }
+    scanner_state scanner(filepath,stream);
+    std::unique_ptr<detail::scanner_state> base_ctx;
+    int err = parser_parse(scanner,parser,operations,base_ctx);
+
+    if(err != 0) {
+      if(err == 2)
+        throw std::system_error(ENOMEM,std::system_category());
+      throw std::system_error(-1,std::generic_category(),"Parse failed");
+    }
   }
 
 }

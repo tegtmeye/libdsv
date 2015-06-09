@@ -34,81 +34,118 @@
 #include "dsv_parser.h"
 
 #include <string>
-#include <sstream>
-#include <list>
-#include <vector>
-#include <utility>
-#include <iterator>
+#include <cstdio>
+#include <memory>
+#include <system_error>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 
-namespace fs=boost::filesystem;
-namespace bs=boost::system;
-
+#include <errno.h>
 
 namespace detail {
 
   /**
-   *  Composition object for dealing with lex/lacc reentrant interface.
-   *  ie all extra info gets attached via a void * in lex/yacc
+   *  Object that holds the current state of the scanner. Also handles buffered reads.
    *
    */
-  class parser_state {
+  class scanner_state {
     public:
-      typedef std::istreambuf_iterator<char> iterator;
-
       enum sstate {
-        initial = 0
-
+        start = 0,
+        field,
+        carrage_return,
+        linefeed,
+        nl_permissive,
+        field_single_quote,
+        field_double_quote,
+        parse_error
       };
 
-      parser_state(const fs::path &filepath);
+      scanner_state(const char *str, FILE *in=0, std::size_t buff_size=256);
 
-      const fs::path & filepath(void) const;
+      const char * filename(void) const;
 
-      iterator begin(void);
-      iterator end(void);
+      bool getc(unsigned char &c) const;
+      bool advance(void);
 
       sstate seek_state(void) const;
       sstate seek_state(sstate s);
 
 
     private:
-      fs::ifstream ifile;
-
-      fs::path file_path;
+      std::string fname;
+      std::shared_ptr<FILE> stream;
 
       sstate state;
+      std::size_t buff_max;
+      std::shared_ptr<char> buff;
+      char *cur;
+      char *end;
+
+      bool refill(void);
   };
 
-  inline parser_state::parser_state(const fs::path &filepath)
-    :ifile(filepath), state(initial)
+  inline scanner_state::scanner_state(const char *str, FILE *in, std::size_t buff_size)
+    :fname(str), state(start), buff_max(buff_size),
+    buff(new char[buff_size]), cur(buff.get()), end(buff.get())
   {
+    if(!in) {
+      errno = 0;
+      if(!(in = fopen(str,"rb")))
+        throw std::system_error(errno,std::system_category());
+    }
+
+    stream = std::shared_ptr<FILE>(in,&fclose);
   }
 
-  inline const fs::path & parser_state::filepath(void) const
+  inline const char * scanner_state::filename(void) const
   {
-    return file_path;
+    return fname.c_str();
   }
 
-  inline parser_state::iterator parser_state::begin(void)
+  inline bool scanner_state::getc(unsigned char &c) const
   {
-    return iterator(ifile);
+    if(cur == end)
+      return false;
+
+    c = *cur;
+    return true;
   }
 
-  inline parser_state::iterator parser_state::end(void)
+  inline bool scanner_state::advance(void)
   {
-    return iterator();
+    if(cur == end && !refill())
+      return false;
+
+    ++cur;
+    return true;
   }
 
-  inline parser_state::sstate parser_state::seek_state(void) const
+  inline bool scanner_state::refill(void)
+  {
+    std::size_t result;
+
+    // code adapted from flex non-posix fread
+    errno=0;
+    while ( (result = std::fread(buff.get(), 1, buff_max, stream.get()))==0 && std::ferror(stream.get())) {
+      if( errno != EINTR) {
+        throw std::system_error(errno,std::system_category());
+      }
+      errno=0;
+      std::clearerr(stream.get());
+    }
+
+    cur = buff.get();
+    end = cur + result;
+
+    return cur != end;
+  }
+
+  inline scanner_state::sstate scanner_state::seek_state(void) const
   {
     return state;
   }
 
-  inline parser_state::sstate parser_state::seek_state(parser_state::sstate s)
+  inline scanner_state::sstate scanner_state::seek_state(scanner_state::sstate s)
   {
     sstate tmp = state;
     state = s;

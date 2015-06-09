@@ -36,7 +36,11 @@
 
 #include <system_error>
 #include <regex>
+#include <sstream>
 
+#include <boost/system/error_code.hpp>
+
+namespace bs = boost::system;
 
 extern "C" {
 
@@ -197,7 +201,7 @@ void dsv_set_record_callback(record_callback_t fn, void *context,
   }
 }
 
-int dsv_parse(const char *filename, dsv_parser_t _parser,
+int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
               dsv_operations_t _operations)
 {
   assert(_parser.p && _operations.p);
@@ -208,10 +212,10 @@ int dsv_parse(const char *filename, dsv_parser_t _parser,
   int err = 0;
 
   try {
-    detail::parse_file(filename,parser,operations);
+    detail::parse_file(location_str,stream,parser,operations);
   }
   catch(std::system_error &ex) {
-    // system errors due to failed parser_lex_init_extra or memory error from parse
+    // system errors due to failed parser or memory error from parse
     if(ex.code().category() == std::system_category()) {
       if(ex.code().value() == std::errc::not_enough_memory)
         err = ENOMEM;
@@ -225,13 +229,6 @@ int dsv_parse(const char *filename, dsv_parser_t _parser,
         err = -1;
       else
         abort();
-    }
-    else
-      abort();
-  }
-  catch(fs::filesystem_error &ex) {
-    if(ex.code().category() == bs::system_category()) {
-      err = ex.code().value();
     }
     else
       abort();

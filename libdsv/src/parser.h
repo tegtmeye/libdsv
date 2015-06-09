@@ -94,6 +94,7 @@ class parser {
   public:
     typedef log_list_type::const_iterator const_log_iterator;
 
+    parser(void);
 
     std::size_t log_size(void) const;
     const_log_iterator log_begin(void) const;
@@ -101,16 +102,27 @@ class parser {
 
     void append_log(dsv_log_level level,const log_description &desc);
 
+    unsigned char delimiter(void) const;
+    unsigned char delimiter(unsigned char d);
+
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
+    bool reject_nonprinting(void) const;
+    bool reject_nonprinting(bool flag);
 
   private:
     log_list_type log_list;
 
     dsv_newline_behavior newline_flag;
-
+    unsigned char field_delimiter;
+    bool reject_nonprinting_flag;
 };
+
+inline parser::parser(void) :newline_flag(dsv_newline_permissive), field_delimiter(' '),
+  reject_nonprinting_flag(true)
+{
+}
 
 inline std::size_t parser::log_size(void) const
 {
@@ -132,6 +144,18 @@ inline void parser::append_log(dsv_log_level level,const log_description &desc)
   log_list.push_back(std::make_pair(level,desc));
 }
 
+inline unsigned char parser::delimiter(void) const
+{
+  return field_delimiter;
+}
+
+inline unsigned char parser::delimiter(unsigned char d)
+{
+  unsigned char tmp = field_delimiter;
+  field_delimiter = d;
+  return tmp;
+}
+
 inline const dsv_newline_behavior &
 parser::newline_behavior(void) const
 {
@@ -146,7 +170,17 @@ parser::newline_behavior(dsv_newline_behavior behavior)
   return tmp;
 }
 
+inline bool parser::reject_nonprinting(void) const
+{
+  return reject_nonprinting_flag;
+}
 
+inline bool parser::reject_nonprinting(bool flag)
+{
+  bool tmp = reject_nonprinting_flag;
+  reject_nonprinting_flag = flag;
+  return tmp;
+}
 }
 
 #endif

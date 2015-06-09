@@ -1,7 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include <boost/filesystem.hpp>
-#include <boost/scoped_array.hpp>
 
 #include <dsv_parser.h>
 #include "test_detail.h"
@@ -10,7 +9,9 @@
 #include <stdio.h>
 
 #include <string>
+#include <sstream>
 #include <algorithm>
+#include <memory>
 
 /** \file
  *  \brief Unit tests for basic parsing
@@ -30,12 +31,68 @@ namespace fs = boost::filesystem;
 
 namespace detail {
 
+inline const std::string & format_str(dsv_log_code msg_code)
+{
+  switch(msg_code) {
+    case dsv_parse_error:
+      static const std::string parse_error("parse error: unexpected '$1'");
+      return parse_error;
+
+    default:
+      ;
+  };
+
+  static const std::string unknown_error("unknown error code");
+  return unknown_error;
+}
+
 std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
 {
-  size_t msg_len = dsv_parse_error(parser,dsv_log_all,0,0);
-  boost::scoped_array<char> buf(new char[msg_len]);
-  msg_len = dsv_parse_error(parser,dsv_log_all,buf.get(),msg_len);
-  return std::string(buf.get());
+  std::stringstream result;
+
+  // Get the number of log messages for \c log_level
+  size_t num_msgs = dsv_parse_log_count(parser,log_level);
+
+  // iterate over all codes
+  for(size_t i=0; i<num_msgs; ++i) {
+    // Get the code and minimum storage requirement for the msg parameters
+    dsv_log_code msg_code;
+
+    errno = 0;
+    ssize_t len = dsv_parse_log(parser,log_level,i,&msg_code,0,0);
+    if(len < 0) {
+      std::stringstream err;
+      err << "dsv_parse_error message code get failed with errno " << errno;
+      throw std::runtime_error(err.str());
+    }
+
+    // msg_code now holds the code associated with the msg
+    // len now holds the storage needed for the the total number of parameters
+    // associated with msg_code.
+
+    const std::string &fmt_str = format_str(msg_code);
+
+    // Allocate buf based on minimum needed to store the parameters and the
+    // length needed to store the format string potentially trimmed of the
+    // placeholders. Do not forget to add space for the null terminator
+    size_t storage_len = (fmt_str.size()+len+1);
+    std::unique_ptr<char> buff(new char[storage_len]);
+
+    // copy the format string to buff and set the null-terminator
+    *(std::copy(fmt_str.begin(),fmt_str.end(),buff.get())) = 0;
+
+    errno = 0;
+    len = dsv_parse_log(parser,log_level,i,&msg_code,buff.get(),storage_len);
+    if(len < 0) {
+      std::stringstream err;
+      err << "dsv_parse_error message formatter failed with errno " << errno;
+      throw std::runtime_error(err.str());
+    }
+
+    result << buff.get() << "\n";
+  }
+
+  return result.str();
 }
 
 inline void parser_destroy(dsv_parser_t *p)
@@ -73,68 +130,79 @@ boost::shared_ptr<dsv_operations_t> make_operations(void)
 BOOST_AUTO_TEST_SUITE( parse_suite )
 
 
-/** \test Check to see if error fn returns empty string on no-parse condition
+/** \test
+ *  Check for no messages log_count on no-parse condition
  */
-BOOST_AUTO_TEST_CASE( no_parse_parser_error_fn_check )
+BOOST_AUTO_TEST_CASE( no_parse_parse_log_count )
 {
   dsv_parser_t parser = {};
   dsv_parser_create(&parser);
 
-  size_t msg_len = dsv_parse_error(parser,dsv_log_all,0,0);
+  size_t msg_len = dsv_parse_log_count(parser,dsv_log_all);
 
-  BOOST_REQUIRE_MESSAGE(msg_len == 1,
-    "dsv_parse_error returns a value of 1 on a parser without actually parsing");
+  BOOST_REQUIRE_MESSAGE(msg_len == 0,
+    "dsv_parse_error returns a nonzero value on a newly created parser");
+}
+
+
+/** \test Check negative return from parse_log on no-parse condition with zero code and
+ *  zero buff and zero length
+ */
+BOOST_AUTO_TEST_CASE( no_parse_parse_log_zero_code_zero_buff_zero_length )
+{
+  dsv_parser_t parser = {};
+  dsv_parser_create(&parser);
+
+  ssize_t ret_msg_len = dsv_parse_log(parser,dsv_log_all,0,0,0,0);
+  BOOST_REQUIRE_MESSAGE(ret_msg_len < 0,
+    "dsv_parse_error returns a nonnegative value '" << ret_msg_len <<
+    "' when providing a zero code and buffer of 0 len on a parser without actually "
+    "parsing");
+  BOOST_REQUIRE_MESSAGE(errno == EINVAL,
+    "dsv_parse_error deos not set errno to EINVAL when providing a zero code and buffer "
+    "of 0 len on a parser without actually parsing");
+}
+
+/** \test Check negative return from parse_log on no-parse condition with nonzero buff
+ *  and nonzero length
+ */
+BOOST_AUTO_TEST_CASE( no_parse_parse_log_nonzero_buff_nonzero_length )
+{
+  dsv_parser_t parser = {};
+  dsv_parser_create(&parser);
 
   char buf[256];
-  std::fill(buf,buf+256,'X');
-  size_t ret_msg_len = dsv_parse_error(parser,dsv_log_all,buf,0);
+  std::fill(buf,buf+255,'X');
+  buf[255] = 0;
 
-  BOOST_REQUIRE_MESSAGE(ret_msg_len == 1,
-    "dsv_parse_error returns a value of 1 when providing buffer of 0 len on a "
-    "parser without actually parsing");
+  dsv_log_code msg_code;
+  ssize_t ret_msg_len = dsv_parse_log(parser,dsv_log_all,0,&msg_code,buf,256);
+  BOOST_REQUIRE_MESSAGE(ret_msg_len < 0,
+    "dsv_parse_error returns a nonnegative value '" << ret_msg_len <<
+    "' when providing buffer of 0 len on a parser without actually parsing");
 
-  BOOST_REQUIRE_MESSAGE(buf[0] == 'X',
-    "dsv_parse_error did not modify the given buffer when provided a len parameter of 0 "
-    "on a parser without actually parsing");
+  bool found = false;
+  for(size_t i=0; i<255 && !found; ++i)
+    found = (buf[i] != 'X');
+  found = found || buf[255] != 0;
 
-  ret_msg_len = dsv_parse_error(parser,dsv_log_all,buf,1);
-
-  BOOST_REQUIRE_MESSAGE(ret_msg_len == 1,
-    "dsv_parse_error returns a value of 1 when providing buffer of length 1 on a "
-    "parser without actually parsing");
-
-  BOOST_REQUIRE_MESSAGE(buf[0] == 0,
-    "dsv_parse_error sets the empty string on the buffer when provided a length "
-    "parameter of 1 on a parser without actually parsing");
-
-  BOOST_REQUIRE_MESSAGE(buf[1] == 'X',
-    "dsv_parse_error does not modify more of the provided buffer than it should when "
-    "when provided a correct sized len parameter on a parser without actually parsing");
-
-  ret_msg_len = dsv_parse_error(parser,dsv_log_all,buf,256);
-
-  BOOST_REQUIRE_MESSAGE(ret_msg_len == 1,
-    "dsv_parse_error returns a length parameter of 1 when providing buffer of oversized "
-    "length on a parser without actually parsing");
-
-  BOOST_REQUIRE_MESSAGE(buf[0] == 0,
-    "dsv_parse_error returns the empty string on the provided buffer when provided "
-    "an oversized len parameter");
-
-  BOOST_REQUIRE_MESSAGE(buf[1] == 'X',
-    "dsv_parse_error does not modify more of the provided buffer than it should when "
-    "when provided an oversized len parameter on a parser without actually parsing");
+  // reset the nul terminator if needed
+  buf[255] = 0;
+  BOOST_REQUIRE_MESSAGE(!found,
+    "dsv_parse_error erroneously modifies the provided buffer containing all 'X's of "
+    "nonzero length on a parser without actually parsing. Buffer: '" << buf << "'");
 }
+
 
 /** \test Creation of operations object
  */
-BOOST_AUTO_TEST_CASE( operations_create )
+BOOST_AUTO_TEST_CASE( operations_create_check )
 {
   dsv_operations_t operations = {};
 
   int err = dsv_operations_create(&operations);
 
-  BOOST_REQUIRE_MESSAGE(err == 0,"dsv_operations_create succeeds");
+  BOOST_REQUIRE_MESSAGE(err == 0,"dsv_operations_create fails");
 
   dsv_operations_destroy(operations);
 }
@@ -221,6 +289,12 @@ BOOST_AUTO_TEST_CASE( parser_newline_getting_and_setting )
 }
 
 
+
+
+
+
+
+#if 0
 /** \test Attempt to parse a nonexistent file
  */
 BOOST_AUTO_TEST_CASE( parse_nonexistent_file )
@@ -395,7 +469,7 @@ BOOST_AUTO_TEST_CASE( strictly_parse_recordless_CRLF_handling )
       << "' with message \"" << detail::msg_log(parser,dsv_log_all) << "\"");
 }
 
-
+#endif
 
 
 
