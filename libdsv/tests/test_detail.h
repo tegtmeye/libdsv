@@ -43,7 +43,7 @@
 #define _QUOTEME(x) #x
 #define QUOTEME(x) _QUOTEME(x)
 
-
+#include <boost/filesystem.hpp>
 
 namespace dsv {
 namespace test {

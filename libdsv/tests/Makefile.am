@@ -22,15 +22,23 @@ additional_test_ldflags=\
 	$(BOOST_FILESYSTEM_LDFLAGS)
 
 check_PROGRAMS= \
-        create_test \
+	api_parser_object_suite \
+	api_operations_object_suite \
 	parse_test
 
-create_test_SOURCES=$(master_suite) \
+api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
-        create_test.cc
-create_test_CPPFLAGS=$(additional_test_cppflags)
-create_test_LDADD=$(additional_test_libs)
-create_test_LDFLAGS=$(additional_test_ldflags)
+        api_parser_object_suite.cc
+api_parser_object_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_object_suite_LDADD=$(additional_test_libs)
+api_parser_object_suite_LDFLAGS=$(additional_test_ldflags)
+
+api_operations_object_suite_SOURCES=$(master_suite) \
+	test_detail.h \
+        api_operations_object_suite.cc
+api_operations_object_suite_CPPFLAGS=$(additional_test_cppflags)
+api_operations_object_suite_LDADD=$(additional_test_libs)
+api_operations_object_suite_LDFLAGS=$(additional_test_ldflags)
 
 parse_test_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -40,12 +48,15 @@ parse_test_LDADD=$(additional_test_libs)
 parse_test_LDFLAGS=$(additional_test_ldflags)
 
 TESTS=\
-        create_test \
+	api_parser_object_suite \
+	api_operations_object_suite \
 	parse_test
 
 CLEANFILES=\
-	create_test.log \
-	create_test.trs \
+	api_parser_object_suite.log \
+	api_parser_object_suite.trs \
+	api_operations_object_suite.log \
+	api_operations_object_suite.trs \
 	parse_test.log \
 	parse_test.trs \
 	test-suite.log

@@ -65,9 +65,7 @@ extern "C" {
   /**
    *  \brief Destroy the obj_parser_t object.
    *
-   *  \note
-   *  Use of any other function except \c dsv_parser_create with \c parser is
-   *  undefined.
+   *  \pre \c parser has been previously initialized with \c dsv_parser_create
    */
   void dsv_parser_destroy(dsv_parser_t parser);
 
@@ -138,9 +136,7 @@ extern "C" {
   /**
    *  \brief Destroy the dsv_operations_t object.
    *
-   *  \note
-   *  Use of any other function except \c dsv_operations_create with
-   *  \c operations is undefined.
+   *  \pre \c operations has been previously initialized with \c dsv_operations_t
    */
   void dsv_operations_destroy(dsv_operations_t operations);
 
