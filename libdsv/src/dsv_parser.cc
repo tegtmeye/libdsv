@@ -31,7 +31,7 @@
 #include "dsv_parser.h"
 #include "file_parser.h"
 
-#include <errno.h>
+#include <cerrno>
 #include <stdlib.h>
 
 #include <system_error>
@@ -216,14 +216,8 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   }
   catch(std::system_error &ex) {
     // system errors due to failed parser or memory error from parse
-    if(ex.code().category() == std::system_category()) {
-      if(ex.code().value() == std::errc::not_enough_memory)
-        err = ENOMEM;
-      else if(ex.code().value() == std::errc::invalid_argument)
-        err = EINVAL;
-      else
-        abort();
-    }
+    if(ex.code().category() == std::system_category())
+      err = ex.code().value();
     else if(ex.code().category() == std::generic_category()) {
       if(ex.code().value() == -1)
         err = -1;
@@ -240,7 +234,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
     abort();
   }
 
-  return 0;
+  return err;
 }
 
 size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level)

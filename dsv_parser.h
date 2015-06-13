@@ -85,10 +85,22 @@ extern "C" {
    *
    */
   typedef enum {
-    dsv_newline_permissive = 0, /*!< Accept all supported newlines [DEFAULT] */
-    dsv_newline_lf_strict = 1, /*!< Only accept lines terminated by the Line Feed (LF). [*nix-based systems including Mac OSX] */
-    dsv_newline_crlf_strict = 2, /*!< Only accept lines terminated by both the Carriage Return (CRL) and the the Line Feed (LF). [MS Windows] */
-    dsv_newline_RFC4180_strict = 2 /*!< RFC 4180 strict. Equivalent to dsv_newline_crlf_strict */
+    /* Accept all supported newlines [DEFAULT] */
+    dsv_newline_permissive = 0,
+
+    /** Only accept lines terminated by the Line Feed (LF).  [*nix-based systems
+     *  including Mac OSX]
+     */
+    dsv_newline_lf_strict = 1,
+
+    /** Only accept lines terminated by both the Carriage Return (CRL) and the the
+     *  Line Feed (LF). [MS Windows]
+     */
+    dsv_newline_crlf_strict = 2,
+
+    /** RFC 4180 strict. Equivalent to dsv_newline_crlf_strict
+     */
+    dsv_newline_RFC4180_strict = 2
   } dsv_newline_behavior;
 
 
@@ -143,6 +155,67 @@ extern "C" {
   /**
    *  Callback operatons type definitions
    */
+
+  /**
+   *  \brief This function will be called for each header parsed in the file.
+   *
+   *  \note Certain settings such as RFC4180 will always produce exactly 1 header
+   *  callback and it is up to the library caller to determine if the values of the
+   *  header fields actually correspond to header values or record values. For example.
+   *  RFC4180 uses an external mechanism to determine if the header is present.
+   *  Therefore, if the parser behavior is set to strictly comply with RFC4180, the
+   *  first line in the file will always be interpreted as a header.
+   *
+   *  \param[in] fields \parblock
+   *  A c-array of null-terminated byte strings containing each parsed field. If
+   *  the field was surrounded by quotes, the string does not inlcude this. No
+   *  attempt is made at understanding the content of the string. For example, if
+   *  the string contains a number, no attempt is made at determining if the
+   *  number will not overflow. Additionally, if quoted properly (see format
+   *  documentation), certain non-printing characters may appear in the field
+   *  such as newlines. In all cases however, since delimited seperated values
+   *  are strictly an ASCII format, no binary shall appear in the field.
+   *  \endparblock
+   *  \param[in] size The size of the field array
+   *  \param[in] context A user-defined value associted with this callback set in
+   *                      \c dsv_set_header_callback
+   *
+   *  \retval nonzero if procssing should continue or 0 if processing should cease
+   *          and control should return from the parse function.
+   */
+  typedef int (*header_callback_t)(const char *fields[], size_t size, void *context);
+
+  /**
+   *  \brief Obtain the callback currently set for headers
+   *
+   *  \retval 0 No callback is registered
+   *  \retval nonzero The currently registered callback
+   */
+  header_callback_t dsv_get_header_callback(dsv_operations_t operations);
+
+  /**
+   *  \brief Obtain the user-defined context currently set for header
+   *
+   *  \retval 0 No context is registered
+   *  \retval nonzero The currently registered context
+   */
+  void * dsv_get_header_context(dsv_operations_t operations);
+
+  /**
+   *  \brief Associate the callback \c fn and a user-specified value \c context
+   *  with \c operation.
+   *
+   *  \note The value of \c context is passed in as the \c context parameter in \c fn
+   */
+  void dsv_set_header_callback(header_callback_t fn, void *context, dsv_operations_t operations);
+
+
+
+
+
+
+
+
 
   /**
    *  \brief This function will be called for each record parsed in the file. See

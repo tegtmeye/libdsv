@@ -24,7 +24,8 @@ additional_test_ldflags=\
 check_PROGRAMS= \
 	api_parser_object_suite \
 	api_operations_object_suite \
-	parse_test
+	api_parser_log_suite \
+	api_parse_test
 
 api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -40,26 +41,36 @@ api_operations_object_suite_CPPFLAGS=$(additional_test_cppflags)
 api_operations_object_suite_LDADD=$(additional_test_libs)
 api_operations_object_suite_LDFLAGS=$(additional_test_ldflags)
 
-parse_test_SOURCES=$(master_suite) \
+api_parser_log_suite_SOURCES=$(master_suite) \
 	test_detail.h \
-        parse_test.cc
-parse_test_CPPFLAGS=$(additional_test_cppflags)
-parse_test_LDADD=$(additional_test_libs)
-parse_test_LDFLAGS=$(additional_test_ldflags)
+        api_parser_log_suite.cc
+api_parser_log_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_log_suite_LDADD=$(additional_test_libs)
+api_parser_log_suite_LDFLAGS=$(additional_test_ldflags)
+
+api_parse_test_SOURCES=$(master_suite) \
+	test_detail.h \
+	api_parse_test.cc
+api_parse_test_CPPFLAGS=$(additional_test_cppflags)
+api_parse_test_LDADD=$(additional_test_libs)
+api_parse_test_LDFLAGS=$(additional_test_ldflags)
 
 TESTS=\
 	api_parser_object_suite \
 	api_operations_object_suite \
-	parse_test
+	api_parser_log_suite \
+	api_parse_test
 
 CLEANFILES=\
 	api_parser_object_suite.log \
 	api_parser_object_suite.trs \
 	api_operations_object_suite.log \
 	api_operations_object_suite.trs \
-	parse_test.log \
-	parse_test.trs \
-	test-suite.log
+	api_parser_log_suite.log \
+	api_parser_log_suite.trs \
+	api_parse_test.log \
+	api_parse_test.trs \
+	api_test-suite.log
 
 EXTRA_DIST=\
 	data/empty.dsv \

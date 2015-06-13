@@ -38,8 +38,9 @@
 #include <memory>
 #include <system_error>
 
+#include <iostream>
 
-#include <errno.h>
+#include <cerrno>
 
 namespace detail {
 
@@ -49,17 +50,6 @@ namespace detail {
    */
   class scanner_state {
     public:
-      enum sstate {
-        start = 0,
-        field,
-        carrage_return,
-        linefeed,
-        nl_permissive,
-        field_single_quote,
-        field_double_quote,
-        parse_error
-      };
-
       scanner_state(const char *str, FILE *in=0, std::size_t buff_size=256);
 
       const char * filename(void) const;
@@ -67,31 +57,52 @@ namespace detail {
       bool getc(unsigned char &c) const;
       bool advance(void);
 
-      sstate seek_state(void) const;
-      sstate seek_state(sstate s);
+      // cache common terminals in a shared string for efficiency
+      std::shared_ptr<std::string> linefeed_str(void) const;
+      std::shared_ptr<std::string> carriage_return_str(void) const;
+      std::shared_ptr<std::string> quote_str(void) const;
 
 
     private:
       std::string fname;
       std::shared_ptr<FILE> stream;
 
-      sstate state;
       std::size_t buff_max;
-      std::shared_ptr<char> buff;
-      char *cur;
-      char *end;
+      std::shared_ptr<unsigned char> buff;
+      mutable unsigned char *cur;
+      mutable unsigned char *end;
 
-      bool refill(void);
+      // logically const
+      bool refill(void) const;
+
+      // cached terminals
+      std::shared_ptr<std::string> linefeed;
+      std::shared_ptr<std::string> carriage_return;
+      std::shared_ptr<std::string> quote;
   };
 
   inline scanner_state::scanner_state(const char *str, FILE *in, std::size_t buff_size)
-    :fname(str), state(start), buff_max(buff_size),
-    buff(new char[buff_size]), cur(buff.get()), end(buff.get())
+    :buff_max(buff_size), buff(new unsigned char[buff_size]), cur(buff.get()),
+      end(buff.get()), linefeed(new std::string()), carriage_return(new std::string()),
+      quote(new std::string())
   {
+    // deal with other initialization first
+    unsigned char lf = 0x0A; // LF
+    unsigned char cr = 0x0D; // CR
+    unsigned char qt = 0x22; // "
+    linefeed->assign(&lf,(&lf)+1);
+    carriage_return->assign(&cr,(&cr)+1);
+    quote->assign(&qt,(&qt)+1);
+
+    if(str)
+      fname = str;
+
     if(!in) {
       errno = 0;
-      if(!(in = fopen(str,"rb")))
+      in = fopen(str,"rb");
+      if(!in) {
         throw std::system_error(errno,std::system_category());
+      }
     }
 
     stream = std::shared_ptr<FILE>(in,&fclose);
@@ -104,7 +115,7 @@ namespace detail {
 
   inline bool scanner_state::getc(unsigned char &c) const
   {
-    if(cur == end)
+    if(cur == end && !refill())
       return false;
 
     c = *cur;
@@ -120,7 +131,7 @@ namespace detail {
     return true;
   }
 
-  inline bool scanner_state::refill(void)
+  inline bool scanner_state::refill(void) const
   {
     std::size_t result;
 
@@ -140,16 +151,19 @@ namespace detail {
     return cur != end;
   }
 
-  inline scanner_state::sstate scanner_state::seek_state(void) const
+  inline std::shared_ptr<std::string> scanner_state::linefeed_str(void) const
   {
-    return state;
+    return linefeed;
   }
 
-  inline scanner_state::sstate scanner_state::seek_state(scanner_state::sstate s)
+  inline std::shared_ptr<std::string> scanner_state::carriage_return_str(void) const
   {
-    sstate tmp = state;
-    state = s;
-    return tmp;
+    return carriage_return;
+  }
+
+  inline std::shared_ptr<std::string> scanner_state::quote_str(void) const
+  {
+    return quote;
   }
 }
 

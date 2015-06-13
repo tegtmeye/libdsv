@@ -18,9 +18,14 @@ namespace test {
 
 
 
-BOOST_AUTO_TEST_SUITE( api_parser_object_test_suite )
+BOOST_AUTO_TEST_SUITE( api_parser_object_suite )
 
-/** \test Create parser object
+/** \test Basic parser object checks
+ *
+ *  These unit tests are scheduled before checks of the logging functionality.
+ *  That is, do not place unit tests here that require logging functionality. For
+ *  checks that require valid logging, see:
+ *
  */
 BOOST_AUTO_TEST_CASE( parser_create )
 {

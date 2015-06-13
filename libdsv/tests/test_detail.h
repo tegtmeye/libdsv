@@ -43,20 +43,16 @@
 #define _QUOTEME(x) #x
 #define QUOTEME(x) _QUOTEME(x)
 
-#include <boost/filesystem.hpp>
+#include <iostream>
 
 namespace dsv {
 namespace test {
-
-namespace b = boost;
-namespace fs = boost::filesystem;
 
 
 namespace detail {
 
 
-static const fs::path testdatadir(QUOTEME(TESTDATA_DIR));
-
+static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 
 struct record_context {
   std::vector<std::string> fields;

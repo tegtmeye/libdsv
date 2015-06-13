@@ -119,7 +119,7 @@ class parser {
     bool reject_nonprinting_flag;
 };
 
-inline parser::parser(void) :newline_flag(dsv_newline_permissive), field_delimiter(' '),
+inline parser::parser(void) :newline_flag(dsv_newline_permissive), field_delimiter(','),
   reject_nonprinting_flag(true)
 {
 }

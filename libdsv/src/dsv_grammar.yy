@@ -38,10 +38,18 @@
 
   #include <memory>
   #include <string>
+  #include <vector>
 
   // Change me with bison version > 3
-  //%define api.value.type {std::string}
-  #define YYSTYPE std::string
+  struct YYSTYPE {
+    typedef std::shared_ptr<std::string> str_ptr_type;
+    typedef std::vector<str_ptr_type> str_vec_type;
+    typedef std::shared_ptr<str_vec_type> str_vec_ptr_type;
+
+    str_ptr_type str_ptr;
+    str_vec_ptr_type vec_ptr;
+  };
+
 }
 
 
@@ -67,16 +75,16 @@
    */
   namespace dsv {
     /**
-     *  convenience routines
+     *  convenience declares
      */
-
   }
 
 }
 
 %define api.pure full
 
-
+%debug
+%error-verbose
 
 %lex-param {detail::scanner_state &scanner}
 %lex-param {const detail::parser &parser}
@@ -90,237 +98,106 @@
 %token LF
 %token CR
 %token DQUOTE
-%token TEXTDATA
+%token D2QUOTE
+%token <str_ptr> TEXTDATA
+
+// file
+%type <vec_ptr> header
+%type <vec_ptr> name_list
+%type <str_ptr> name
+%type <str_ptr> field
+%type <str_ptr> escaped_field;
+%type <str_ptr> escaped_textdata_list
+%type <str_ptr> escaped_textdata
+%type <str_ptr> non_escaped_field;
+// record_list
+// record
+// field_list
+
 
 
 %% /* The grammar follows.  */
 
 file:
     /* empty */
-  | header
+  | header CR LF {std::cerr << "HEADER ONLY\n";}
+  | header CR LF record_list {std::cerr << "HEADER with UNTERMINATED RECORD LIST\n";}
+  | header CR LF record_list CR LF {std::cerr << "HEADER with TERMINATED RECORD LIST\n";}
   ;
 
 header:
-  name_list
-  | name_list CR LF
+    name_list { $$ = $1; }
   ;
 
 name_list:
-    name
-  | name_list DELIMITER name
+    name {
+      $$.reset(new YYSTYPE::str_vec_type($1));
+    }
+  | name_list DELIMITER name {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->reserve($1->size()+1);
+      $$->assign($1->begin(),$1->end());
+      $$->push_back($3);
+    }
   ;
 
 name:
-  'a'
+  field { $$ = $1; }
   ;
+
+field:
+    escaped_field { $$ = $1; }
+  | non_escaped_field { $$ = $1; }
+  ;
+
+escaped_field:
+    DQUOTE escaped_textdata_list DQUOTE
+  ;
+
+escaped_textdata_list:  // need to aggregate so must use unique string
+    escaped_textdata { $$ = $1; }
+  | escaped_textdata_list escaped_textdata {
+      $$ = std::shared_ptr<std::string>(new std::string());
+      $$->reserve($1->size()+$2->size());
+      $$->assign($1->begin(),$1->end());
+      $$->append($2->begin(),$2->end());
+    }
+  ;
+
+escaped_textdata:
+    TEXTDATA { $$ = $1; }
+  | DELIMITER {
+      // delimiter must be recreated as it could change across parser invocations
+      // todo, still can be cached in the parser...
+      std::shared_ptr<std::string> tmp(new std::string());
+      tmp->push_back(parser.delimiter());
+      $$ = tmp;
+    }
+  | LF { $$ = scanner.linefeed_str(); }
+  | CR { $$ = scanner.carriage_return_str(); }
+  | D2QUOTE { $$ = scanner.quote_str(); }
+  ;
+
+non_escaped_field:
+    TEXTDATA { $$ = $1; }
+  ;
+
+record_list:
+    record
+  | record_list CR LF record
+  ;
+
+record:
+    field_list
+  ;
+
+field_list:
+    field
+  | field_list DELIMITER field
 
 %%
 
 
-#if 0
-int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
- const detail::parser &parser)
-{
-  std::string &value = *lvalp;
-
-  // <32 is non-printing
-  // > 126 is non-printing
-  // ' is 0x27
-  // " is 0x22
-
-  // cur holds the current value
-  // next holds the lookahead
-  unsigned char cur;
-  while(scanner.getc(cur) && scanner.advance()) {
-    if(scanner.seek_state() == detail::scanner_state::start) {
-      value.clear();
-
-      // need to make decisions based on the current value rather than the lookahead
-      if(cur == parser.delimiter()) {
-        return DELIMITER;
-      }
-      else if(cur == 0x0D) { // CR
-          if(parser.newline_behavior() == dsv_newline_permissive)
-            scanner.seek_state(detail::scanner_state::nl_permissive);
-          else if(parser.newline_behavior() == dsv_newline_crlf_strict)
-            scanner.seek_state(detail::scanner_state::carrage_return);
-          else {
-            // error not sure what to do here, should the CR be an error or get added
-            // as a token?
-            //scanner.seek_state(detail::scanner_state::parse_error);
-            abort();
-          }
-      }
-      else if(cur == 0x0A) { //LF
-        if(parser.newline_behavior() == dsv_newline_permissive ||
-          parser.newline_behavior() == dsv_newline_lf_strict)
-        {
-          scanner.seek_state(detail::scanner_state::linefeed);
-        }
-        else {
-            // error not sure what to do here, should the NL be an error or get added
-            // as a token if expecting CRLF?
-            //scanner.seek_state(detail::scanner_state::parse_error);
-            abort();
-        }
-      }
-      else if(cur == 0x22) { // double quote
-        scanner.seek_state(detail::scanner_state::field_double_quote);
-      }
-      else if(cur == 0x27) { // single quote
-        scanner.seek_state(detail::scanner_state::field_single_quote);
-      }
-      else if(parser.reject_nonprinting() && (cur < 32 || cur > 126)) {
-        scanner.seek_state(detail::scanner_state::parse_error);
-      }
-      else {
-        scanner.seek_state(detail::scanner_state::field);
-      }
-    }
-
-    unsigned char next=0;
-    bool is_last = scanner.getc(next)
-
-    // make decisions based on lookahead
-    if(scanner.seek_state() == detail::scanner_state::field) {
-      value.push_back(cur);
-
-      if(is_last || next == 0x0D || next == 0x0A || next == parser.delimiter()) { // CR or LF
-        scanner.seek_state(detail::scanner_state::start);
-        return FIELD;
-      }
-    }
-    else if(scanner.seek_state() == detail::scanner_state::carrage_return) {
-      scanner.seek_state(detail::scanner_state::start);
-      return NEWLINE;
-    }
-    else if(scanner.seek_state() == detail::scanner_state::linefeed) {
-      scanner.seek_state(detail::scanner_state::start);
-      return NEWLINE;
-    }
-
-    else if(scanner.seek_state() == detail::scanner_state::nl_permissive) {
-      if(!is_last && next == 0x0A) { //LF
-        scanner.seek_state(detail::scanner_state::linefeed);
-      }
-      else {
-        return NEWLINE;
-      }
-    }
-    else {
-      abort();
-    }
-  }
-
-  return 0;
-}
-
-
-
-/**
-    There are only a few tokens to be lexicographically generated. Many are setting and
-    contextually dependent. The only non-single character token is field data content.
- */
-int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
- const detail::parser &parser)
-{
-  std::string &value = *lvalp;
-
-  // <32 is non-printing
-  // > 126 is non-printing
-  // ' is 0x27
-  // " is 0x22
-
-  // cur holds the current value
-  // next holds the lookahead
-  unsigned char cur;
-  while(scanner.getc(cur) && scanner.advance()) {
-    unsigned char next=0;
-    bool final_char = scanner.getc(next)
-
-    if(scanner.seek_state() == detail::scanner_state::start) {
-      value.clear();
-
-      if(cur == parser.delimiter()) {
-        return DELIMITER;
-      }
-      else if(cur == 0x0D && parser.newline_behavior() != dsv_newline_lf_strict) { // CR
-        if(parser.newline_behavior() == dsv_newline_permissive) {
-          if(!final_char && next == 0x0A) // LF
-            scanner.seek_state(detail::scanner_state::linefeed)
-          else {
-            scanner.seek_state(detail::scanner_state::start);
-            return NEWLINE;
-          }
-        }
-        else if(parser.newline_behavior() == dsv_newline_crlf_strict) {
-          scanner.seek_state(detail::scanner_state::linefeed)
-        }
-      }
-      else if(cur == 0x0A) { //LF
-        if(parser.newline_behavior() != dsv_newline_crlf_strict) {
-          scanner.seek_state(detail::scanner_state::start);
-          return NEWLINE;
-        }
-        else {
-            // error not sure what to do here, should the NL be an error or get added
-            // as a token if expecting CRLF?
-            //scanner.seek_state(detail::scanner_state::parse_error);
-            abort();
-        }
-      }
-      else if(cur == 0x22) { // double quote
-        scanner.seek_state(detail::scanner_state::field_double_quote);
-      }
-      else if(cur == 0x27) { // single quote
-        scanner.seek_state(detail::scanner_state::field_single_quote);
-      }
-      else if(parser.reject_nonprinting() && (cur < 32 || cur > 126)) {
-        scanner.seek_state(detail::scanner_state::parse_error);
-      }
-      else {
-        scanner.seek_state(detail::scanner_state::field);
-      }
-    }
-
-
-    // make decisions based on lookahead
-    if(scanner.seek_state() == detail::scanner_state::field) {
-      value.push_back(cur);
-
-      if(is_last || next == 0x0D || next == 0x0A || next == parser.delimiter()) { // CR or LF
-        scanner.seek_state(detail::scanner_state::start);
-        return FIELD;
-      }
-    }
-    else if(scanner.seek_state() == detail::scanner_state::carrage_return) {
-      scanner.seek_state(detail::scanner_state::start);
-      return NEWLINE;
-    }
-    else if(scanner.seek_state() == detail::scanner_state::linefeed) {
-      scanner.seek_state(detail::scanner_state::start);
-      return NEWLINE;
-    }
-
-    else if(scanner.seek_state() == detail::scanner_state::nl_permissive) {
-      if(!is_last && next == 0x0A) { //LF
-        scanner.seek_state(detail::scanner_state::linefeed);
-      }
-      else {
-        return NEWLINE;
-      }
-    }
-    else {
-      abort();
-    }
-  }
-
-  return 0;
-}
-
-
-#endif
-
 
 
 
@@ -330,14 +207,14 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
 
 /**
     There are only a few tokens to be lexicographically generated. Many are setting and
-    contextually dependent. The only non-single character token is field data content.
+    contextually dependent. The only non-single character tokens are field data content
+    and the double quote (ie "");
+
+    Only TEXTDATA strings are returned in YYSTYPE
  */
 int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
  const detail::parser &parser)
 {
-  std::string &value = *lvalp;
-  value.clear();
-
   // <32 is non-printing
   // > 126 is non-printing
   // ' is 0x27
@@ -347,16 +224,32 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
   // next holds the lookahead
   unsigned char cur;
   while(scanner.getc(cur) && scanner.advance()) {
+    std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
+
+    unsigned char next;
+    scanner.getc(next);
+
     if(cur == parser.delimiter())
       return DELIMITER;
     else if(cur == 0x0A) //LF
       return LF;
     else if(cur == 0x0D) //CR
       return CR;
-    else if(cur == 0x22) //"
+    else if(cur == 0x22) { //"
+      if(next == 0x22) {
+        scanner.advance();
+        return D2QUOTE;
+      }
       return DQUOTE;
+    }
     else {
-      value.push_back(cur);
+      std::shared_ptr<std::string> &str_ptr = lvalp->str_ptr;
+
+      if(!str_ptr)
+        str_ptr = std::shared_ptr<std::string>(new std::string());
+
+      str_ptr->assign(&cur, &cur+1);
+
       for(; scanner.getc(cur); scanner.advance()) {
         if(cur == parser.delimiter() ||
           cur == 0x0A || //LF
@@ -366,7 +259,7 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
           return TEXTDATA;
         }
 
-        value.push_back(cur);
+      str_ptr->push_back(cur);
       }
     }
   }

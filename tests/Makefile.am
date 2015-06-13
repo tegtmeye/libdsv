@@ -24,6 +24,7 @@ libdsv_tests=\
 	$(libdsv_testdir)/test_detail.h \
 	$(libdsv_testdir)/api_parser_object_suite.cc \
 	$(libdsv_testdir)/api_operations_object_suite.cc \
+	$(libdsv_testdir)/api_parser_log_suite.cc \
 	$(libdsv_testdir)/parse_test.cc
 
 check_PROGRAMS=libdsv_test
