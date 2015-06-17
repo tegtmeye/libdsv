@@ -54,29 +54,58 @@ namespace detail {
 
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 
-struct record_context {
-  std::vector<std::string> fields;
-  bool should_continue;
+struct field_context {
+  std::vector<std::vector<std::string> > field_matrix;
+  std::size_t invocation_count;
+  ssize_t invocation_limit; // -1 means do not stop before field_matrix is complete
+  
+  field_context(void) :invocation_count(0), invocation_limit(-1) {}
 };
 
-static int record_callback(const char *fields[], size_t size, void *context)
+static int field_callback(const char *fields[], size_t size, void *context)
 {
-  record_context &check_context = *static_cast<record_context*>(context);
+  field_context &check_context = *static_cast<field_context*>(context);
 
-  BOOST_REQUIRE_MESSAGE(size == check_context.fields.size(),
-    "record_callback has incorrect number of fields. Should be "
-    << check_context.fields.size() << " received " << size);
+std::cerr << "CALLING field_callback\n";
+
+  BOOST_REQUIRE_MESSAGE(check_context.invocation_limit > check_context.invocation_count,
+    "field_callback called too many times. Called: " << check_context.invocation_count
+    << " times before and limit was " << check_context.invocation_limit);
+
+  BOOST_REQUIRE_MESSAGE(check_context.invocation_count < check_context.field_matrix.size(),
+    "UNIT TEST FAILURE: field_callback field_matrix has less than the requested number "
+    "of invocations. On invocation " << check_context.invocation_count << " and field_matrix "
+    "contains " << check_context.field_matrix.size() << " fields");
+
+  const std::vector<std::string> row = 
+    check_context.field_matrix[check_context.invocation_count];
+
+  BOOST_REQUIRE_MESSAGE(size == row.size(),
+    "field_callback called with an incorrect number of fields. Should be "
+    << row.size() << " received " << size);
 
   for(std::size_t i=0; i<size; ++i) {
-    BOOST_REQUIRE_MESSAGE(check_context.fields[i] == fields[i],
-      "record_callback saw incorrect field. Should be '"
-      << check_context.fields[i] << "' received '" << fields[i] << "'");
+    BOOST_REQUIRE_MESSAGE(row[i] == fields[i],
+      "field_callback saw incorrect field. Should be '"
+      << row[i] << "' received '" << fields[i] << "'");
   }
 
-  return check_context.should_continue;
+  return (++check_context.invocation_count < check_context.invocation_limit);
 }
 
-
+#if 0
+// context is an  pointer to an existing std::vector<std::string>
+int fill_vector_with_fields(const char *fields[], size_t size, void *context)
+{
+  std::vector<std::string> &field_vec = *static_cast<std::vector<std::string>*>(context);
+  
+  field_vec.clear();
+  for(std::size_t i=0; i<size; ++i)
+    field_vec.push_back(std::string(fields[i]));
+  
+  return size;
+}
+#endif
 }
 
 

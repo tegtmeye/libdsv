@@ -73,10 +73,25 @@
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
    */
-  namespace dsv {
+  namespace detail {
     /**
      *  convenience declares
      */
+     
+    void process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
+      const detail::parse_operations &operations)
+    {
+      std::cerr << "CALLING PROCESS_HEADER\n";
+      if(operations.header_callback) {
+        operations.header_field_storage.clear();
+        operations.header_field_storage.reserve(str_vec_ptr->size());
+        for(size_t i=0; i<str_vec_ptr->size(); ++i)
+          operations.header_field_storage.push_back((*str_vec_ptr)[i]->c_str());
+        
+        operations.header_callback(&*(operations.header_field_storage.begin()),
+          operations.header_field_storage.size(),operations.header_context);
+      }
+    }
   }
 
 }
@@ -120,7 +135,7 @@
 
 file:
     /* empty */
-  | header CR LF {std::cerr << "HEADER ONLY\n";}
+  | header CR LF { detail::process_header($1,operations); }
   | header CR LF record_list {std::cerr << "HEADER with UNTERMINATED RECORD LIST\n";}
   | header CR LF record_list CR LF {std::cerr << "HEADER with TERMINATED RECORD LIST\n";}
   ;
@@ -131,7 +146,8 @@ header:
 
 name_list:
     name {
-      $$.reset(new YYSTYPE::str_vec_type($1));
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->push_back($1);
     }
   | name_list DELIMITER name {
       $$.reset(new YYSTYPE::str_vec_type());
@@ -151,7 +167,7 @@ field:
   ;
 
 escaped_field:
-    DQUOTE escaped_textdata_list DQUOTE
+    DQUOTE escaped_textdata_list DQUOTE { $$ = $2; }
   ;
 
 escaped_textdata_list:  // need to aggregate so must use unique string
@@ -224,7 +240,7 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
   // next holds the lookahead
   unsigned char cur;
   while(scanner.getc(cur) && scanner.advance()) {
-    std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
+    //std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
 
     unsigned char next;
     scanner.getc(next);

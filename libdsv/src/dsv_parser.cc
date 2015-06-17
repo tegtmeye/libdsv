@@ -142,6 +142,76 @@ void dsv_operations_destroy(dsv_operations_t operations)
   }
 }
 
+
+header_callback_t dsv_get_header_callback(dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  header_callback_t result = 0;
+
+  try {
+    result = operations.header_callback;
+
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+void * dsv_get_header_context(dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  void * result = 0;
+
+  try {
+    result = operations.header_context;
+
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+
+void dsv_set_header_callback(header_callback_t fn, void *context,
+  dsv_operations_t _operations)
+{
+  assert(_operations.p);
+
+  detail::parse_operations &operations =
+    *static_cast<detail::parse_operations*>(_operations.p);
+
+  try {
+    operations.header_callback = fn;
+    operations.header_context = context;
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
 record_callback_t dsv_get_record_callback(dsv_operations_t _operations)
 {
   assert(_operations.p);

@@ -42,7 +42,7 @@ namespace detail {
     const parse_operations &operations)
   {
 
-    parser_debug = 1;
+//    parser_debug = 1;
     scanner_state scanner(filepath,stream);
     std::unique_ptr<detail::scanner_state> base_ctx;
     int err = parser_parse(scanner,parser,operations,base_ctx);

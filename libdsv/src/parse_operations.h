@@ -34,12 +34,29 @@
 
 #include "dsv_parser.h"
 
+#include <vector>
+
 namespace detail {
 
   struct parse_operations {
+    header_callback_t header_callback;
+    void *header_context;
+
     record_callback_t record_callback;
     void *record_context;
+
+    // storage cache for callback functions to avoid memory (re)allocation for each
+    // call.
+    mutable std::vector<const char *> header_field_storage;
+
+    parse_operations(void);
   };
+
+  inline parse_operations::parse_operations(void) :header_callback(0), header_context(0),
+    record_callback(0), record_context(0)
+  {
+  }
+
 
 }
 

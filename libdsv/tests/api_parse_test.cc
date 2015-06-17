@@ -32,6 +32,17 @@ namespace fs = boost::filesystem;
 
 namespace detail {
 
+// note escaped '\'
+const char *rfc4180_charset_field = " !#$%&'()*+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+
+const char rfc4180_quoted_charset_field[] = {
+  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J','K',
+  'L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[','\\',']','^','_','`',
+  'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v',
+  'w','x','y','z','{','|','}','~',0x0D,0x0A
+};
+
 inline const std::string & format_str(dsv_log_code msg_code)
 {
   switch(msg_code) {
@@ -208,8 +219,8 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   int result = dsv_parse(0,0,parser,operations);
 
@@ -236,8 +247,8 @@ BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   int result = dsv_parse("nonexistant_file.dsv",0,parser,operations);
 
@@ -257,8 +268,8 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   std::string filename(detail::testdatadir+"/empty.dsv");
   FILE *in = std::fopen(filename.c_str(),"rb");
@@ -285,8 +296,8 @@ BOOST_AUTO_TEST_CASE( parse_named_empty_file_with_zero_stream )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   std::string filename(detail::testdatadir+"/empty.dsv");
   int result = dsv_parse(filename.c_str(),0,parser,operations);
@@ -298,12 +309,41 @@ BOOST_AUTO_TEST_CASE( parse_named_empty_file_with_zero_stream )
 
 
 
+/** CHECK BASIC RECOGNITION OF THE CHARACTERSET **/
 
-
-/** \test Attempt to parse an named file with a single field consisting of a the
+/** \test Attempt to parse an named file with a single field consisting of the
  *    the rfc4180 character set
  */
 BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_crlf.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+}
+
+/** \test Attempt to parse an named file with a single field consisting of the
+ *    quoted rfc4180 character set
+ */
+BOOST_AUTO_TEST_CASE( parse_named_single_field_quoted_rfc4180_charset_crlf )
 {
 std::cerr << "START SINGLE CHARSET\n";
   dsv_parser_t parser;
@@ -314,22 +354,39 @@ std::cerr << "START SINGLE CHARSET\n";
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_quoted_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_crlf.dsv");
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/single_field_quoted_rfc4180_charset_crlf.dsv");
   int result = dsv_parse(filename.c_str(),0,parser,operations);
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
 }
 
-/** \test Attempt to parse an named file with multiple fields consisting of a the
- *    the rfc4180 character set
+
+
+
+
+
+
+/** CHECK BASIC NEWLINE HANDLING **/
+
+
+/** \test Attempt to parse an named file with a single field consisting of the
+ *    the rfc4180 character set. This file is not line terminated. If this test seems to
+ *    be failing for unknown reasons, make sure that the test data file is not appended
+ *    with an auto-generated newline as many text editors tend to do (as well as git if
+ *    it isn't set up correctly to handle this case).
  */
-BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset )
 {
-std::cerr << "START MULTIPLE CHARSET\n";
   dsv_parser_t parser;
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
@@ -338,8 +395,68 @@ std::cerr << "START MULTIPLE CHARSET\n";
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
+
+  std::string filename(detail::testdatadir+"/single_field_rfc4180_charset.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+}
+
+// todo, update this when logging gets worked out
+/** \test Attempt to parse an named file with a single field consisting of the
+ *    the rfc4180 character set terminated with just a linefeed. When the parser is
+ *    set to be RFC4180 strict, this is an error.
+ */
+BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
+
+  std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_lf.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result != 0,
+    "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: " 
+      << filename);
+}
+
+
+/** CHECK BASIC DELIMITER HANDLING **/
+
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set
+ */
+BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_charset_field);
+  header_context.field_matrix[0].push_back(detail::rfc4180_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_rfc4180_charset_crlf.dsv");
   int result = dsv_parse(filename.c_str(),0,parser,operations);
@@ -368,8 +485,8 @@ BOOST_AUTO_TEST_CASE( permissively_parse_recordless_file_w_LF )
   assert(dsv_operations_create(&operations) == 0);
   boost::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   fs::path filename(detail::testdatadir/"empty_lf.dsv");
 
@@ -395,8 +512,8 @@ BOOST_AUTO_TEST_CASE( permissively_parse_recordless_file_w_CRLF )
   assert(dsv_operations_create(&operations) == 0);
   boost::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   fs::path filename(detail::testdatadir/"empty_crlf.dsv");
 
@@ -422,8 +539,8 @@ BOOST_AUTO_TEST_CASE( strictly_parse_recordless_LF_handling )
   assert(dsv_operations_create(&operations) == 0);
   boost::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   fs::path filename(detail::testdatadir/"empty_lf.dsv");
 
@@ -457,8 +574,8 @@ BOOST_AUTO_TEST_CASE( strictly_parse_recordless_CRLF_handling )
   assert(dsv_operations_create(&operations) == 0);
   boost::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::record_context context;
-  dsv_set_record_callback(detail::record_callback,&context,operations);
+  detail::field_context context;
+  dsv_set_record_callback(detail::field_callback,&context,operations);
 
   fs::path filename(detail::testdatadir/"empty_crlf.dsv");
 
