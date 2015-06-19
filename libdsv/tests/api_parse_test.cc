@@ -320,6 +320,9 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_crlf )
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
@@ -349,6 +352,9 @@ std::cerr << "START SINGLE CHARSET\n";
   dsv_parser_t parser;
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
@@ -391,6 +397,9 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset )
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
@@ -416,19 +425,27 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_lf )
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  detail::field_context context;
-  dsv_set_record_callback(detail::field_callback,&context,operations);
+  std::vector<std::string> context;
+  dsv_set_header_callback(detail::fill_vector_with_fields,&context,operations);
 
   std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_lf.dsv");
   int result = dsv_parse(filename.c_str(),0,parser,operations);
 
+  std::stringstream out;
+  for(std::size_t i=0; i<context.size(); ++i)
+    out << context[i] << " ";
+  out << "\n";
+
   BOOST_REQUIRE_MESSAGE(result != 0,
     "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: " 
-      << filename);
+      << filename << ". Received '" << out.str() << "'");
 }
 
 
@@ -443,6 +460,9 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
   dsv_parser_t parser;
   assert(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
@@ -464,6 +484,120 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
 }
+
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    quoted rfc4180 character set
+ */
+BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_quoted_charset_field);
+  header_context.field_matrix[0].push_back(detail::rfc4180_quoted_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/multifield_quoted_rfc4180_charset_crlf.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+}
+
+
+/** CHECK NEWLINE HANDLING FOR MULTIFIELDS **/
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. This file is not newline terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_charset_field);
+  header_context.field_matrix[0].push_back(detail::rfc4180_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/multifield_rfc4180_charset.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    quoted rfc4180 character set. This file is not newline terminated.
+ */
+BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  detail::field_context header_context;
+  header_context.field_matrix.resize(1);
+  header_context.field_matrix[0].push_back(detail::rfc4180_quoted_charset_field);
+  header_context.field_matrix[0].push_back(detail::rfc4180_quoted_charset_field);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context;
+  record_context.invocation_limit = 0;
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/multifield_quoted_rfc4180_charset.dsv");
+  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 

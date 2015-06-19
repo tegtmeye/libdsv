@@ -108,6 +108,9 @@ class parser {
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
+    dsv_newline_behavior effective_newline(void) const;
+    dsv_newline_behavior effective_newline(dsv_newline_behavior val);
+
     bool reject_nonprinting(void) const;
     bool reject_nonprinting(bool flag);
 
@@ -115,11 +118,14 @@ class parser {
     log_list_type log_list;
 
     dsv_newline_behavior newline_flag;
+    dsv_newline_behavior effective_newline_flag;
+    
     unsigned char field_delimiter;
     bool reject_nonprinting_flag;
 };
 
-inline parser::parser(void) :newline_flag(dsv_newline_permissive), field_delimiter(','),
+inline parser::parser(void) :newline_flag(dsv_newline_permissive),
+  effective_newline_flag(dsv_newline_permissive), field_delimiter(','),
   reject_nonprinting_flag(true)
 {
 }
@@ -167,6 +173,23 @@ parser::newline_behavior(dsv_newline_behavior behavior)
 {
   dsv_newline_behavior tmp = newline_flag;
   newline_flag = behavior;
+  effective_newline_flag = behavior;
+  
+  return tmp;
+}
+
+inline dsv_newline_behavior parser::effective_newline(void) const
+{
+  return effective_newline_flag;
+}
+
+inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
+{
+  if(effective_newline_flag != dsv_newline_permissive)
+    throw std::runtime_error("SET EFFECTIVE NEWLINE WHEN IT SHOULDN'T");
+  
+  dsv_newline_behavior tmp = effective_newline_flag;
+  effective_newline_flag = val;
   return tmp;
 }
 

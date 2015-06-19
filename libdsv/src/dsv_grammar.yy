@@ -60,15 +60,15 @@
   /**
    *  Error reporting function as required by yacc
    */
-  void parser_error(const detail::scanner_state &scanner, const detail::parser &parser,
-    const detail::parse_operations &operations,
+  void parser_error(YYLTYPE *llocp, const detail::scanner_state &scanner,
+    const detail::parser &parser, const detail::parse_operations &operations,
     const std::unique_ptr<detail::scanner_state> &context, const char *s)
   {
     std::cerr << "HERE!!!!!!!!'" << s << "'\n";
   }
 
-   int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
-     const detail::parser &parser);
+   int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
+     detail::parser &parser);
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -77,11 +77,11 @@
     /**
      *  convenience declares
      */
-     
+    
     void process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
       const detail::parse_operations &operations)
     {
-      std::cerr << "CALLING PROCESS_HEADER\n";
+//       std::cerr << "CALLING PROCESS_HEADER\n";
       if(operations.header_callback) {
         operations.header_field_storage.clear();
         operations.header_field_storage.reserve(str_vec_ptr->size());
@@ -97,6 +97,7 @@
 }
 
 %define api.pure full
+%locations
 
 %debug
 %error-verbose
@@ -105,15 +106,16 @@
 %lex-param {const detail::parser &parser}
 
 %parse-param {detail::scanner_state &scanner}
-%parse-param {const detail::parser &parser}
+%parse-param {detail::parser &parser}
 %parse-param {const detail::parse_operations &operations}
 %parse-param {const std::unique_ptr<detail::scanner_state> &context}
 
 %token DELIMITER;
-%token LF
-%token CR
+%token <str_ptr> LF
+%token <str_ptr> CR
+%token <str_ptr> NL
 %token DQUOTE
-%token D2QUOTE
+%token <str_ptr> D2QUOTE
 %token <str_ptr> TEXTDATA
 
 // file
@@ -135,9 +137,10 @@
 
 file:
     /* empty */
-  | header CR LF { detail::process_header($1,operations); }
-  | header CR LF record_list {std::cerr << "HEADER with UNTERMINATED RECORD LIST\n";}
-  | header CR LF record_list CR LF {std::cerr << "HEADER with TERMINATED RECORD LIST\n";}
+  | header { detail::process_header($1,operations); }
+  | header NL { detail::process_header($1,operations); }
+  | header NL record_list {std::cerr << "HEADER with UNTERMINATED RECORD LIST\n";}
+  | header NL record_list NL {std::cerr << "HEADER with TERMINATED RECORD LIST\n";}
   ;
 
 header:
@@ -171,12 +174,14 @@ escaped_field:
   ;
 
 escaped_textdata_list:  // need to aggregate so must use unique string
-    escaped_textdata { $$ = $1; }
+    escaped_textdata { $$ = $1; /* std::cerr << "escaped_textdata IS " << *$1 << "\n"; */}
   | escaped_textdata_list escaped_textdata {
       $$ = std::shared_ptr<std::string>(new std::string());
       $$->reserve($1->size()+$2->size());
       $$->assign($1->begin(),$1->end());
       $$->append($2->begin(),$2->end());
+
+//       std::cerr << "escaped_textdata+ LHS is " << *$1 << " and RHS is: " << *$2 << "\n";
     }
   ;
 
@@ -189,9 +194,10 @@ escaped_textdata:
       tmp->push_back(parser.delimiter());
       $$ = tmp;
     }
-  | LF { $$ = scanner.linefeed_str(); }
-  | CR { $$ = scanner.carriage_return_str(); }
-  | D2QUOTE { $$ = scanner.quote_str(); }
+  | NL { $$ = $1; }
+  | LF { $$ = $1; }
+  | CR { $$ = $1; }
+  | D2QUOTE { $$ = $1; }
   ;
 
 non_escaped_field:
@@ -200,7 +206,7 @@ non_escaped_field:
 
 record_list:
     record
-  | record_list CR LF record
+  | record_list NL record
   ;
 
 record:
@@ -228,13 +234,28 @@ field_list:
 
     Only TEXTDATA strings are returned in YYSTYPE
  */
-int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
- const detail::parser &parser)
+int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
+ detail::parser &parser)
 {
+  static const std::shared_ptr<std::string> lf_str(new std::string("\x0A"));
+  static const std::shared_ptr<std::string> cr_str(new std::string("\x0D"));
+  static const std::shared_ptr<std::string> crlf_str(new std::string("\x0D\x0A"));
+  static const std::shared_ptr<std::string> quote_str(new std::string("\x22"));
+  
+
   // <32 is non-printing
   // > 126 is non-printing
   // ' is 0x27
   // " is 0x22
+
+
+  // typedef struct YYLTYPE
+  // {
+  //   int first_line;
+  //   int first_column;
+  //   int last_line;
+  //   int last_column;
+  // } YYLTYPE;
 
   // cur holds the current value
   // next holds the lookahead
@@ -242,31 +263,53 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
   while(scanner.getc(cur) && scanner.advance()) {
     //std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
 
+    llocp->first_line = llocp->last_line;
+    llocp->first_column = (llocp->last_column)++;
+
     unsigned char next;
     scanner.getc(next);
 
-    if(cur == parser.delimiter())
+    if(cur == parser.delimiter()) {
       return DELIMITER;
-    else if(cur == 0x0A) //LF
+    }
+    else if(cur == 0x0A) {//LF
+      lvalp->str_ptr = lf_str;
+      if(parser.effective_newline() != dsv_newline_crlf_strict) {
+        if(parser.effective_newline() == dsv_newline_permissive)
+          parser.effective_newline(dsv_newline_lf_strict);
+        return NL;
+      }
       return LF;
-    else if(cur == 0x0D) //CR
+    }
+    else if(cur == 0x0D) { //CR
+      if(next == 0x0A && parser.effective_newline() != dsv_newline_lf_strict) { // LF
+        scanner.advance();
+        ++(llocp->last_line);
+        llocp->last_column = 1;
+        lvalp->str_ptr = crlf_str;
+        
+        if(parser.effective_newline() == dsv_newline_permissive)
+          parser.effective_newline(dsv_newline_crlf_strict);
+        
+        return NL;
+      }
+      lvalp->str_ptr = cr_str;
       return CR;
+    }
     else if(cur == 0x22) { //"
+      lvalp->str_ptr = quote_str;
       if(next == 0x22) {
         scanner.advance();
+        ++(llocp->last_column);
         return D2QUOTE;
       }
       return DQUOTE;
     }
     else {
-      std::shared_ptr<std::string> &str_ptr = lvalp->str_ptr;
-
-      if(!str_ptr)
-        str_ptr = std::shared_ptr<std::string>(new std::string());
-
-      str_ptr->assign(&cur, &cur+1);
+      lvalp->str_ptr = std::shared_ptr<std::string>(new std::string(&cur, (&cur)+1));
 
       for(; scanner.getc(cur); scanner.advance()) {
+        ++(llocp->last_column);
         if(cur == parser.delimiter() ||
           cur == 0x0A || //LF
           cur == 0x0D || //CR
@@ -275,8 +318,10 @@ int parser_lex(YYSTYPE *lvalp, detail::scanner_state &scanner,
           return TEXTDATA;
         }
 
-      str_ptr->push_back(cur);
+        lvalp->str_ptr->push_back(cur);
       }
+      
+      return TEXTDATA;
     }
   }
 

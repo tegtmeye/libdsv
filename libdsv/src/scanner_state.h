@@ -57,12 +57,6 @@ namespace detail {
       bool getc(unsigned char &c) const;
       bool advance(void);
 
-      // cache common terminals in a shared string for efficiency
-      std::shared_ptr<std::string> linefeed_str(void) const;
-      std::shared_ptr<std::string> carriage_return_str(void) const;
-      std::shared_ptr<std::string> quote_str(void) const;
-
-
     private:
       std::string fname;
       std::shared_ptr<FILE> stream;
@@ -74,26 +68,12 @@ namespace detail {
 
       // logically const
       bool refill(void) const;
-
-      // cached terminals
-      std::shared_ptr<std::string> linefeed;
-      std::shared_ptr<std::string> carriage_return;
-      std::shared_ptr<std::string> quote;
   };
 
   inline scanner_state::scanner_state(const char *str, FILE *in, std::size_t buff_size)
     :buff_max(buff_size), buff(new unsigned char[buff_size]), cur(buff.get()),
-      end(buff.get()), linefeed(new std::string()), carriage_return(new std::string()),
-      quote(new std::string())
+      end(buff.get())
   {
-    // deal with other initialization first
-    unsigned char lf = 0x0A; // LF
-    unsigned char cr = 0x0D; // CR
-    unsigned char qt = 0x22; // "
-    linefeed->assign(&lf,(&lf)+1);
-    carriage_return->assign(&cr,(&cr)+1);
-    quote->assign(&qt,(&qt)+1);
-
     if(str)
       fname = str;
 
@@ -149,21 +129,6 @@ namespace detail {
     end = cur + result;
 
     return cur != end;
-  }
-
-  inline std::shared_ptr<std::string> scanner_state::linefeed_str(void) const
-  {
-    return linefeed;
-  }
-
-  inline std::shared_ptr<std::string> scanner_state::carriage_return_str(void) const
-  {
-    return carriage_return;
-  }
-
-  inline std::shared_ptr<std::string> scanner_state::quote_str(void) const
-  {
-    return quote;
   }
 }
 

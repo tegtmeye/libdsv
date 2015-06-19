@@ -66,7 +66,7 @@ static int field_callback(const char *fields[], size_t size, void *context)
 {
   field_context &check_context = *static_cast<field_context*>(context);
 
-std::cerr << "CALLING field_callback\n";
+// std::cerr << "CALLING field_callback\n";
 
   BOOST_REQUIRE_MESSAGE(check_context.invocation_limit > check_context.invocation_count,
     "field_callback called too many times. Called: " << check_context.invocation_count
@@ -93,7 +93,6 @@ std::cerr << "CALLING field_callback\n";
   return (++check_context.invocation_count < check_context.invocation_limit);
 }
 
-#if 0
 // context is an  pointer to an existing std::vector<std::string>
 int fill_vector_with_fields(const char *fields[], size_t size, void *context)
 {
@@ -105,7 +104,7 @@ int fill_vector_with_fields(const char *fields[], size_t size, void *context)
   
   return size;
 }
-#endif
+
 }
 
 
