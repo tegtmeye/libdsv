@@ -113,6 +113,8 @@ class parser {
 
     bool reject_nonprinting(void) const;
     bool reject_nonprinting(bool flag);
+    
+    void reset(void);
 
   private:
     log_list_type log_list;
@@ -204,6 +206,15 @@ inline bool parser::reject_nonprinting(bool flag)
   reject_nonprinting_flag = flag;
   return tmp;
 }
+
+inline void parser::reset(void)
+{
+  log_list.clear();
+  effective_newline_flag = newline_flag;
+}
+
+
+
 }
 
 #endif

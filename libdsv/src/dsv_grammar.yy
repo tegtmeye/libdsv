@@ -64,7 +64,9 @@
     const detail::parser &parser, const detail::parse_operations &operations,
     const std::unique_ptr<detail::scanner_state> &context, const char *s)
   {
-    std::cerr << "HERE!!!!!!!!'" << s << "'\n";
+    std::cerr << "ERROR: (" << llocp->first_line << "." << llocp->first_column << "-"
+                   << llocp->last_line << "." << llocp->last_column << ") '"
+                   << s << "'\n";
   }
 
    int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
@@ -110,12 +112,13 @@
 %parse-param {const detail::parse_operations &operations}
 %parse-param {const std::unique_ptr<detail::scanner_state> &context}
 
-%token DELIMITER;
-%token <str_ptr> LF
-%token <str_ptr> CR
-%token <str_ptr> NL
-%token DQUOTE
-%token <str_ptr> D2QUOTE
+%token END 0 "end-of-file"
+%token DELIMITER "delimiter" 
+%token <str_ptr> LF "linefeed"
+%token <str_ptr> CR "carriage-return"
+%token <str_ptr> NL "newline"
+%token DQUOTE "\""
+%token <str_ptr> D2QUOTE "\"\""
 %token <str_ptr> TEXTDATA
 
 // file
@@ -173,15 +176,14 @@ escaped_field:
     DQUOTE escaped_textdata_list DQUOTE { $$ = $2; }
   ;
 
-escaped_textdata_list:  // need to aggregate so must use unique string
-    escaped_textdata { $$ = $1; /* std::cerr << "escaped_textdata IS " << *$1 << "\n"; */}
+escaped_textdata_list:  
+    escaped_textdata { $$ = $1; }
   | escaped_textdata_list escaped_textdata {
+      // need to aggregate so must use unique string
       $$ = std::shared_ptr<std::string>(new std::string());
       $$->reserve($1->size()+$2->size());
       $$->assign($1->begin(),$1->end());
       $$->append($2->begin(),$2->end());
-
-//       std::cerr << "escaped_textdata+ LHS is " << *$1 << " and RHS is: " << *$2 << "\n";
     }
   ;
 
@@ -277,6 +279,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       if(parser.effective_newline() != dsv_newline_crlf_strict) {
         if(parser.effective_newline() == dsv_newline_permissive)
           parser.effective_newline(dsv_newline_lf_strict);
+        ++(llocp->last_line);
+        llocp->last_column = 1;
         return NL;
       }
       return LF;

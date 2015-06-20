@@ -41,10 +41,12 @@ namespace detail {
   void parse_file(const char *filepath, FILE *stream, detail::parser &parser,
     const parse_operations &operations)
   {
+    //parser_debug = 1;
 
-    parser_debug = 1;
     scanner_state scanner(filepath,stream);
     std::unique_ptr<detail::scanner_state> base_ctx;
+
+    parser.reset();
     int err = parser_parse(scanner,parser,operations,base_ctx);
     if(err != 0) {
       if(err == 2)
