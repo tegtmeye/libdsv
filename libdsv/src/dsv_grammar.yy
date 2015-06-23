@@ -80,20 +80,41 @@
      *  convenience declares
      */
     
-    void process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
+    bool process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
       const detail::parse_operations &operations)
     {
 //       std::cerr << "CALLING PROCESS_HEADER\n";
+      bool keep_going = true;
       if(operations.header_callback) {
-        operations.header_field_storage.clear();
-        operations.header_field_storage.reserve(str_vec_ptr->size());
+        operations.field_storage.clear();
+        operations.field_storage.reserve(str_vec_ptr->size());
         for(size_t i=0; i<str_vec_ptr->size(); ++i)
-          operations.header_field_storage.push_back((*str_vec_ptr)[i]->c_str());
+          operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
         
-        operations.header_callback(&*(operations.header_field_storage.begin()),
-          operations.header_field_storage.size(),operations.header_context);
+        keep_going = operations.header_callback(&*(operations.field_storage.begin()),
+          operations.field_storage.size(),operations.header_context);
       }
+      return keep_going;
     }
+
+    bool process_record(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
+      const detail::parse_operations &operations)
+    {
+//       std::cerr << "CALLING PROCESS_RECORD\n";
+      bool keep_going = true;
+      if(operations.record_callback) {
+        operations.field_storage.clear();
+        operations.field_storage.reserve(str_vec_ptr->size());
+        for(size_t i=0; i<str_vec_ptr->size(); ++i)
+          operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
+        
+        keep_going = operations.record_callback(&*(operations.field_storage.begin()),
+          operations.field_storage.size(),operations.record_context);
+      }
+      return keep_going;
+    }
+
+    static const std::shared_ptr<std::string> empty_str(new std::string(""));
   }
 
 }
@@ -114,6 +135,7 @@
 
 %token END 0 "end-of-file"
 %token DELIMITER "delimiter" 
+%token HEADER_DELIMITER "header delimiter"
 %token <str_ptr> LF "linefeed"
 %token <str_ptr> CR "carriage-return"
 %token <str_ptr> NL "newline"
@@ -122,7 +144,7 @@
 %token <str_ptr> TEXTDATA
 
 // file
-%type <vec_ptr> header
+// %type <vec_ptr> header
 %type <vec_ptr> name_list
 %type <str_ptr> name
 %type <str_ptr> field
@@ -132,7 +154,7 @@
 %type <str_ptr> non_escaped_field;
 // record_list
 // record
-// field_list
+%type <vec_ptr> field_list
 
 
 
@@ -140,14 +162,18 @@
 
 file:
     /* empty */
-  | header { detail::process_header($1,operations); }
-  | header NL { detail::process_header($1,operations); }
-  | header NL record_list {std::cerr << "HEADER with UNTERMINATED RECORD LIST\n";}
-  | header NL record_list NL {std::cerr << "HEADER with TERMINATED RECORD LIST\n";}
+  | header
+  | header NL
+  | header NL record_list 
+  | header NL record_list NL 
   ;
 
 header:
-    name_list { $$ = $1; }
+    name_list { 
+      if(!detail::process_header($1,operations))
+        YYABORT;
+    }
+  | delimited_header_list
   ;
 
 name_list:
@@ -168,7 +194,8 @@ name:
   ;
 
 field:
-    escaped_field { $$ = $1; }
+    /* empty */ { $$ = detail::empty_str; }
+  | escaped_field { $$ = $1; }
   | non_escaped_field { $$ = $1; }
   ;
 
@@ -206,18 +233,46 @@ non_escaped_field:
     TEXTDATA { $$ = $1; }
   ;
 
+delimited_header_list:
+    HEADER_DELIMITER header_textdata
+  | delimited_header_list NL HEADER_DELIMITER header_textdata_list
+
+header_textdata_list:
+    header_textdata
+  | header_textdata_list header_textdata
+  ;
+
+header_textdata:
+    TEXTDATA
+  | DELIMITER
+  | LF
+  | CR
+  | DQUOTE
+  ;
+
 record_list:
     record
   | record_list NL record
   ;
 
 record:
-    field_list
+    field_list { 
+      if(!detail::process_record($1,operations))
+        YYABORT;
+    }
   ;
 
 field_list:
-    field
-  | field_list DELIMITER field
+    field {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->push_back($1);
+    }
+  | field_list DELIMITER field {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->reserve($1->size()+1);
+      $$->assign($1->begin(),$1->end());
+      $$->push_back($3);
+    }
 
 %%
 

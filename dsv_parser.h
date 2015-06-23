@@ -181,7 +181,8 @@ extern "C" {
    *                      \c dsv_set_header_callback
    *
    *  \retval nonzero if procssing should continue or 0 if processing should cease
-   *          and control should return from the parse function.
+   *          and control should return from the parse function. If a nonzero value
+   *          is returned, the parse function will also return <0
    */
   typedef int (*header_callback_t)(const char *fields[], size_t size, void *context);
 

@@ -54,30 +54,137 @@ namespace detail {
 
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 
+
+// 0x0A = LF
+// 0x0D = CR
+// 0x22 = "
+// 0x27 = '
+// 0x5C = backslash
+
+const char rfc4180_charset_field[] = {
+  ' ','!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
+  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
+  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
+  'v','w','x','y','z','{','|','}','~'
+};
+
+const char rfc4180_quoted_charset_field[] = {
+  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
+  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
+  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
+  'v','w','x','y','z','{','|','}','~',0x0D,0x0A
+};
+
+
+
+inline void parser_destroy(dsv_parser_t *p)
+{
+  dsv_parser_destroy(*p);
+}
+
+inline void operations_destroy(dsv_operations_t *p)
+{
+  dsv_operations_destroy(*p);
+}
+
+inline const std::string & format_str(dsv_log_code msg_code)
+{
+  switch(msg_code) {
+    case dsv_parse_error:
+      static const std::string parse_error("parse error: unexpected '$1'");
+      return parse_error;
+
+    default:
+      ;
+  };
+
+  static const std::string unknown_error("unknown error code");
+  return unknown_error;
+}
+
+std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
+{
+  std::stringstream result;
+
+  // Get the number of log messages for \c log_level
+  size_t num_msgs = dsv_parse_log_count(parser,log_level);
+
+  // iterate over all codes
+  for(size_t i=0; i<num_msgs; ++i) {
+    // Get the code and minimum storage requirement for the msg parameters
+    dsv_log_code msg_code;
+
+    errno = 0;
+    ssize_t len = dsv_parse_log(parser,log_level,i,&msg_code,0,0);
+    if(len < 0) {
+      std::stringstream err;
+      err << "dsv_parse_error message code get failed with errno " << errno;
+      throw std::runtime_error(err.str());
+    }
+
+    // msg_code now holds the code associated with the msg
+    // len now holds the storage needed for the the total number of parameters
+    // associated with msg_code.
+
+    const std::string &fmt_str = format_str(msg_code);
+
+    // Allocate buf based on minimum needed to store the parameters and the
+    // length needed to store the format string potentially trimmed of the
+    // placeholders. Do not forget to add space for the null terminator
+    size_t storage_len = (fmt_str.size()+len+1);
+    std::unique_ptr<char> buff(new char[storage_len]);
+
+    // copy the format string to buff and set the null-terminator
+    *(std::copy(fmt_str.begin(),fmt_str.end(),buff.get())) = 0;
+
+    errno = 0;
+    len = dsv_parse_log(parser,log_level,i,&msg_code,buff.get(),storage_len);
+    if(len < 0) {
+      std::stringstream err;
+      err << "dsv_parse_error message formatter failed with errno " << errno;
+      throw std::runtime_error(err.str());
+    }
+
+    result << buff.get() << "\n";
+  }
+
+  return result.str();
+}
+
+
 struct field_context {
   std::vector<std::vector<std::string> > field_matrix;
   std::size_t invocation_count;
-  ssize_t invocation_limit; // -1 means do not stop before field_matrix is complete
   
-  field_context(void) :invocation_count(0), invocation_limit(-1) {}
+  field_context(void) :invocation_count(0) {}
 };
+
+static std::size_t invocation_count(const field_context &context)
+{
+  return context.invocation_count;
+}
+
+static std::size_t invocation_limit(const field_context &context)
+{
+  return context.field_matrix.size();
+}
+
+static bool required_invocations(const field_context &context)
+{
+  return invocation_count(context) == invocation_limit(context);
+}
 
 static int field_callback(const char *fields[], size_t size, void *context)
 {
   field_context &check_context = *static_cast<field_context*>(context);
 
-// std::cerr << "CALLING field_callback\n";
-
-  BOOST_REQUIRE_MESSAGE(check_context.invocation_limit > check_context.invocation_count,
+  BOOST_REQUIRE_MESSAGE(check_context.field_matrix.size() > check_context.invocation_count,
     "field_callback called too many times. Called: " << check_context.invocation_count
-    << " times before and limit was " << check_context.invocation_limit);
+    << " times before and limit was " << check_context.field_matrix.size());
 
-  BOOST_REQUIRE_MESSAGE(check_context.invocation_count < check_context.field_matrix.size(),
-    "UNIT TEST FAILURE: field_callback field_matrix has less than the requested number "
-    "of invocations. On invocation " << check_context.invocation_count << " and field_matrix "
-    "contains " << check_context.field_matrix.size() << " fields");
-
-  const std::vector<std::string> row = 
+  const std::vector<std::string> &row = 
     check_context.field_matrix[check_context.invocation_count];
 
   BOOST_REQUIRE_MESSAGE(size == row.size(),
@@ -90,7 +197,9 @@ static int field_callback(const char *fields[], size_t size, void *context)
       << row[i] << "' received '" << fields[i] << "'");
   }
 
-  return (++check_context.invocation_count < check_context.invocation_limit);
+  ++(check_context.invocation_count);
+
+  return 1;
 }
 
 // context is an  pointer to an existing std::vector<std::string>
@@ -103,6 +212,23 @@ int fill_vector_with_fields(const char *fields[], size_t size, void *context)
     field_vec.push_back(std::string(fields[i]));
   
   return size;
+}
+
+
+template<std::size_t Rows, std::size_t Columns>
+field_context make_field_context(const char * (&matrix)[Rows][Columns])
+{
+  field_context result;
+  result.field_matrix.resize(Rows);
+  
+  for(std::size_t i=0; i<Rows; ++i) {
+    result.field_matrix[i].resize(Columns);
+    for(std::size_t j=0; j<Columns; ++j) {
+      result.field_matrix[i][j] = matrix[i][j];
+    } 
+  }
+  
+  return result;
 }
 
 }
