@@ -87,6 +87,28 @@ BOOST_AUTO_TEST_CASE( parser_newline_getting_and_setting )
   dsv_parser_destroy(parser);
 }
 
+/** \test Test field columns getting and setting
+ */
+BOOST_AUTO_TEST_CASE( parser_field_columns_getting_and_setting )
+{
+  dsv_parser_t parser = {};
+
+  assert(dsv_parser_create(&parser) == 0);
+
+  ssize_t field_cols = dsv_parser_get_field_columns(parser);
+  BOOST_REQUIRE_MESSAGE(field_cols == 0,
+    "dsv_parser_get_field_columns returned a value other than the default 0 "
+    " (" << field_cols << ")");
+
+  dsv_parser_set_field_columns(parser,-1);
+  field_cols = dsv_parser_get_field_columns(parser);
+  BOOST_REQUIRE_MESSAGE(field_cols == -1,
+    "dsv_parser_get_field_columns returned a value other than the newly set value of -1 "
+    " (" << field_cols << ")");
+
+  dsv_parser_destroy(parser);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

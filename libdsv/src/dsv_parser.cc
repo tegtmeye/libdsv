@@ -29,7 +29,10 @@
  */
 
 #include "dsv_parser.h"
-#include "file_parser.h"
+#include "parser.h"
+#include "parse_operations.h"
+#include "scanner_state.h"
+#include "dsv_grammar.hh"
 
 #include <cerrno>
 #include <stdlib.h>
@@ -109,6 +112,40 @@ dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t _parser)
 
   return result;
 }
+
+
+void dsv_parser_set_field_columns(dsv_parser_t _parser, ssize_t num_cols)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  try {
+    parser.field_columns(num_cols);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+ssize_t dsv_parser_get_field_columns(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  ssize_t result;
+
+  try {
+    result = parser.field_columns();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
 
 int dsv_operations_create(dsv_operations_t *_operations)
 {
@@ -274,6 +311,8 @@ void dsv_set_record_callback(record_callback_t fn, void *context,
 int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
               dsv_operations_t _operations)
 {
+  dsv_parse_log_count(_parser,dsv_log_all);
+
   assert(_parser.p && _operations.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
@@ -282,7 +321,18 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   int err = 0;
 
   try {
-    detail::parse_file(location_str,stream,parser,operations);
+    //parser_debug = 1;
+
+    detail::scanner_state scanner(location_str,stream);
+    std::unique_ptr<detail::scanner_state> base_ctx;
+
+    parser.reset();
+    int err = parser_parse(scanner,parser,operations,base_ctx);
+    if(err != 0) {
+      if(err == 2)
+        throw std::system_error(ENOMEM,std::system_category());
+      throw std::system_error(-1,std::generic_category(),"Parse failed");
+    }
   }
   catch(std::system_error &ex) {
     // system errors due to failed parser or memory error from parse
@@ -320,6 +370,7 @@ size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level)
     while(cur != parser.log_end()) {
       if(cur->first & log_level)
         ++result;
+      ++cur;
     }
   }
   catch(...) {
@@ -342,7 +393,7 @@ ssize_t dsv_parse_log(dsv_parser_t _parser, dsv_log_level log_level, size_t num,
     size_t i = 0;
     detail::parser::const_log_iterator cur = parser.log_begin();
     while(cur != parser.log_end()) {
-      if(cur->first & log_level && ++i < num)
+      if(cur->first & log_level && i++ == num)
         break;
 
       ++cur;
@@ -376,7 +427,7 @@ ssize_t dsv_parse_log(dsv_parser_t _parser, dsv_log_level log_level, size_t num,
       for(std::size_t i=0; param != desc.param_end(); ++i, ++param) {
         // create the placeholder string
         std::stringstream n;
-        n << "$" << i;
+        n << "\\$" << i;
 
         std::regex exp(n.str());
         tmp_str = std::regex_replace(tmp_str,exp,*param);

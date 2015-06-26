@@ -52,7 +52,9 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
   detail::field_context context;
-  int result = dsv_parse(0,0,parser,operations);
+  int result;
+  if((result = dsv_parse(0,0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   /**
    *  It appears that the underlying fopen call can return error codes in platform
@@ -78,7 +80,10 @@ BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
   detail::field_context context;
-  int result = dsv_parse("nonexistant_file.dsv",0,parser,operations);
+
+  int result;
+  if((result = dsv_parse("nonexistant_file.dsv",0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == ENOENT,
     "dsv_parse attempted to open a nonexistent file and did not return ENOENT");
@@ -103,7 +108,9 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
 
   std::shared_ptr<FILE> file_sentry(in,std::fclose);
 
-  int result = dsv_parse(0,in,parser,operations);
+  int result;
+  if((result = dsv_parse(0,in,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid but empty file");
@@ -122,7 +129,10 @@ BOOST_AUTO_TEST_CASE( parse_named_empty_file_with_zero_stream )
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
   std::string filename(detail::testdatadir+"/empty.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid but empty file");
@@ -160,7 +170,10 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -197,7 +210,10 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_quoted_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/single_field_quoted_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -246,7 +262,10 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/single_field_rfc4180_charset.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -274,23 +293,21 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_lf )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  std::vector<std::string> context;
-  dsv_set_header_callback(detail::fill_vector_with_fields,&context,operations);
+  std::vector<std::vector<std::string> > header_matrix;
+  dsv_set_header_callback(detail::fill_matrix,&header_matrix,operations);
 
   detail::field_context record_context;
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/single_field_rfc4180_charset_lf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
 
-  std::stringstream out;
-  for(std::size_t i=0; i<context.size(); ++i)
-    out << context[i] << " ";
-  out << "\n";
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result != 0,
     "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: " 
-      << filename << ". Received '" << out.str() << "'");
+      << filename << ". Received HEADER\n" << detail::print_matrix(header_matrix));
 }
 
 
@@ -329,7 +346,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -340,7 +360,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
- *    rfc4180 character set. One of the fields is empty
+ *    rfc4180 character set. A middle fields is empty
  */
 BOOST_AUTO_TEST_CASE( parse_named_multi_empty_field_rfc4180_charset_crlf )
 {
@@ -366,7 +386,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_field_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multi_empty_field_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -403,7 +426,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_quoted_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -440,7 +466,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_field_rfc4180_quoted_charset_crlf 
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_quoted_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -480,7 +509,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_rfc4180_charset.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -517,7 +549,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multifield_quoted_rfc4180_charset.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -532,7 +567,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset )
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
  *    consisting of the rfc4180 character set. The file should be interpreted as exactly
- *    one header and one record
+ *    one header and one record each with only one field
  */
 BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset_crlf )
 {
@@ -558,7 +593,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -574,7 +612,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset_crlf )
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
  *    consisting of the rfc4180 character set. The file should be interpreted as exactly
- *    one header and one record. This test file has no final newline
+ *    one header and one record each with one field. This test file has no final newline
  */
 BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset )
 {
@@ -600,7 +638,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_rfc4180_charset.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -616,8 +657,8 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset )
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
  *    consisting of the rfc4180 character set. The first and third record contains
- *    a single field while the second record record is empty. The file should be
- *    interpreted as exactly one header and three records.
+ *    a single field while the second record record is empty. This should fail when
+ *    specifying RFC4180 because all rows should have the same number of fields.
  */
 BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_rfc4180_charset_crlf )
 {
@@ -632,35 +673,22 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_rfc4180_charset_crlf )
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
 
-  const char * header_field_matrix[][1] = {
-    {detail::rfc4180_charset_field}
-  };
+  std::vector<std::vector<std::string> > header_matrix;
+  dsv_set_header_callback(detail::fill_matrix,&header_matrix,operations);
 
-  const char * record_field_matrix[][1] = {
-    {detail::rfc4180_charset_field},
-    {""},
-    {detail::rfc4180_charset_field}
-  };
-  
-  detail::field_context header_context = detail::make_field_context(header_field_matrix);
-  dsv_set_header_callback(detail::field_callback,&header_context,operations);
-
-  detail::field_context record_context = detail::make_field_context(record_field_matrix);
-  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+  std::vector<std::vector<std::string> > record_matrix;
+  dsv_set_record_callback(detail::fill_matrix,&record_matrix,operations);
 
   std::string filename(detail::testdatadir+"/multi_empty_line_single_field_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
 
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "dsv_parse failed for a valid file: " << filename);
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
-  BOOST_REQUIRE_MESSAGE(detail::required_invocations(header_context),
-      "dsv_parse failed to parse complete header list (one " 
-      << header_context.invocation_count << " of " << 1 << ") for file: " << filename);
-
-  BOOST_REQUIRE_MESSAGE(detail::required_invocations(record_context),
-      "dsv_parse failed to parse complete record list (one " 
-      << record_context.invocation_count << " of " << 3 << ") for file: " << filename);
+  BOOST_REQUIRE_MESSAGE(result != 0,
+    "dsv_parse improperly accepted nonuniform number of fields for file: " << filename
+      << ". Received HEADER\n" << detail::print_matrix(header_matrix) << " RECORD:\n"
+      << detail::print_matrix(record_matrix));
 }
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
@@ -691,7 +719,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_quoted_rfc4180_charset_crlf )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_quoted_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -733,7 +764,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_quoted_rfc4180_charset )
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_quoted_rfc4180_charset.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
   BOOST_REQUIRE_MESSAGE(result == 0,
     "dsv_parse failed for a valid file: " << filename);
@@ -749,8 +783,8 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_quoted_rfc4180_charset )
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
  *    consisting of the quoted rfc4180 character set. The first and third record contains
- *    a single field while the second record record is empty. The file should be
- *    interpreted as exactly one header and three records.
+ *    a single field while the second record record is empty. This should fail when
+ *    specifying RFC4180 because all rows should have the same number of fields.
  */
 BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_quoted_rfc4180_charset_crlf )
 {
@@ -782,18 +816,13 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_quoted_rfc4180_charset_
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multi_empty_line_single_field_quoted_rfc4180_charset_crlf.dsv");
-  int result = dsv_parse(filename.c_str(),0,parser,operations);
 
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "dsv_parse failed for a valid file: " << filename);
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
 
-  BOOST_REQUIRE_MESSAGE(detail::required_invocations(header_context),
-      "dsv_parse failed to parse complete header list (one " 
-      << header_context.invocation_count << " of " << 1 << ") for file: " << filename);
-
-  BOOST_REQUIRE_MESSAGE(detail::required_invocations(record_context),
-      "dsv_parse failed to parse complete record list (one " 
-      << record_context.invocation_count << " of " << 3 << ") for file: " << filename);
+  BOOST_REQUIRE_MESSAGE(result != 0,
+    "dsv_parse improperly accepted nonuniform number of fields for file: " << filename);
 }
 
 

@@ -58,15 +58,30 @@
   #include <iostream>
 
   /**
-   *  Error reporting function as required by yacc
+   *  Error reporting function as required by Bison
    */
   void parser_error(YYLTYPE *llocp, const detail::scanner_state &scanner,
-    const detail::parser &parser, const detail::parse_operations &operations,
+    detail::parser &parser, const detail::parse_operations &operations,
     const std::unique_ptr<detail::scanner_state> &context, const char *s)
   {
-    std::cerr << "ERROR: (" << llocp->first_line << "." << llocp->first_column << "-"
-                   << llocp->last_line << "." << llocp->last_column << ") '"
-                   << s << "'\n";
+    std::string param_array[] = {
+      std::to_string(llocp->first_line),
+      std::to_string(llocp->last_line),
+      std::to_string(llocp->first_column),
+      std::to_string(llocp->last_column),
+      scanner.filename()
+    };
+    
+    detail::log_description log_desc(dsv_syntax_error,param_array,
+      param_array+sizeof(param_array)/sizeof(std::string));
+    
+    parser.append_log(dsv_log_error,log_desc);
+
+// 
+// 
+//     std::cerr << "ERROR: (" << llocp->first_line << "." << llocp->first_column << "-"
+//                    << llocp->last_line << "." << llocp->last_column << ") '"
+//                    << s << "'\n";
   }
 
    int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
@@ -79,19 +94,67 @@
     /**
      *  convenience declares
      */
+    bool check_or_update_column_count(const YYLTYPE &llocp, 
+      const detail::scanner_state &scanner, detail::parser &parser, 
+      const YYSTYPE::str_vec_ptr_type &str_vec_ptr)
+    {
+      ssize_t columns = str_vec_ptr->size();
+      
+//       std::cerr << "check_or_update_column_count: has " << columns << " ["
+//         << (columns?*(str_vec_ptr->at(0)):"") << "] effective is: "
+//         << parser.effective_field_columns() << "\n";
+      
+      if(parser.effective_field_columns() == 0)
+        parser.effective_field_columns(columns);
+      else if(parser.effective_field_columns() > 0 && 
+        parser.effective_field_columns() != columns)
+      {
+        /*
+          - The line number associated with the start of the offending row[*][**]
+          - The line number associated with the end of the offending row[*][**]
+          - The expected number of fields[*]
+          - The number of fields parsed for this row[*]
+          - The location_str associated with the syntax error if it was supplied to
+            \c dsv_parse
+        */
+
+        std::string param_array[] = {
+          std::to_string(llocp.first_line),
+          std::to_string(llocp.last_line),
+          std::to_string(parser.effective_field_columns()),
+          std::to_string(columns),
+          scanner.filename()
+        };
+    
+        detail::log_description log_desc(dsv_column_count_error,param_array,
+          param_array+sizeof(param_array)/sizeof(std::string));
+    
+        parser.append_log(dsv_log_error,log_desc);
+        
+        return true;
+      }
+      
+      return false;
+    }
+    
     
     bool process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
       const detail::parse_operations &operations)
     {
-//       std::cerr << "CALLING PROCESS_HEADER\n";
+//        std::cerr << "CALLING PROCESS_HEADER\n";
       bool keep_going = true;
       if(operations.header_callback) {
+//         std::cerr << "got size " << str_vec_ptr->size() << "\nGot:\n";
+//         for(int i=0; i<str_vec_ptr->size(); ++i)
+//           std::cerr << "\t" << (*str_vec_ptr)[i] << "\n";
+          
         operations.field_storage.clear();
         operations.field_storage.reserve(str_vec_ptr->size());
         for(size_t i=0; i<str_vec_ptr->size(); ++i)
           operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
         
-        keep_going = operations.header_callback(&*(operations.field_storage.begin()),
+//        std::cerr << "CALLING REGISTERED CALLBACK\n";
+        keep_going = operations.header_callback(operations.field_storage.data(),
           operations.field_storage.size(),operations.header_context);
       }
       return keep_going;
@@ -108,7 +171,7 @@
         for(size_t i=0; i<str_vec_ptr->size(); ++i)
           operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
         
-        keep_going = operations.record_callback(&*(operations.field_storage.begin()),
+        keep_going = operations.record_callback(operations.field_storage.data(),
           operations.field_storage.size(),operations.record_context);
       }
       return keep_going;
@@ -169,17 +232,33 @@ file:
   ;
 
 header:
-    name_list { 
+    name_list {
+      if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
+        YYABORT;
+        
       if(!detail::process_header($1,operations))
         YYABORT;
     }
-  | delimited_header_list
+  | header_list
   ;
 
 name_list:
-    name {
+    /* empty */ {
+      $$.reset(new YYSTYPE::str_vec_type());
+    }
+  | name {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->push_back($1);
+    }
+  | DELIMITER {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->push_back(detail::empty_str);
+    }
+  | name_list DELIMITER {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->reserve($1->size()+1);
+      $$->assign($1->begin(),$1->end());
+      $$->push_back(detail::empty_str);
     }
   | name_list DELIMITER name {
       $$.reset(new YYSTYPE::str_vec_type());
@@ -194,8 +273,7 @@ name:
   ;
 
 field:
-    /* empty */ { $$ = detail::empty_str; }
-  | escaped_field { $$ = $1; }
+    escaped_field { $$ = $1; }
   | non_escaped_field { $$ = $1; }
   ;
 
@@ -233,9 +311,9 @@ non_escaped_field:
     TEXTDATA { $$ = $1; }
   ;
 
-delimited_header_list:
+header_list:
     HEADER_DELIMITER header_textdata
-  | delimited_header_list NL HEADER_DELIMITER header_textdata_list
+  | header_list NL HEADER_DELIMITER header_textdata_list
 
 header_textdata_list:
     header_textdata
@@ -257,15 +335,31 @@ record_list:
 
 record:
     field_list { 
+      if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
+        YYABORT;
+    
       if(!detail::process_record($1,operations))
         YYABORT;
     }
   ;
 
 field_list:
-    field {
+    /* empty */ {
+      $$.reset(new YYSTYPE::str_vec_type());
+    }
+  | field {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->push_back($1);
+    }
+  | DELIMITER {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->push_back(detail::empty_str);
+    }
+  | field_list DELIMITER {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->reserve($1->size()+1);
+      $$->assign($1->begin(),$1->end());
+      $$->push_back(detail::empty_str);
     }
   | field_list DELIMITER field {
       $$.reset(new YYSTYPE::str_vec_type());
@@ -273,6 +367,7 @@ field_list:
       $$->assign($1->begin(),$1->end());
       $$->push_back($3);
     }
+  ;
 
 %%
 

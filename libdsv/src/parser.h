@@ -100,20 +100,25 @@ class parser {
     const_log_iterator log_begin(void) const;
     const_log_iterator log_end(void) const;
 
-    void append_log(dsv_log_level level,const log_description &desc);
+    void append_log(dsv_log_level level, const log_description &desc);
 
     unsigned char delimiter(void) const;
     unsigned char delimiter(unsigned char d);
 
+    /* exposed behaviors */
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
+    ssize_t field_columns(void) const;
+    ssize_t field_columns(ssize_t num_cols);
+
+    /* non-exposed behaviors */
     dsv_newline_behavior effective_newline(void) const;
     dsv_newline_behavior effective_newline(dsv_newline_behavior val);
 
-    bool reject_nonprinting(void) const;
-    bool reject_nonprinting(bool flag);
-    
+    ssize_t effective_field_columns(void) const;
+    ssize_t effective_field_columns(ssize_t num_cols);
+
     void reset(void);
 
   private:
@@ -122,14 +127,16 @@ class parser {
     dsv_newline_behavior newline_flag;
     dsv_newline_behavior effective_newline_flag;
     
+    ssize_t num_cols;
+    ssize_t effective_num_cols;
+    
     unsigned char field_delimiter;
-    bool reject_nonprinting_flag;
 };
 
-inline parser::parser(void) :newline_flag(dsv_newline_permissive),
-  effective_newline_flag(dsv_newline_permissive), field_delimiter(','),
-  reject_nonprinting_flag(true)
+inline parser::parser(void) :field_delimiter(',')
 {
+  newline_behavior(dsv_newline_permissive);
+  field_columns(0);
 }
 
 inline std::size_t parser::log_size(void) const
@@ -147,7 +154,7 @@ inline parser::const_log_iterator parser::log_end(void) const
   return log_list.end();
 }
 
-inline void parser::append_log(dsv_log_level level,const log_description &desc)
+inline void parser::append_log(dsv_log_level level, const log_description &desc)
 {
   log_list.push_back(std::make_pair(level,desc));
 }
@@ -180,6 +187,20 @@ parser::newline_behavior(dsv_newline_behavior behavior)
   return tmp;
 }
 
+inline ssize_t parser::field_columns(void) const
+{
+  return num_cols;
+}
+
+inline ssize_t parser::field_columns(ssize_t _num_cols)
+{
+  ssize_t tmp = num_cols;
+  num_cols = _num_cols;
+  effective_num_cols = _num_cols;
+  
+  return tmp;
+}
+
 inline dsv_newline_behavior parser::effective_newline(void) const
 {
   return effective_newline_flag;
@@ -187,30 +208,29 @@ inline dsv_newline_behavior parser::effective_newline(void) const
 
 inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
 {
-  if(effective_newline_flag != dsv_newline_permissive)
-    throw std::runtime_error("SET EFFECTIVE NEWLINE WHEN IT SHOULDN'T");
-  
   dsv_newline_behavior tmp = effective_newline_flag;
   effective_newline_flag = val;
   return tmp;
 }
 
-inline bool parser::reject_nonprinting(void) const
+inline ssize_t parser::effective_field_columns(void) const
 {
-  return reject_nonprinting_flag;
+  return effective_num_cols;
 }
 
-inline bool parser::reject_nonprinting(bool flag)
+inline ssize_t parser::effective_field_columns(ssize_t _num_cols)
 {
-  bool tmp = reject_nonprinting_flag;
-  reject_nonprinting_flag = flag;
+  ssize_t tmp = effective_num_cols;
+  effective_num_cols = _num_cols;
   return tmp;
 }
+
 
 inline void parser::reset(void)
 {
   log_list.clear();
   effective_newline_flag = newline_flag;
+  effective_num_cols = num_cols;
 }
 
 

@@ -107,6 +107,8 @@ extern "C" {
   /**
    *  \brief Set the newline behavior for future parsing with \c parser
    *
+   *  The default value is \c dsv_newline_permissive
+   *
    *  \param parser A properly initialized dsv_parser_t object
    *  \param behavior One of the possible \c dsv_newline_behavior enumerations
    *
@@ -124,7 +126,38 @@ extern "C" {
    */
   dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t parser);
 
+  /**
+   *  \brief Set the required number of fields for future parsing with \c parser or
+   *  allow a non-uniform number.
+   *
+   *  If the behavior specified by \c dsv_parser_fixed_field_columns is violated, 
+   *  dsv_parse will immediately return a nonzero value and an error message will be
+   *  logged with the code: \c dsv_column_count_error.
+   *
+   *  The default value is 0
+   *
+   *  \param parser A properly initialized dsv_parser_t object
+   *  \param num_cols If > 0, the number of columns expected during future parsing. If
+   *  during parsing, a row with less than \c num_cols is encountered, dsv_parse will
+   *  immediately return with a nonzero value. If \c num_cols == 0, the parser will set
+   *  the required number of columns based on the first row encountered. For example, if
+   *  the first header row contains 5 columns, all subsequent rows must contain 5 columns
+   *  otherwise the dsv_parse will immediately return a nonzero value. If 
+   *  \c num_cols == -1, no restriction will be placed on the number of columns. This
+   *  also means that rows with zero columns are acceptable. In this case, any registered
+   *  callback will still be called.
+   */
+  void dsv_parser_set_field_columns(dsv_parser_t parser, ssize_t num_cols);
 
+  /**
+   *  \brief Get the required number of fields associated with future parsing with 
+   *  \c parser
+   *
+   *  See \c dsv_parser_set_field_columns for an explanation of the return values
+   *
+   *  \retval num_cols The number of columns required for future parsing of \c parser
+   */
+  ssize_t dsv_parser_get_field_columns(dsv_parser_t parser);
 
 
 
@@ -297,9 +330,9 @@ extern "C" {
    */
   typedef enum {
     dsv_log_none = 0, /*!< Filter all messages */
-    dsv_log_error = 1L, /*!< Filter all messages except error messages */
+    dsv_log_info = 1L, /*!< Filter all messages except info messages */
     dsv_log_warning = 1L << 1, /*!< Filter all messages except warning messages */
-    dsv_log_info = 1L << 2, /*!< Filter all messages except info messages */
+    dsv_log_error = 1L << 2, /*!< Filter all messages except error messages */
     dsv_log_all = (dsv_log_error|dsv_log_warning|dsv_log_info) /*!< Do not filter messages */
   } dsv_log_level;
 
@@ -310,10 +343,55 @@ extern "C" {
     /*
       \brief An error strictly associated with incorrect syntax based on the current
       parser behavior.
+      
+      This log code has five parameters;
+        - The offending line associated with the start of the syntax error[*][**]
+        - The offending line associated with the end of the syntax error[*][**]
+        - The offending character associated with the start of the syntax error[*]
+        - The offending character associated with the end of the syntax error[*]
+        - The location_str associated with the syntax error if it was supplied to
+          \c dsv_parse
 
-      \param string A string containing the unexpected value
+      * Numbers provided as a string is capable of being translated to
+        a signed or unsigned integer value (ie strtoul). 
+      
+      **The line associated with the log is counted according to the applied parser
+        behavior. For example, if the system newline is LF and the applied behavior is
+        RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
+        If the behavior is newline_permissive, the lines will be counted based on the
+        first parsed occurrence of a newline. Note that this is different than the first
+        seen occurence of a newline. For example, if a record is "..LF.."CRLF, the LF is
+        parsed as a quoted field and not a newline therefore the registered newline
+        behavior will be the CRLF.
     */
-    dsv_parse_error = 0
+    dsv_syntax_error,
+    
+    /*
+      \brief An error strictly associated with parsing a non-uniform number of fields
+      when explicitly requested to do so. For example, if the header contains 5 fields
+      but the first record only contains 3.
+      
+      This log code has 
+        - The line number associated with the start of the offending row[*][**]
+        - The line number associated with the end of the offending row[*][**]
+        - The expected number of fields[*]
+        - The number of fields parsed for this row[*]
+        - The location_str associated with the syntax error if it was supplied to
+          \c dsv_parse
+
+      * Numbers provided as a string is capable of being translated to
+        a signed or unsigned integer value (ie strtoul). 
+      
+      **The line associated with the log is counted according to the applied parser
+        behavior. For example, if the system newline is LF and the applied behavior is
+        RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
+        If the behavior is newline_permissive, the lines will be counted based on the
+        first parsed occurrence of a newline. Note that this is different than the first
+        seen occurence of a newline. For example, if a record is "..LF.."CRLF, the LF is
+        parsed as a quoted field and not a newline therefore the registered newline
+        behavior will be the CRLF.
+    */
+    dsv_column_count_error
   } dsv_log_code;
 
   /**

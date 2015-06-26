@@ -92,9 +92,14 @@ inline void operations_destroy(dsv_operations_t *p)
 inline const std::string & format_str(dsv_log_code msg_code)
 {
   switch(msg_code) {
-    case dsv_parse_error:
-      static const std::string parse_error("parse error: unexpected '$1'");
+    case dsv_syntax_error:
+      static const std::string parse_error("syntax error: In file $4, line $1 column $3");
       return parse_error;
+
+    case dsv_column_count_error:
+      static const std::string column_count_error("column count error: In file $4, line $1."
+        " Expected $2 fields, read $3 fields");
+      return column_count_error;
 
     default:
       ;
@@ -140,6 +145,8 @@ std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
     *(std::copy(fmt_str.begin(),fmt_str.end(),buff.get())) = 0;
 
     errno = 0;
+    
+//     std::cerr << "attempting to copy in the formatted string\n";
     len = dsv_parse_log(parser,log_level,i,&msg_code,buff.get(),storage_len);
     if(len < 0) {
       std::stringstream err;
@@ -147,7 +154,7 @@ std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
       throw std::runtime_error(err.str());
     }
 
-    result << buff.get() << "\n";
+    result << buff.get();
   }
 
   return result.str();
@@ -178,6 +185,7 @@ static bool required_invocations(const field_context &context)
 
 static int field_callback(const char *fields[], size_t size, void *context)
 {
+//   std::cerr << "field_callback !!!!!!!!!!!!!!!!!!\n";
   field_context &check_context = *static_cast<field_context*>(context);
 
   BOOST_REQUIRE_MESSAGE(check_context.field_matrix.size() > check_context.invocation_count,
@@ -202,16 +210,31 @@ static int field_callback(const char *fields[], size_t size, void *context)
   return 1;
 }
 
-// context is an  pointer to an existing std::vector<std::string>
-int fill_vector_with_fields(const char *fields[], size_t size, void *context)
+// context is an  pointer to an existing std::vector<std::vector<std::string> >
+int fill_matrix(const char *fields[], size_t size, void *context)
 {
-  std::vector<std::string> &field_vec = *static_cast<std::vector<std::string>*>(context);
+  std::vector<std::vector<std::string> > &matrix = 
+    *static_cast<std::vector<std::vector<std::string> >*>(context);
   
-  field_vec.clear();
-  for(std::size_t i=0; i<size; ++i)
-    field_vec.push_back(std::string(fields[i]));
+  std::vector<std::string> field_vec(fields,fields+size);
   
-  return size;
+  matrix.push_back(field_vec);
+
+  return 1;
+}
+
+std::string print_matrix(const std::vector<std::vector<std::string> > &matrix)
+{
+  std::stringstream out;
+  for(std::size_t i=0; i<matrix.size(); ++i) {
+    out << "-->";
+    for(std::size_t j=0; j<matrix[i].size(); ++j)
+      out << "  \"" << matrix[i][j] << "\"";
+ 
+    out << "\n";
+  }
+  
+  return out.str();
 }
 
 
