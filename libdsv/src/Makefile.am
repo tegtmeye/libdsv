@@ -1,7 +1,7 @@
 lib_LTLIBRARIES= libdsv.la
 
 BUILT_SOURCES=dsv_grammar.hh
-AM_YFLAGS= -d -p parser_
+AM_YFLAGS= -d -p parser_ --report=all
 
 
 libdsv_la_SOURCES= \

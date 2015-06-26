@@ -160,6 +160,61 @@ std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
   return result.str();
 }
 
+bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_vec)
+{
+  std::vector<dsv_log_code> code_vec = _code_vec;
+  
+  size_t num_msgs = dsv_parse_log_count(parser,dsv_log_all);
+  
+  if(num_msgs < code_vec.size()) {
+    std::stringstream err;
+    err << "ERROR: Parser logged less codes than required. Saw " << num_msgs
+      << " required " << code_vec.size() << "\n";
+    return false;
+  }
+  
+  std::vector<dsv_log_code> logged_code_vec;
+  for(std::size_t i=0; i<num_msgs; ++i) {
+    // Get the code and minimum storage requirement for the msg parameters
+    dsv_log_code msg_code;
+
+    errno = 0;
+    ssize_t len = dsv_parse_log(parser,dsv_log_all,i,&msg_code,0,0);
+    if(len < 0) {
+      std::stringstream err;
+      err << "UNIT TEST FAILURE: dsv_parse_error message code get failed with errno "
+        << errno;
+      return false;
+    }
+    
+    logged_code_vec.push_back(msg_code);
+  }  
+
+  for(std::size_t i=0; i<code_vec.size(); ++i) {
+    std::vector<dsv_log_code>::iterator loc = 
+      std::find(logged_code_vec.begin(),logged_code_vec.end(),code_vec[i]);
+    
+    if(loc == logged_code_vec.end()) {
+      std::stringstream err;
+      err << "ERROR: parser failed to log msg with code: " << code_vec[i];
+      return false;
+    }
+    
+    logged_code_vec.erase(loc);
+  }
+
+  // logged_code_vec may still contain logged messages
+  if(!logged_code_vec.empty()) {
+    std::stringstream err;
+    err << "ERROR: parser logged unexpected msgs:";
+    for(std::size_t i=0; i<logged_code_vec.size(); ++i)
+      err << " " << logged_code_vec[i];
+    return false;
+  }
+  
+  return true;
+}
+
 
 struct field_context {
   std::vector<std::vector<std::string> > field_matrix;

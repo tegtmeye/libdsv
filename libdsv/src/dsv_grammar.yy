@@ -208,8 +208,7 @@
 
 // file
 // %type <vec_ptr> header
-%type <vec_ptr> name_list
-%type <str_ptr> name
+%type <vec_ptr> field_list
 %type <str_ptr> field
 %type <str_ptr> escaped_field;
 %type <str_ptr> escaped_textdata_list
@@ -217,7 +216,6 @@
 %type <str_ptr> non_escaped_field;
 // record_list
 // record
-%type <vec_ptr> field_list
 
 
 
@@ -232,7 +230,7 @@ file:
   ;
 
 header:
-    name_list {
+    field_list {
       if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
         YYABORT;
         
@@ -242,34 +240,36 @@ header:
   | header_list
   ;
 
-name_list:
+field_list:
     /* empty */ {
       $$.reset(new YYSTYPE::str_vec_type());
     }
-  | name {
+  | field {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->push_back($1);
     }
   | DELIMITER {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->push_back(detail::empty_str);
+      $$->push_back(detail::empty_str);
     }
-  | name_list DELIMITER {
+  | DELIMITER field {
+      $$.reset(new YYSTYPE::str_vec_type());
+      $$->push_back(detail::empty_str);
+      $$->push_back($2);
+    }
+  | field_list DELIMITER {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back(detail::empty_str);
     }
-  | name_list DELIMITER name {
+  | field_list DELIMITER field {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back($3);
     }
-  ;
-
-name:
-  field { $$ = $1; }
   ;
 
 field:
@@ -340,32 +340,6 @@ record:
     
       if(!detail::process_record($1,operations))
         YYABORT;
-    }
-  ;
-
-field_list:
-    /* empty */ {
-      $$.reset(new YYSTYPE::str_vec_type());
-    }
-  | field {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->push_back($1);
-    }
-  | DELIMITER {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->push_back(detail::empty_str);
-    }
-  | field_list DELIMITER {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->reserve($1->size()+1);
-      $$->assign($1->begin(),$1->end());
-      $$->push_back(detail::empty_str);
-    }
-  | field_list DELIMITER field {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->reserve($1->size()+1);
-      $$->assign($1->begin(),$1->end());
-      $$->push_back($3);
     }
   ;
 

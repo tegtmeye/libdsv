@@ -308,6 +308,14 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_lf )
   BOOST_REQUIRE_MESSAGE(result != 0,
     "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: " 
       << filename << ". Received HEADER\n" << detail::print_matrix(header_matrix));
+
+  dsv_log_code codes[] = {
+    dsv_syntax_error
+  };
+  
+  BOOST_REQUIRE_MESSAGE(detail::msg_log_check(parser,
+    std::vector<dsv_log_code>(codes,codes+sizeof(codes)/sizeof(dsv_log_code))),
+    "dsv_parse did not log the correct number or type of msgs");
 }
 
 
@@ -689,6 +697,14 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_rfc4180_charset_crlf )
     "dsv_parse improperly accepted nonuniform number of fields for file: " << filename
       << ". Received HEADER\n" << detail::print_matrix(header_matrix) << " RECORD:\n"
       << detail::print_matrix(record_matrix));
+  
+  dsv_log_code codes[] = {
+    dsv_column_count_error
+  };
+  
+  BOOST_REQUIRE_MESSAGE(detail::msg_log_check(parser,
+    std::vector<dsv_log_code>(codes,codes+sizeof(codes)/sizeof(dsv_log_code))),
+    "dsv_parse did not log the correct number or type of msgs");
 }
 
 /** \test Attempt to parse an named file with multiple lines containing a single field 
@@ -823,10 +839,70 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_quoted_rfc4180_charset_
 
   BOOST_REQUIRE_MESSAGE(result != 0,
     "dsv_parse improperly accepted nonuniform number of fields for file: " << filename);
+
+  dsv_log_code codes[] = {
+    dsv_column_count_error
+  };
+  
+  BOOST_REQUIRE_MESSAGE(detail::msg_log_check(parser,
+    std::vector<dsv_log_code>(codes,codes+sizeof(codes)/sizeof(dsv_log_code))),
+    "dsv_parse did not log the correct number or type of msgs");
 }
 
 
+/** Check full field permutation **/
+/** \test Attempt to parse an named file with full permutation of multiple fields 
+ *    consisting of the empty and rfc4180 character set.
+ */
+BOOST_AUTO_TEST_CASE( parse_named_multiline_permfield_rfc4180_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+
+  const char * header_matrix[][3] = {
+    {detail::rfc4180_charset_field,detail::rfc4180_charset_field,detail::rfc4180_charset_field},
+  };
+
+  const char * record_matrix[][3] = {
+    {detail::rfc4180_charset_field,detail::rfc4180_charset_field,detail::rfc4180_charset_field},
+    {"","",""},
+    {detail::rfc4180_charset_field,"",""},
+    {detail::rfc4180_charset_field,detail::rfc4180_charset_field,""},
+    {"",detail::rfc4180_charset_field,""},
+    {"","",detail::rfc4180_charset_field},
+  };
+  
+  detail::field_context header_context = detail::make_field_context(header_matrix);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context = detail::make_field_context(record_matrix);
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+
+  std::string filename(detail::testdatadir+"/multiline_permfield_rfc4180_charset_crlf.dsv");
+
+  int result;
+  if((result = dsv_parse(filename.c_str(),0,parser,operations)))
+    std::cerr << detail::msg_log(parser,dsv_log_all) << "\n";
+
+  BOOST_REQUIRE_MESSAGE(result == 0,
+    "dsv_parse failed for a valid file: " << filename);
+
+  BOOST_REQUIRE_MESSAGE(detail::required_invocations(header_context),
+      "dsv_parse failed to parse complete header list (one " 
+      << header_context.invocation_count << " of " << 1 << ") for file: " << filename);
+
+  BOOST_REQUIRE_MESSAGE(detail::required_invocations(record_context),
+      "dsv_parse failed to parse complete record list (one " 
+      << record_context.invocation_count << " of " << 1 << ") for file: " << filename);
+}
 
 
 
