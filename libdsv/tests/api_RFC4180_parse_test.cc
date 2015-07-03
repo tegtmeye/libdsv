@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_crlf )
     {detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_quoted_rfc4180_charset_crlf )
     {detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -255,7 +255,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset )
     {detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -347,7 +347,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset_crlf )
     {detail::rfc4180_charset_field,detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_field_rfc4180_charset_crlf )
     {detail::rfc4180_charset_field,"",detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -427,7 +427,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset_crlf )
     {detail::rfc4180_quoted_charset_field,detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -467,7 +467,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_field_rfc4180_quoted_charset_crlf 
     {detail::rfc4180_quoted_charset_field,detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -510,7 +510,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_charset )
     {detail::rfc4180_charset_field,detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -550,7 +550,7 @@ BOOST_AUTO_TEST_CASE( parse_named_multifield_rfc4180_quoted_charset )
     {detail::rfc4180_quoted_charset_field,detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
   detail::field_context record_context;
@@ -594,10 +594,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset_crlf )
     {detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(field_matrix);
+  detail::field_context record_context = detail::make_field_context(field_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_rfc4180_charset_crlf.dsv");
@@ -639,10 +639,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_rfc4180_charset )
     {detail::rfc4180_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(field_matrix);
+  detail::field_context record_context = detail::make_field_context(field_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_rfc4180_charset.dsv");
@@ -728,10 +728,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_quoted_rfc4180_charset_crlf )
     {detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(field_matrix);
+  detail::field_context record_context = detail::make_field_context(field_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_quoted_rfc4180_charset_crlf.dsv");
@@ -773,10 +773,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_field_quoted_rfc4180_charset )
     {detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(field_matrix);
+  detail::field_context header_context = detail::make_field_context(field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(field_matrix);
+  detail::field_context record_context = detail::make_field_context(field_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_single_field_quoted_rfc4180_charset.dsv");
@@ -825,10 +825,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multi_empty_line_field_quoted_rfc4180_charset_
     {detail::rfc4180_quoted_charset_field}
   };
   
-  detail::field_context header_context = detail::make_field_context(header_field_matrix);
+  detail::field_context header_context = detail::make_field_context(header_field_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(record_field_matrix);
+  detail::field_context record_context = detail::make_field_context(record_field_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multi_empty_line_single_field_quoted_rfc4180_charset_crlf.dsv");
@@ -880,10 +880,10 @@ BOOST_AUTO_TEST_CASE( parse_named_multiline_permfield_rfc4180_charset_crlf )
     {"","",detail::rfc4180_charset_field},
   };
   
-  detail::field_context header_context = detail::make_field_context(header_matrix);
+  detail::field_context header_context = detail::make_field_context(header_matrix,"header");
   dsv_set_header_callback(detail::field_callback,&header_context,operations);
 
-  detail::field_context record_context = detail::make_field_context(record_matrix);
+  detail::field_context record_context = detail::make_field_context(record_matrix,"record");
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
 
   std::string filename(detail::testdatadir+"/multiline_permfield_rfc4180_charset_crlf.dsv");

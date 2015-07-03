@@ -217,10 +217,11 @@ bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_v
 
 
 struct field_context {
+  std::string label;
   std::vector<std::vector<std::string> > field_matrix;
   std::size_t invocation_count;
   
-  field_context(void) :invocation_count(0) {}
+  field_context(const std::string &str=std::string()) :label(str), invocation_count(0) {}
 };
 
 static std::size_t invocation_count(const field_context &context)
@@ -244,14 +245,16 @@ static int field_callback(const char *fields[], size_t size, void *context)
   field_context &check_context = *static_cast<field_context*>(context);
 
   BOOST_REQUIRE_MESSAGE(check_context.field_matrix.size() > check_context.invocation_count,
-    "field_callback called too many times. Called: " << check_context.invocation_count
+    check_context.label
+    << ": field_callback called too many times. Called: " << check_context.invocation_count
     << " times before and limit was " << check_context.field_matrix.size());
 
   const std::vector<std::string> &row = 
     check_context.field_matrix[check_context.invocation_count];
 
   BOOST_REQUIRE_MESSAGE(size == row.size(),
-    "field_callback called with an incorrect number of fields. Should be "
+    check_context.label
+    << ": field_callback called with an incorrect number of fields. Should be "
     << row.size() << " received " << size);
 
   for(std::size_t i=0; i<size; ++i) {
@@ -294,9 +297,9 @@ std::string print_matrix(const std::vector<std::vector<std::string> > &matrix)
 
 
 template<std::size_t Rows, std::size_t Columns>
-field_context make_field_context(const char * (&matrix)[Rows][Columns])
+field_context make_field_context(const char * (&matrix)[Rows][Columns],const char *label)
 {
-  field_context result;
+  field_context result(label);
   result.field_matrix.resize(Rows);
   
   for(std::size_t i=0; i<Rows; ++i) {

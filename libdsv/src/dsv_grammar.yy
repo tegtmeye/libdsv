@@ -178,6 +178,7 @@
     }
 
     static const std::shared_ptr<std::string> empty_str(new std::string(""));
+    static const YYSTYPE::str_vec_ptr_type empty_vec(new YYSTYPE::str_vec_type());
   }
 
 }
@@ -198,13 +199,14 @@
 
 %token END 0 "end-of-file"
 %token DELIMITER "delimiter" 
-%token HEADER_DELIMITER "header delimiter"
+//%token HEADER_DELIMITER "header delimiter"
 %token <str_ptr> LF "linefeed"
 %token <str_ptr> CR "carriage-return"
 %token <str_ptr> NL "newline"
 %token DQUOTE "\""
 %token <str_ptr> D2QUOTE "\"\""
 %token <str_ptr> TEXTDATA
+
 
 // file
 // %type <vec_ptr> header
@@ -223,28 +225,44 @@
 
 file:
     /* empty */
-  | header
-  | header NL
-  | header NL record_list 
-  | header NL record_list NL 
+  | NL { // pathological case of empty header and no records
+      // Don't set effective to 0 cols cause that makes no sense
+      
+      // do manual process header cause we know it is empty
+      if(operations.header_callback) {
+        if(!operations.header_callback(0,0,operations.header_context)) {
+          YYABORT;
+        }
+      }
+    }
+  | NL record_block {
+      // NL means no header. Don't set effective to 0 cols cause that makes no sense
+      
+      // do manual process header cause we know it is empty
+      if(operations.header_callback) {
+        if(!operations.header_callback(0,0,operations.header_context)) {
+          YYABORT;
+        }
+      }
+    }
+  | header_block
+  | header_block NL
+  | header_block NL record_block 
   ;
 
-header:
-    field_list {
+header_block:
+  field_list {
       if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
         YYABORT;
         
       if(!detail::process_header($1,operations))
         YYABORT;
     }
-  | header_list
+//   | delimited_header_list
   ;
 
 field_list:
-    /* empty */ {
-      $$.reset(new YYSTYPE::str_vec_type());
-    }
-  | field {
+    field {
       $$.reset(new YYSTYPE::str_vec_type());
       $$->push_back($1);
     }
@@ -311,33 +329,43 @@ non_escaped_field:
     TEXTDATA { $$ = $1; }
   ;
 
-header_list:
-    HEADER_DELIMITER header_textdata
-  | header_list NL HEADER_DELIMITER header_textdata_list
+record_block:
+    NL {  // A single NL means an empty record block
+      // check to see if empty records are allowed
+      if(detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec) == true)
+        YYABORT;
 
-header_textdata_list:
-    header_textdata
-  | header_textdata_list header_textdata
-  ;
+      // manual process record cause we know it is empty, the return value doesn't matter
+      if(operations.record_callback)
+        operations.record_callback(0,0,operations.record_context);
 
-header_textdata:
-    TEXTDATA
-  | DELIMITER
-  | LF
-  | CR
-  | DQUOTE
+    }
+  | record
+  | record_list
+  | record_list record
   ;
 
 record_list:
-    record
-  | record_list NL record
+    record NL
+  | record_list NL {
+      // Single NL means empty record
+      if(detail::check_or_update_column_count(@2,scanner,parser,detail::empty_vec) == true)
+        YYABORT;
+    
+      // do manual process record cause we know it is empty
+      if(operations.record_callback) {
+        if(!operations.record_callback(0,0,operations.record_context))
+          YYABORT;
+      }
+    }
+  | record_list record NL
   ;
 
 record:
-    field_list { 
+    field_list {
       if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
         YYABORT;
-    
+        
       if(!detail::process_record($1,operations))
         YYABORT;
     }
