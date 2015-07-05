@@ -72,10 +72,8 @@ CLEANFILES=\
 	api_RFC4180_parse_test.trs \
 	api_test-suite.log
 
-EXTRA_DIST=\
-	data/empty.dsv \
-	data/empty_lf.dsv \
-	data/empty_crlf.dsv
+EXTRA_DIST=
+
 
 
 
