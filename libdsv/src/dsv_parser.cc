@@ -336,6 +336,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   }
   catch(std::system_error &ex) {
     // system errors due to failed parser or memory error from parse
+//    std::cerr << "got system error\n\n";
     if(ex.code().category() == std::system_category())
       err = ex.code().value();
     else if(ex.code().category() == std::generic_category()) {

@@ -44,6 +44,11 @@
 #define QUOTEME(x) _QUOTEME(x)
 
 #include <iostream>
+#include <sstream>
+#include <ctime>
+#include <cstring>
+
+#include <boost/filesystem.hpp>
 
 namespace dsv {
 namespace test {
@@ -51,6 +56,8 @@ namespace test {
 
 namespace detail {
 
+
+namespace fs=boost::filesystem;
 
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 
@@ -61,23 +68,33 @@ static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 // 0x27 = '
 // 0x5C = backslash
 
-const char rfc4180_charset_field[] = {
+static const char rfc4180_charset[] = {
   ' ','!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
   '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
   'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
   '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~'
+  'v','w','x','y','z','{','|','}','~',0
 };
 
-const char rfc4180_quoted_charset_field[] = {
+static const char rfc4180_quoted_charset[] = {
   ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
   '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
   'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
   '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~',0x0D,0x0A
+  'v','w','x','y','z','{','|','}','~',0x0D,0x0A,0
 };
 
+static const char rfc4180_raw_quoted_charset[] = {
+  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
+  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
+  'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
+  '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
+  't','u','v','w','x','y','z','{','|','}','~',0x0D,0x0A,0x22,0
+};
 
+static const char crlf[] = {0x0D,0x0A,0};
+
+static const char lf[] = {0x0A,0};
 
 inline void parser_destroy(dsv_parser_t *p)
 {
@@ -218,98 +235,167 @@ bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_v
 
 struct field_context {
   std::string label;
-  std::vector<std::vector<std::string> > field_matrix;
+  const std::vector<std::vector<std::string> > valid_matrix;
+  std::vector<std::vector<std::string> > parsed_matrix;
   std::size_t invocation_count;
   
-  field_context(const std::string &str=std::string()) :label(str), invocation_count(0) {}
+  field_context(void) :label("unnamed"), valid_matrix(), invocation_count(0) {}
+  field_context(const std::string &str, const std::vector<std::vector<std::string> > &matrix) 
+    :label(str), valid_matrix(matrix), invocation_count(0) {}
 };
 
-static std::size_t invocation_count(const field_context &context)
+
+static int field_callback(const char *fields[], size_t size, void *_context)
 {
-  return context.invocation_count;
+  field_context &context = *static_cast<field_context*>(_context);
+
+// if(size == 0)
+//   std::cerr << "GOT EMPTY FIELDS\n";
+  
+// std::cerr << context.label << " field_callback " << context.invocation_count << " got: ";
+// for(std::size_t i=0; i<size; ++i)
+//   std::cerr << fields[i] << " ";
+// std::cerr << "\n";
+
+  std::vector<std::string> row;
+  for(std::size_t i=0; i<size; ++i)
+    row.push_back(fields[i]);
+  
+  context.parsed_matrix.push_back(row);
+  
+  (context.invocation_count)++;
+
+  return 1;
 }
 
-static std::size_t invocation_limit(const field_context &context)
+inline fs::path gen_testfile(const std::vector<std::string> contents,
+  const std::string &label)
 {
-  return context.field_matrix.size();
-}
+  std::time_t now = std::time(0);
 
-static bool required_invocations(const field_context &context)
-{
-  return invocation_count(context) == invocation_limit(context);
-}
+  fs::path tmpdir = fs::temp_directory_path();
+  fs::path filename = std::string("libdsv_") + std::to_string(now) + "_" + label + ".dsv";
+  fs::path filepath = tmpdir/filename;
 
-static int field_callback(const char *fields[], size_t size, void *context)
-{
-//   std::cerr << "field_callback !!!!!!!!!!!!!!!!!!\n";
-  field_context &check_context = *static_cast<field_context*>(context);
 
-  BOOST_REQUIRE_MESSAGE(check_context.field_matrix.size() > check_context.invocation_count,
-    check_context.label
-    << ": field_callback called too many times. Called: " << check_context.invocation_count
-    << " times before and limit was " << check_context.field_matrix.size());
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)> out(std::fopen(filepath.c_str(),"wb"),&std::fclose);
+//  std::pair<file_sentry_type,std::string> result(file_sentry_type(out,&std::fclose),filename);
+//   std::pair<file_sentry_type,std::string> result(file_sentry_type(out,&myfclose),filename);
 
-  const std::vector<std::string> &row = 
-    check_context.field_matrix[check_context.invocation_count];
-
-  BOOST_REQUIRE_MESSAGE(size == row.size(),
-    check_context.label
-    << ": field_callback called with an incorrect number of fields. Should be "
-    << row.size() << " received " << size);
-
-  for(std::size_t i=0; i<size; ++i) {
-    BOOST_REQUIRE_MESSAGE(row[i] == fields[i],
-      "field_callback saw incorrect field. Should be '"
-      << row[i] << "' received '" << fields[i] << "'");
+  for(std::size_t i=0; i<contents.size(); ++i) {
+    assert(std::fwrite(contents[i].data(),sizeof(std::string::value_type),
+      contents[i].size(),out.get()) == contents[i].size());
   }
-
-  ++(check_context.invocation_count);
-
-  return 1;
+  
+  return filepath;
 }
 
-// context is an  pointer to an existing std::vector<std::vector<std::string> >
-int fill_matrix(const char *fields[], size_t size, void *context)
-{
-  std::vector<std::vector<std::string> > &matrix = 
-    *static_cast<std::vector<std::vector<std::string> >*>(context);
-  
-  std::vector<std::string> field_vec(fields,fields+size);
-  
-  matrix.push_back(field_vec);
-
-  return 1;
-}
-
-std::string print_matrix(const std::vector<std::vector<std::string> > &matrix)
+std::string output_fields(const detail::field_context &context)
 {
   std::stringstream out;
-  for(std::size_t i=0; i<matrix.size(); ++i) {
-    out << "-->";
-    for(std::size_t j=0; j<matrix[i].size(); ++j)
-      out << "  \"" << matrix[i][j] << "\"";
- 
-    out << "\n";
+  
+  out << "valid matrix:";
+  
+  std::size_t i;
+  for(i=0; i<context.valid_matrix.size(); ++i) {
+    out << "\n\t";
+    
+    std::size_t j;
+    for(j=0; j<context.valid_matrix[i].size(); ++j) {
+      out << "-->" << context.valid_matrix[i][j];
+      if(i<context.parsed_matrix.size() && j<context.parsed_matrix[i].size()) {
+        if(context.valid_matrix[i][j] != context.parsed_matrix[i][j])
+          out << "[" << context.parsed_matrix[i][j] << "]";
+      }
+      else {
+        out << "[missing]";
+      }
+      
+      out << "<-- ";
+    }
+
+//     std::cerr << "i is: " << i << " size is: " << context.parsed_matrix.size() << "\n";
+    for(;i<context.parsed_matrix.size() && j<context.parsed_matrix[i].size(); ++j) {
+//       std::cerr << "j is: " << j << " size is: " << context.parsed_matrix[i].size() << "\n";
+      out << " [[" << context.parsed_matrix[i][j] << "]]";
+    }
+  }    
+
+  for(;i<context.parsed_matrix.size(); ++i) {
+    out << "\n\t";
+    for(std::size_t j=0; j<context.parsed_matrix[i].size(); ++j) {
+      out << " [[" << context.parsed_matrix[i][j] << "]]";
+    }
   }
   
   return out.str();
 }
 
-
-template<std::size_t Rows, std::size_t Columns>
-field_context make_field_context(const char * (&matrix)[Rows][Columns],const char *label)
+void check_compliance(const std::vector<std::vector<std::string> > &headers,
+  const std::vector<std::vector<std::string> > &records, 
+  const std::vector<std::string> contents, const std::string &label)
 {
-  field_context result(label);
-  result.field_matrix.resize(Rows);
+  fs::path filepath = gen_testfile(contents,label);
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)> in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // set RFC4180 strict
+  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);  
+
+  detail::field_context header_context("header",headers);
+  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+
+  detail::field_context record_context("records",records);
+  dsv_set_record_callback(detail::field_callback,&record_context,operations);
   
-  for(std::size_t i=0; i<Rows; ++i) {
-    result.field_matrix[i].resize(Columns);
-    for(std::size_t j=0; j<Columns; ++j) {
-      result.field_matrix[i][j] = matrix[i][j];
-    } 
+  int result;
+  if((result = dsv_parse(filepath.c_str(),in.get(),parser,operations))) {
+    std::stringstream reason;
+    reason << "dsv_parse failed with code: " << result << " ";
+    
+    if(result > 0)
+      reason << "(" << strerror(result) << ")";
+    else
+      reason << "MSG LOG: '" << detail::msg_log(parser,dsv_log_all) << "'";
+    
+    reason << " for given file: '";
+    if(!filepath.empty())
+      reason << filepath;
+    else
+      reason << "[file stream]";
+    
+    reason << "'\nHeader " << output_fields(header_context) 
+      << "\nRecord " << output_fields(record_context);
+    
+    BOOST_REQUIRE_MESSAGE(result == 0,reason.str());
+    
   }
-  
-  return result;
+
+  BOOST_REQUIRE_MESSAGE(
+    header_context.invocation_count == header_context.parsed_matrix.size() &&
+    header_context.valid_matrix == header_context.parsed_matrix,
+      "Headers did not parse correctly. Correct: " << ": "
+      << header_context.parsed_matrix.size() << " Parsed: "
+      << header_context.invocation_count << "\n" << output_fields(header_context));
+
+  BOOST_REQUIRE_MESSAGE(
+    record_context.invocation_count == record_context.parsed_matrix.size() &&
+    record_context.valid_matrix == record_context.parsed_matrix,
+      "Records did not parse correctly. Correct: " << ": "
+      << header_context.parsed_matrix.size() << " Parsed: "
+      << header_context.invocation_count << "\n" << output_fields(record_context));
+
+  // if here, then delete the test file
+  in.reset(0);
+  fs::remove(filepath);
 }
 
 }

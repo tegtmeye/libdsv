@@ -141,12 +141,12 @@
     bool process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
       const detail::parse_operations &operations)
     {
-//        std::cerr << "CALLING PROCESS_HEADER\n";
+//         std::cerr << "CALLING PROCESS_HEADER\n";
       bool keep_going = true;
       if(operations.header_callback) {
-//         std::cerr << "got size " << str_vec_ptr->size() << "\nGot:\n";
-//         for(int i=0; i<str_vec_ptr->size(); ++i)
-//           std::cerr << "\t" << (*str_vec_ptr)[i] << "\n";
+//          std::cerr << "got size " << str_vec_ptr->size() << "\nGot:\n";
+//          for(int i=0; i<str_vec_ptr->size(); ++i)
+//            std::cerr << "\t" << (*str_vec_ptr)[i] << "\n";
           
         operations.field_storage.clear();
         operations.field_storage.reserve(str_vec_ptr->size());
@@ -415,7 +415,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   // next holds the lookahead
   unsigned char cur;
   while(scanner.getc(cur) && scanner.advance()) {
-    //std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
+//    std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
 
     llocp->first_line = llocp->last_line;
     llocp->first_column = (llocp->last_column)++;
