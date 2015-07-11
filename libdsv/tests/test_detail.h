@@ -68,6 +68,7 @@ static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 // 0x27 = '
 // 0x5C = backslash
 
+// 94 characters not including newline
 static const char rfc4180_charset[] = {
   ' ','!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
   '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
@@ -84,6 +85,7 @@ static const char rfc4180_quoted_charset[] = {
   'v','w','x','y','z','{','|','}','~',0x0D,0x0A,0
 };
 
+// 100 characters not including newline
 static const char rfc4180_raw_quoted_charset[] = {
   0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
   '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
@@ -126,6 +128,8 @@ inline const std::string & format_str(dsv_log_code msg_code)
   return unknown_error;
 }
 
+
+#if 0
 std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
 {
   std::stringstream result;
@@ -139,7 +143,7 @@ std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
     dsv_log_code msg_code;
 
     errno = 0;
-    ssize_t len = dsv_parse_log(parser,log_level,i,&msg_code,0,0);
+    ssize_t len = dsv_parse_flog(parser,log_level,i,&msg_code,0,0);
     if(len < 0) {
       std::stringstream err;
       err << "dsv_parse_error message code get failed with errno " << errno;
@@ -163,8 +167,7 @@ std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
 
     errno = 0;
     
-//     std::cerr << "attempting to copy in the formatted string\n";
-    len = dsv_parse_log(parser,log_level,i,&msg_code,buff.get(),storage_len);
+    len = dsv_parse_flog(parser,log_level,i,&msg_code,buff.get(),storage_len);
     if(len < 0) {
       std::stringstream err;
       err << "dsv_parse_error message formatter failed with errno " << errno;
@@ -196,7 +199,7 @@ bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_v
     dsv_log_code msg_code;
 
     errno = 0;
-    ssize_t len = dsv_parse_log(parser,dsv_log_all,i,&msg_code,0,0);
+    ssize_t len = dsv_parse_flog(parser,dsv_log_all,i,&msg_code,0,0);
     if(len < 0) {
       std::stringstream err;
       err << "UNIT TEST FAILURE: dsv_parse_error message code get failed with errno "
@@ -231,17 +234,143 @@ bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_v
   
   return true;
 }
+#endif
+
+
+std::string to_string(dsv_log_code code)
+{
+  switch(code) {
+    case dsv_nonrectangular_records_info:
+      return "dsv_nonrectangular_records_info";
+    
+    case dsv_syntax_error:
+      return "dsv_syntax_error";
+    
+    case dsv_column_count_error:
+      return "dsv_column_count_error";
+    
+  };
+  
+  return "unknown code";
+}
+
+struct log_msg {
+  dsv_log_code code;
+  std::vector<std::string> param_vec;
+};
+
+struct logging_context {
+  std::vector<log_msg> recd_logs;
+};
+
+
+/*
+  The required log_msg list is compared to the received msg_log list. For each msg, if the
+  codes are different, then return false. For each log_msg, the parameters are compared 
+  against each other. If the required params are empty (ie param_vec is empty()) then the 
+  received params are ignored. That is, any value of the params are accepted. If the 
+  required param_vec is non-empty, then the entire list must be present. If a single value 
+  of the required param_vec is empty, then any value of the received param is accepted, 
+  otherwise it must match exactly.
+  
+  let req_msg and rec_msg each be the ith value of required and received respectively
+  if(req_msg.code != rec_msg.code) then false
+  if(req_msg.param_vec.empty()) then accept
+  if(req_msg.param_vec.size() != rec_msg.param_vec.size()) then UNIT TEST ERROR
+  
+  let req_param and rec_param each be the jth value of req_msg.param_vec and  
+    rec_msg.param_vec respectively
+  if(req_param.empty()) accept this param
+  if(req_param != rec_param) return false
+*/
+bool check_logs(const std::vector<log_msg> &required, 
+  const std::vector<log_msg> &received)
+{
+  if(required.size() != received.size())
+    return false;
+  
+  for(std::size_t i=0; i<required.size(); ++i) {
+    const log_msg &req_msg = required[i];
+    const log_msg &rec_msg = received[i];
+    
+    if(req_msg.code != rec_msg.code)
+      return false;
+    
+    if(req_msg.param_vec.empty())
+      continue;
+    
+    if(req_msg.param_vec.size() != rec_msg.param_vec.size())
+      BOOST_FAIL("UNIT TEST ERROR: msg parameter list must either be empty or match that"
+        "of the given code: " << to_string(req_msg.code));
+    
+    for(std::size_t j=0; j<req_msg.param_vec.size(); ++j) {
+      if(!req_msg.param_vec[j].empty() && req_msg.param_vec[j] != rec_msg.param_vec[j])
+        return false;
+    }
+  }
+  
+  return true;
+}
+
+
+std::string output_logs(const std::vector<log_msg> &logs)
+{
+  std::stringstream out;
+  out << "Log output:";
+
+  if(logs.empty()) {
+    out << "\n\t[[empty]]";
+    return out.str();
+  }
+
+  for(std::size_t i=0; i<logs.size(); ++i) {
+    out << "\n\t" << to_string(logs[i].code) << ":";
+    for(std::size_t j=0; j<logs[i].param_vec.size(); ++j) {
+        out << " '" << logs[i].param_vec[j] << "'";
+    }
+  }  
+
+  return out.str();
+}
+
+std::string compare_logs(const std::vector<log_msg> &required, 
+  const std::vector<log_msg> &received)
+{
+  std::stringstream out;
+  
+  out << "Required log messages:";
+
+  for(std::size_t i=0; i<required.size(); ++i) {
+    out << "\n\t" << to_string(required[i].code) << ":";
+    if(required[i].param_vec.empty()) {
+      out << "[params ignored]";
+    }
+    else {
+      for(std::size_t j=0; j<required[i].param_vec.size(); ++j) {
+        if(required[i].param_vec[j].empty())
+          out << " [ignored]";
+        else
+          out << " " << required[i].param_vec[j];
+      }
+    }
+  }  
+
+  out << "\nReceived log messages:" << output_logs(received);
+
+  return out.str();
+}
+
 
 
 struct field_context {
   std::string label;
   const std::vector<std::vector<std::string> > valid_matrix;
   std::vector<std::vector<std::string> > parsed_matrix;
-  std::size_t invocation_count;
   
-  field_context(void) :label("unnamed"), valid_matrix(), invocation_count(0) {}
-  field_context(const std::string &str, const std::vector<std::vector<std::string> > &matrix) 
-    :label(str), valid_matrix(matrix), invocation_count(0) {}
+  field_context(void) :label("unnamed"), valid_matrix() {}
+  field_context(const std::string &str, 
+    const std::vector<std::vector<std::string> > &matrix) :label(str),
+       valid_matrix(matrix) {}
 };
 
 
@@ -249,21 +378,26 @@ static int field_callback(const char *fields[], size_t size, void *_context)
 {
   field_context &context = *static_cast<field_context*>(_context);
 
-// if(size == 0)
-//   std::cerr << "GOT EMPTY FIELDS\n";
-  
-// std::cerr << context.label << " field_callback " << context.invocation_count << " got: ";
-// for(std::size_t i=0; i<size; ++i)
-//   std::cerr << fields[i] << " ";
-// std::cerr << "\n";
-
   std::vector<std::string> row;
   for(std::size_t i=0; i<size; ++i)
     row.push_back(fields[i]);
   
   context.parsed_matrix.push_back(row);
+
+  return 1;
+}
+
+static int logger(dsv_log_code code, dsv_log_level level, const char *params[], 
+  size_t size, void *_context)
+{
+  logging_context &context = *static_cast<logging_context*>(_context);
+
+  log_msg msg{code};
   
-  (context.invocation_count)++;
+  for(std::size_t i=0; i<size; ++i)
+    msg.param_vec.push_back(params[i]);
+
+  context.recd_logs.push_back(msg);
 
   return 1;
 }
@@ -314,13 +448,12 @@ std::string output_fields(const detail::field_context &context)
       out << "<-- ";
     }
 
-//     std::cerr << "i is: " << i << " size is: " << context.parsed_matrix.size() << "\n";
     for(;i<context.parsed_matrix.size() && j<context.parsed_matrix[i].size(); ++j) {
-//       std::cerr << "j is: " << j << " size is: " << context.parsed_matrix[i].size() << "\n";
       out << " [[" << context.parsed_matrix[i][j] << "]]";
     }
   }    
 
+  out << "\nextra parsed matrix:";
   for(;i<context.parsed_matrix.size(); ++i) {
     out << "\n\t";
     for(std::size_t j=0; j<context.parsed_matrix[i].size(); ++j) {
@@ -333,7 +466,8 @@ std::string output_fields(const detail::field_context &context)
 
 void check_compliance(const std::vector<std::vector<std::string> > &headers,
   const std::vector<std::vector<std::string> > &records, 
-  const std::vector<std::string> contents, const std::string &label)
+  const std::vector<log_msg> &log_msgs, const std::vector<std::string> contents, 
+  const std::string &label, int expected_result)
 {
   fs::path filepath = gen_testfile(contents,label);
 
@@ -346,6 +480,9 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
   // set RFC4180 strict
   dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
 
+  detail::logging_context log_context;
+  dsv_set_logger_callback(detail::logger,&log_context,parser);
+
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);  
@@ -356,43 +493,48 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
   detail::field_context record_context("records",records);
   dsv_set_record_callback(detail::field_callback,&record_context,operations);
   
-  int result;
-  if((result = dsv_parse(filepath.c_str(),in.get(),parser,operations))) {
-    std::stringstream reason;
-    reason << "dsv_parse failed with code: " << result << " ";
+  int result = dsv_parse(filepath.c_str(),in.get(),parser,operations);
+  if(result != expected_result) {
+    std::stringstream out;
+    out << "dsv_parse returned with unexpected with code: " << result << ", expecting "
+      << expected_result;
     
     if(result > 0)
-      reason << "(" << strerror(result) << ")";
+      out << " (" << strerror(result) << ")";
     else
-      reason << "MSG LOG: '" << detail::msg_log(parser,dsv_log_all) << "'";
+      out << " MSG LOG:\n" << compare_logs(log_msgs,log_context.recd_logs);
     
-    reason << " for given file: '";
+    out << "\nfor given file: ";
     if(!filepath.empty())
-      reason << filepath;
+      out << filepath;
     else
-      reason << "[file stream]";
+      out << "[file stream]";
     
-    reason << "'\nHeader " << output_fields(header_context) 
+    out << "\nHeader " << output_fields(header_context) 
       << "\nRecord " << output_fields(record_context);
     
-    BOOST_REQUIRE_MESSAGE(result == 0,reason.str());
-    
+    BOOST_REQUIRE_MESSAGE(result == expected_result,out.str()); 
   }
 
   BOOST_REQUIRE_MESSAGE(
-    header_context.invocation_count == header_context.parsed_matrix.size() &&
+    header_context.valid_matrix.size() == header_context.parsed_matrix.size() &&
     header_context.valid_matrix == header_context.parsed_matrix,
       "Headers did not parse correctly. Correct: " << ": "
-      << header_context.parsed_matrix.size() << " Parsed: "
-      << header_context.invocation_count << "\n" << output_fields(header_context));
+      << header_context.valid_matrix.size() << " Parsed: "
+      << header_context.parsed_matrix.size() << "\n" << output_fields(header_context));
 
   BOOST_REQUIRE_MESSAGE(
-    record_context.invocation_count == record_context.parsed_matrix.size() &&
+    record_context.valid_matrix.size() == record_context.parsed_matrix.size() &&
     record_context.valid_matrix == record_context.parsed_matrix,
       "Records did not parse correctly. Correct: " << ": "
-      << header_context.parsed_matrix.size() << " Parsed: "
-      << header_context.invocation_count << "\n" << output_fields(record_context));
+      << header_context.valid_matrix.size() << " Parsed: "
+      << header_context.parsed_matrix.size() << "\n" << output_fields(record_context));
 
+  BOOST_REQUIRE_MESSAGE(check_logs(log_msgs,log_context.recd_logs),
+    "Did not receive the correct type and/or number of log messages:\n"
+    << compare_logs(log_msgs,log_context.recd_logs));
+  
+  
   // if here, then delete the test file
   in.reset(0);
   fs::remove(filepath);

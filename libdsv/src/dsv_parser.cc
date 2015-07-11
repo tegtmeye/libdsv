@@ -311,8 +311,6 @@ void dsv_set_record_callback(record_callback_t fn, void *context,
 int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
               dsv_operations_t _operations)
 {
-  dsv_parse_log_count(_parser,dsv_log_all);
-
   assert(_parser.p && _operations.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
@@ -358,21 +356,16 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   return err;
 }
 
-size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level)
+log_callback_t dsv_get_logger_callback(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  size_t result = 0;
-
+  log_callback_t result = 0;
+  
   try {
-    detail::parser::const_log_iterator cur = parser.log_begin();
-    while(cur != parser.log_end()) {
-      if(cur->first & log_level)
-        ++result;
-      ++cur;
-    }
+    result = parser.log_callback();
   }
   catch(...) {
     abort();
@@ -381,68 +374,22 @@ size_t dsv_parse_log_count(dsv_parser_t _parser, dsv_log_level log_level)
   return result;
 }
 
-ssize_t dsv_parse_log(dsv_parser_t _parser, dsv_log_level log_level, size_t num,
-  dsv_log_code *code, char *buf, size_t len)
+/**
+ *  \brief Obtain the user-defined context currently set for header
+ *
+ *  \retval 0 No context is registered
+ *  \retval nonzero The currently registered context
+ */
+void * dsv_get_logger_context(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  ssize_t result = 0;
-
+  void *result = 0;
+  
   try {
-    size_t i = 0;
-    detail::parser::const_log_iterator cur = parser.log_begin();
-    while(cur != parser.log_end()) {
-      if(cur->first & log_level && i++ == num)
-        break;
-
-      ++cur;
-    }
-
-    // num is greater than number of filtered messages
-    if(cur == parser.log_end()) {
-      errno = EINVAL;
-      return -1;
-    }
-
-    // cur now hold the selected message
-    const detail::log_description &desc = cur->second;
-
-    *code = desc.code();
-
-    if(!buf) {
-      detail::log_description::const_param_iterator param = desc.param_begin();
-      while(param != desc.param_end()) {
-        result += param->size();
-        ++param;
-      }
-    }
-    else {
-      // for each parameter, copy it into the corresponding placeholder deducting the
-      // length of the parameter from len. If len is smaller than the length of the
-      // parameter, just copy len characters. Stop on the last parameter or if len is
-      // zero
-      std::string tmp_str(buf);
-      detail::log_description::const_param_iterator param = desc.param_begin();
-      for(std::size_t i=0; param != desc.param_end(); ++i, ++param) {
-        // create the placeholder string
-        std::stringstream n;
-        n << "\\$" << i;
-
-        std::regex exp(n.str());
-        tmp_str = std::regex_replace(tmp_str,exp,*param);
-      }
-
-      buf = std::copy_n(tmp_str.begin(),std::min(tmp_str.size(),len-1),buf);
-
-      // add null character to the end
-      *buf = 0;
-    }
-  }
-  catch(std::bad_alloc &) {
-    errno = ENOMEM;
-    result = -1;
+    result = parser.log_context();
   }
   catch(...) {
     abort();
@@ -450,5 +397,27 @@ ssize_t dsv_parse_log(dsv_parser_t _parser, dsv_log_level log_level, size_t num,
 
   return result;
 }
+
+/**
+ *  \brief Associate the logging callback \c fn and a user-specified value \c context
+ *  with \c parser.
+ *
+ *  \note The value of \c context is passed in as the \c context parameter in \c fn
+ */
+void dsv_set_logger_callback(log_callback_t fn, void *context, dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  try {
+    parser.log_callback(fn);
+    parser.log_context(context);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
 
 }

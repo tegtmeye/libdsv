@@ -64,25 +64,86 @@
     detail::parser &parser, const detail::parse_operations &operations,
     const std::unique_ptr<detail::scanner_state> &context, const char *s)
   {
-    std::string param_array[] = {
-      std::to_string(llocp->first_line),
-      std::to_string(llocp->last_line),
-      std::to_string(llocp->first_column),
-      std::to_string(llocp->last_column),
-      scanner.filename()
-    };
+    log_callback_t logger = parser.log_callback();
+    if(logger) {
+      std::string first_line = std::to_string(llocp->first_line);
+      std::string last_line = std::to_string(llocp->last_line);
+      std::string first_column = std::to_string(llocp->first_column);
+      std::string last_column = std::to_string(llocp->last_column);
+      std::string filename = scanner.filename();
     
-    detail::log_description log_desc(dsv_syntax_error,param_array,
-      param_array+sizeof(param_array)/sizeof(std::string));
-    
-    parser.append_log(dsv_log_error,log_desc);
-
-// 
-// 
-//     std::cerr << "ERROR: (" << llocp->first_line << "." << llocp->first_column << "-"
-//                    << llocp->last_line << "." << llocp->last_column << ") '"
-//                    << s << "'\n";
+      const char *fields[] = {
+        first_line.c_str(),
+        last_line.c_str(),
+        first_column.c_str(),
+        last_column.c_str(),
+        filename.c_str()
+      };
+      
+      logger(dsv_syntax_error,dsv_log_error,fields,sizeof(fields)/sizeof(const char *),
+        parser.log_context());
+    }
   }
+
+  void column_count_error(const YYLTYPE &llocp, const detail::scanner_state &scanner,
+    detail::parser &parser, std::size_t rec_cols)
+  {
+    // - The line number associated with the start of the offending row[*][**]
+    // - The line number associated with the end of the offending row[*][**]
+    // - The expected number of fields[*]
+    // - The number of fields parsed for this row[*]
+    // - The location_str associated with the syntax error if it was supplied to
+    //   \c dsv_parse
+    log_callback_t logger = parser.log_callback();
+    if(logger) {
+      std::string first_line = std::to_string(llocp.first_line);
+      std::string last_line = std::to_string(llocp.last_line);
+      std::string exp_columns = std::to_string(parser.effective_field_columns());
+      std::string rec_columns = std::to_string(rec_cols);
+      std::string filename = scanner.filename();
+
+      const char *fields[] = {
+        first_line.c_str(),
+        last_line.c_str(),
+        exp_columns.c_str(),
+        rec_columns.c_str(),
+        filename.c_str()
+      };
+      
+      logger(dsv_column_count_error,dsv_log_error,fields,
+        sizeof(fields)/sizeof(const char *),parser.log_context());
+    }    
+  }
+
+  bool nonrectangular_column_info(const YYLTYPE &llocp, const detail::scanner_state &scanner,
+    detail::parser &parser, std::size_t rec_cols)
+  {
+    // - The line that triggered the column inconsistency[*][**]
+    // - The number of fields that would allow the record columns to remain consistant[*]
+    // - The number of fields parsed for this row that triggered the inconsistency[*]
+    // - The location_str associated with the syntax error if it was supplied to
+    //   \c dsv_parse
+    log_callback_t logger = parser.log_callback();
+    if(logger) {
+      std::string last_line = std::to_string(llocp.last_line);
+      std::string exp_columns = std::to_string(parser.effective_field_columns());
+      std::string rec_columns = std::to_string(rec_cols);
+      std::string filename = scanner.filename();
+
+      const char *fields[] = {
+        last_line.c_str(),
+        exp_columns.c_str(),
+        rec_columns.c_str(),
+        filename.c_str()
+      };
+      
+      return logger(dsv_nonrectangular_records_info,dsv_log_info,fields,
+        sizeof(fields)/sizeof(const char *),parser.log_context());
+    }
+    
+    return true;
+  }
+
 
    int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
      detail::parser &parser);
@@ -100,41 +161,18 @@
     {
       ssize_t columns = str_vec_ptr->size();
       
-//       std::cerr << "check_or_update_column_count: has " << columns << " ["
-//         << (columns?*(str_vec_ptr->at(0)):"") << "] effective is: "
-//         << parser.effective_field_columns() << "\n";
-      
       if(parser.effective_field_columns() == 0)
         parser.effective_field_columns(columns);
-      else if(parser.effective_field_columns() > 0 && 
-        parser.effective_field_columns() != columns)
-      {
-        /*
-          - The line number associated with the start of the offending row[*][**]
-          - The line number associated with the end of the offending row[*][**]
-          - The expected number of fields[*]
-          - The number of fields parsed for this row[*]
-          - The location_str associated with the syntax error if it was supplied to
-            \c dsv_parse
-        */
-
-        std::string param_array[] = {
-          std::to_string(llocp.first_line),
-          std::to_string(llocp.last_line),
-          std::to_string(parser.effective_field_columns()),
-          std::to_string(columns),
-          scanner.filename()
-        };
-    
-        detail::log_description log_desc(dsv_column_count_error,param_array,
-          param_array+sizeof(param_array)/sizeof(std::string));
-    
-        parser.append_log(dsv_log_error,log_desc);
-        
-        return true;
-      }
-      
-      return false;
+      else if(parser.effective_field_columns() != columns) {
+        if(parser.field_columns() < 0) {
+          return nonrectangular_column_info(llocp,scanner,parser,columns);
+        }
+        else {
+          column_count_error(llocp,scanner,parser,columns);
+          return false;
+        }
+      }      
+      return true;
     }
     
     
@@ -229,20 +267,20 @@ file:
       // Don't set effective to 0 cols cause that makes no sense
       
       // do manual process header cause we know it is empty
-      if(operations.header_callback) {
-        if(!operations.header_callback(0,0,operations.header_context)) {
-          YYABORT;
-        }
+      if(operations.header_callback &&
+        !operations.header_callback(0,0,operations.header_context)) 
+      {
+        YYABORT;
       }
     }
   | NL record_block {
       // NL means no header. Don't set effective to 0 cols cause that makes no sense
       
       // do manual process header cause we know it is empty
-      if(operations.header_callback) {
-        if(!operations.header_callback(0,0,operations.header_context)) {
-          YYABORT;
-        }
+      if(operations.header_callback &&
+        !operations.header_callback(0,0,operations.header_context)) 
+      {
+        YYABORT;
       }
     }
   | header_block
@@ -252,7 +290,7 @@ file:
 
 header_block:
   field_list {
-      if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
+      if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
         YYABORT;
         
       if(!detail::process_header($1,operations))
@@ -332,7 +370,7 @@ non_escaped_field:
 record_block:
     NL {  // A single NL means an empty record block
       // check to see if empty records are allowed
-      if(detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec) == true)
+      if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec))
         YYABORT;
 
       // manual process record cause we know it is empty, the return value doesn't matter
@@ -349,13 +387,14 @@ record_list:
     record NL
   | record_list NL {
       // Single NL means empty record
-      if(detail::check_or_update_column_count(@2,scanner,parser,detail::empty_vec) == true)
+      if(!detail::check_or_update_column_count(@2,scanner,parser,detail::empty_vec))
         YYABORT;
     
       // do manual process record cause we know it is empty
-      if(operations.record_callback) {
-        if(!operations.record_callback(0,0,operations.record_context))
-          YYABORT;
+      if(operations.record_callback &&
+        !operations.record_callback(0,0,operations.record_context))
+      {
+        YYABORT;
       }
     }
   | record_list record NL
@@ -363,7 +402,7 @@ record_list:
 
 record:
     field_list {
-      if(detail::check_or_update_column_count(@1,scanner,parser,$1) == true)
+      if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
         YYABORT;
         
       if(!detail::process_record($1,operations))
@@ -415,11 +454,17 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   // next holds the lookahead
   unsigned char cur;
   while(scanner.getc(cur) && scanner.advance()) {
-//    std::cerr << "Scanned '" << static_cast<unsigned int>(cur) << "'\n";;
-
     llocp->first_line = llocp->last_line;
     llocp->first_column = (llocp->last_column)++;
 
+//     std::cerr << "Top scanned '";
+//     if(cur > 32 && cur < 126)
+//       std::cerr << cur;
+//     else
+//       std::cerr << static_cast<unsigned int>(cur);
+//     std::cerr << "' at column " << llocp->first_column << ":" 
+//       << llocp->last_column << "\n";
+// 
     unsigned char next;
     scanner.getc(next);
 
@@ -457,6 +502,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       if(next == 0x22) {
         scanner.advance();
         ++(llocp->last_column);
+//         std::cerr << "got QUOTE column update " << llocp->last_column << "\n";
         return D2QUOTE;
       }
       return DQUOTE;
@@ -465,7 +511,6 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       lvalp->str_ptr = std::shared_ptr<std::string>(new std::string(&cur, (&cur)+1));
 
       for(; scanner.getc(cur); scanner.advance()) {
-        ++(llocp->last_column);
         if(cur == parser.delimiter() ||
           cur == 0x0A || //LF
           cur == 0x0D || //CR
@@ -474,6 +519,16 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
           return TEXTDATA;
         }
 
+        ++(llocp->last_column);
+
+//         std::cerr << "Textdata scanned '";
+//         if(cur > 32 && cur < 126)
+//           std::cerr << cur;
+//         else
+//           std::cerr << static_cast<unsigned int>(cur);
+//         std::cerr << "' at column " << llocp->first_column << ":" 
+//           << llocp->last_column << "\n";
+// 
         lvalp->str_ptr->push_back(cur);
       }
       

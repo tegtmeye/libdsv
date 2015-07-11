@@ -96,6 +96,13 @@ class parser {
 
     parser(void);
 
+    log_callback_t log_callback(void) const;
+    log_callback_t log_callback(log_callback_t fn);
+
+    void * log_context(void) const;
+    void * log_context(void *context);
+
+
     std::size_t log_size(void) const;
     const_log_iterator log_begin(void) const;
     const_log_iterator log_end(void) const;
@@ -122,6 +129,9 @@ class parser {
     void reset(void);
 
   private:
+    log_callback_t log_fn;
+    void *lcontext;
+  
     log_list_type log_list;
 
     dsv_newline_behavior newline_flag;
@@ -133,10 +143,34 @@ class parser {
     unsigned char field_delimiter;
 };
 
-inline parser::parser(void) :field_delimiter(',')
+inline parser::parser(void) :log_fn(0), lcontext(0), field_delimiter(',')
 {
   newline_behavior(dsv_newline_permissive);
   field_columns(0);
+}
+
+inline log_callback_t parser::log_callback(void) const
+{
+  return log_fn;
+}
+
+inline log_callback_t parser::log_callback(log_callback_t fn)
+{
+  log_callback_t tmp = log_fn;
+  log_fn = fn;
+  return tmp;
+}
+
+inline void * parser::log_context(void) const
+{
+  return lcontext;
+}
+
+inline void * parser::log_context(void *context)
+{
+  void * tmp = lcontext;
+  lcontext = context;
+  return tmp;
 }
 
 inline std::size_t parser::log_size(void) const
@@ -196,7 +230,11 @@ inline ssize_t parser::field_columns(ssize_t _num_cols)
 {
   ssize_t tmp = num_cols;
   num_cols = _num_cols;
-  effective_num_cols = _num_cols;
+  
+  if(_num_cols == -1)
+    effective_num_cols = 0;
+  else
+    effective_num_cols = _num_cols;
   
   return tmp;
 }
