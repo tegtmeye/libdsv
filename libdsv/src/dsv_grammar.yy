@@ -161,17 +161,22 @@
     {
       ssize_t columns = str_vec_ptr->size();
       
-      if(parser.effective_field_columns() == 0)
+      if(!parser.effective_field_columns_set()) {
+        std::cerr << "effective_field_columns_set NOT set\n";
+        parser.effective_field_columns_set(true);
         parser.effective_field_columns(columns);
+      }
       else if(parser.effective_field_columns() != columns) {
-        if(parser.field_columns() < 0) {
+        std::cerr << "effective_field_columns_set set && cols not equal\n";
+        if(parser.effective_field_columns() < 0) {
           return nonrectangular_column_info(llocp,scanner,parser,columns);
         }
         else {
           column_count_error(llocp,scanner,parser,columns);
           return false;
         }
-      }      
+      }
+
       return true;
     }
     
@@ -201,7 +206,7 @@
     bool process_record(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
       const detail::parse_operations &operations)
     {
-//       std::cerr << "CALLING PROCESS_RECORD\n";
+       std::cerr << "CALLING PROCESS_RECORD\n";
       bool keep_going = true;
       if(operations.record_callback) {
         operations.field_storage.clear();
@@ -274,8 +279,13 @@ file:
       }
     }
   | NL record_block {
-      // NL means no header. Don't set effective to 0 cols cause that makes no sense
-      
+      // NL means no header. Check to see if empty records are allowed
+      std::cerr << "HERE!!!!!!!!!!!!!!\n";
+      if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec)) {
+            std::cerr << "ABORTING!!!!!!!!!!!!!!\n";
+
+        YYABORT;
+}      
       // do manual process header cause we know it is empty
       if(operations.header_callback &&
         !operations.header_callback(0,0,operations.header_context)) 

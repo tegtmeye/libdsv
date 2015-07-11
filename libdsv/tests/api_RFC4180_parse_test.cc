@@ -563,9 +563,9 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
- *    rfc4180 character set. The header is empty. This should pass under the current
- *    interpretation of RFC4180. That is, an empty header means no columns which doesn't
- *    mean no columns in the record. This interpretation may change and this test case
+ *    rfc4180 character set. The header is empty. This should fail under this
+ *    interpretation of RFC4180. That is, an empty header means no columns which
+ *    means no columns in the record. This interpretation may change and this test case
  *    would then need to be updated accordingly.
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
@@ -582,8 +582,12 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
     d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
-    "parse_rfc4180_empty_header_charset_crlf",0);
+  std::vector<detail::log_msg> logs{
+    {dsv_column_count_error,{"2","2","94","95",""}}
+  };
+
+  d::check_compliance(headers,records,logs,file_contents,
+    "parse_rfc4180_empty_header_charset_crlf",-1);
 }
 
 /** \test Attempt to parse an named file where the header and the record is empty. This

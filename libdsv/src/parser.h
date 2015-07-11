@@ -109,10 +109,10 @@ class parser {
 
     void append_log(dsv_log_level level, const log_description &desc);
 
+    /* exposed behaviors */
     unsigned char delimiter(void) const;
     unsigned char delimiter(unsigned char d);
 
-    /* exposed behaviors */
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
@@ -125,6 +125,9 @@ class parser {
 
     ssize_t effective_field_columns(void) const;
     ssize_t effective_field_columns(ssize_t num_cols);
+    
+    bool effective_field_columns_set(void) const;
+    bool effective_field_columns_set(bool flag);
 
     void reset(void);
 
@@ -137,16 +140,17 @@ class parser {
     dsv_newline_behavior newline_flag;
     dsv_newline_behavior effective_newline_flag;
     
-    ssize_t num_cols;
-    ssize_t effective_num_cols;
+    ssize_t _field_columns;
+    ssize_t _effective_field_columns;
+    bool _effective_field_columns_set;
     
     unsigned char field_delimiter;
 };
 
-inline parser::parser(void) :log_fn(0), lcontext(0), field_delimiter(',')
+inline parser::parser(void) :log_fn(0), lcontext(0), _field_columns(0),
+  _effective_field_columns(0), _effective_field_columns_set(false), field_delimiter(',')
 {
   newline_behavior(dsv_newline_permissive);
-  field_columns(0);
 }
 
 inline log_callback_t parser::log_callback(void) const
@@ -223,18 +227,16 @@ parser::newline_behavior(dsv_newline_behavior behavior)
 
 inline ssize_t parser::field_columns(void) const
 {
-  return num_cols;
+  return _field_columns;
 }
 
-inline ssize_t parser::field_columns(ssize_t _num_cols)
+inline ssize_t parser::field_columns(ssize_t cols)
 {
-  ssize_t tmp = num_cols;
-  num_cols = _num_cols;
+  ssize_t tmp = _field_columns;
+  _field_columns = cols;
+  _effective_field_columns = cols;
   
-  if(_num_cols == -1)
-    effective_num_cols = 0;
-  else
-    effective_num_cols = _num_cols;
+  _effective_field_columns_set = (cols > 0);
   
   return tmp;
 }
@@ -253,22 +255,36 @@ inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
 
 inline ssize_t parser::effective_field_columns(void) const
 {
-  return effective_num_cols;
+  return _effective_field_columns;
 }
 
-inline ssize_t parser::effective_field_columns(ssize_t _num_cols)
+inline ssize_t parser::effective_field_columns(ssize_t cols)
 {
-  ssize_t tmp = effective_num_cols;
-  effective_num_cols = _num_cols;
+  ssize_t tmp = _effective_field_columns;
+  _effective_field_columns = cols;
   return tmp;
 }
+
+inline bool parser::effective_field_columns_set(void) const
+{
+  return _effective_field_columns_set;
+}
+
+inline bool parser::effective_field_columns_set(bool flag)
+{
+  bool tmp = _effective_field_columns_set;
+  _effective_field_columns_set = flag;
+  return tmp;
+}
+
 
 
 inline void parser::reset(void)
 {
   log_list.clear();
   effective_newline_flag = newline_flag;
-  effective_num_cols = num_cols;
+  _effective_field_columns = _field_columns;
+  _effective_field_columns_set = (_field_columns > 0);
 }
 
 
