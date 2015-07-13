@@ -129,113 +129,6 @@ inline const std::string & format_str(dsv_log_code msg_code)
 }
 
 
-#if 0
-std::string msg_log(dsv_parser_t parser, dsv_log_level log_level)
-{
-  std::stringstream result;
-
-  // Get the number of log messages for \c log_level
-  size_t num_msgs = dsv_parse_log_count(parser,log_level);
-
-  // iterate over all codes
-  for(size_t i=0; i<num_msgs; ++i) {
-    // Get the code and minimum storage requirement for the msg parameters
-    dsv_log_code msg_code;
-
-    errno = 0;
-    ssize_t len = dsv_parse_flog(parser,log_level,i,&msg_code,0,0);
-    if(len < 0) {
-      std::stringstream err;
-      err << "dsv_parse_error message code get failed with errno " << errno;
-      throw std::runtime_error(err.str());
-    }
-
-    // msg_code now holds the code associated with the msg
-    // len now holds the storage needed for the the total number of parameters
-    // associated with msg_code.
-
-    const std::string &fmt_str = format_str(msg_code);
-
-    // Allocate buf based on minimum needed to store the parameters and the
-    // length needed to store the format string potentially trimmed of the
-    // placeholders. Do not forget to add space for the null terminator
-    size_t storage_len = (fmt_str.size()+len+1);
-    std::unique_ptr<char> buff(new char[storage_len]);
-
-    // copy the format string to buff and set the null-terminator
-    *(std::copy(fmt_str.begin(),fmt_str.end(),buff.get())) = 0;
-
-    errno = 0;
-    
-    len = dsv_parse_flog(parser,log_level,i,&msg_code,buff.get(),storage_len);
-    if(len < 0) {
-      std::stringstream err;
-      err << "dsv_parse_error message formatter failed with errno " << errno;
-      throw std::runtime_error(err.str());
-    }
-
-    result << buff.get();
-  }
-
-  return result.str();
-}
-
-bool msg_log_check(dsv_parser_t parser, const std::vector<dsv_log_code> &_code_vec)
-{
-  std::vector<dsv_log_code> code_vec = _code_vec;
-  
-  size_t num_msgs = dsv_parse_log_count(parser,dsv_log_all);
-  
-  if(num_msgs < code_vec.size()) {
-    std::stringstream err;
-    err << "ERROR: Parser logged less codes than required. Saw " << num_msgs
-      << " required " << code_vec.size() << "\n";
-    return false;
-  }
-  
-  std::vector<dsv_log_code> logged_code_vec;
-  for(std::size_t i=0; i<num_msgs; ++i) {
-    // Get the code and minimum storage requirement for the msg parameters
-    dsv_log_code msg_code;
-
-    errno = 0;
-    ssize_t len = dsv_parse_flog(parser,dsv_log_all,i,&msg_code,0,0);
-    if(len < 0) {
-      std::stringstream err;
-      err << "UNIT TEST FAILURE: dsv_parse_error message code get failed with errno "
-        << errno;
-      return false;
-    }
-    
-    logged_code_vec.push_back(msg_code);
-  }  
-
-  for(std::size_t i=0; i<code_vec.size(); ++i) {
-    std::vector<dsv_log_code>::iterator loc = 
-      std::find(logged_code_vec.begin(),logged_code_vec.end(),code_vec[i]);
-    
-    if(loc == logged_code_vec.end()) {
-      std::stringstream err;
-      err << "ERROR: parser failed to log msg with code: " << code_vec[i];
-      return false;
-    }
-    
-    logged_code_vec.erase(loc);
-  }
-
-  // logged_code_vec may still contain logged messages
-  if(!logged_code_vec.empty()) {
-    std::stringstream err;
-    err << "ERROR: parser logged unexpected msgs:";
-    for(std::size_t i=0; i<logged_code_vec.size(); ++i)
-      err << " " << logged_code_vec[i];
-    return false;
-  }
-  
-  return true;
-}
-#endif
-
 
 std::string to_string(dsv_log_code code)
 {
@@ -362,27 +255,45 @@ std::string compare_logs(const std::vector<log_msg> &required,
 
 
 
-struct field_context {
-  std::string label;
-  const std::vector<std::vector<std::string> > valid_matrix;
-  std::vector<std::vector<std::string> > parsed_matrix;
+struct file_context {
+  const std::vector<std::vector<std::string> > valid_headers;
+  std::vector<std::vector<std::string> > parsed_headers;
+
+  const std::vector<std::vector<std::string> > valid_records;
+  std::vector<std::vector<std::string> > parsed_records;
   
-  field_context(void) :label("unnamed"), valid_matrix() {}
-  field_context(const std::string &str, 
-    const std::vector<std::vector<std::string> > &matrix) :label(str),
-       valid_matrix(matrix) {}
+  file_context(void) {}
+  file_context(const std::vector<std::vector<std::string> > &headers,
+    const std::vector<std::vector<std::string> > &records)
+       :valid_headers(headers), valid_records(records) {}
 };
 
 
-static int field_callback(const char *fields[], size_t size, void *_context)
+static int header_callback(const char *fields[], size_t size, void *_context)
 {
-  field_context &context = *static_cast<field_context*>(_context);
+  file_context &context = *static_cast<file_context*>(_context);
+
+  BOOST_REQUIRE_MESSAGE(context.parsed_records.empty(),
+    "Header callback called after " << context.parsed_records.size() << " records seen");
 
   std::vector<std::string> row;
   for(std::size_t i=0; i<size; ++i)
     row.push_back(fields[i]);
   
-  context.parsed_matrix.push_back(row);
+  context.parsed_headers.push_back(row);
+
+  return 1;
+}
+
+static int record_callback(const char *fields[], size_t size, void *_context)
+{
+  file_context &context = *static_cast<file_context*>(_context);
+
+  std::vector<std::string> row;
+  for(std::size_t i=0; i<size; ++i)
+    row.push_back(fields[i]);
+  
+  context.parsed_records.push_back(row);
 
   return 1;
 }
@@ -424,22 +335,23 @@ inline fs::path gen_testfile(const std::vector<std::string> contents,
   return filepath;
 }
 
-std::string output_fields(const detail::field_context &context)
+std::string output_fields(const std::vector<std::vector<std::string> > &valid_matrix,
+  const std::vector<std::vector<std::string> > &parsed_matrix)
 {
   std::stringstream out;
   
   out << "valid matrix:";
   
   std::size_t i;
-  for(i=0; i<context.valid_matrix.size(); ++i) {
+  for(i=0; i<valid_matrix.size(); ++i) {
     out << "\n\t";
     
     std::size_t j;
-    for(j=0; j<context.valid_matrix[i].size(); ++j) {
-      out << "-->" << context.valid_matrix[i][j];
-      if(i<context.parsed_matrix.size() && j<context.parsed_matrix[i].size()) {
-        if(context.valid_matrix[i][j] != context.parsed_matrix[i][j])
-          out << "[" << context.parsed_matrix[i][j] << "]";
+    for(j=0; j<valid_matrix[i].size(); ++j) {
+      out << "-->" << valid_matrix[i][j];
+      if(i<parsed_matrix.size() && j<parsed_matrix[i].size()) {
+        if(valid_matrix[i][j] != parsed_matrix[i][j])
+          out << "[" << parsed_matrix[i][j] << "]";
       }
       else {
         out << "[missing]";
@@ -448,16 +360,16 @@ std::string output_fields(const detail::field_context &context)
       out << "<-- ";
     }
 
-    for(;i<context.parsed_matrix.size() && j<context.parsed_matrix[i].size(); ++j) {
-      out << " [[" << context.parsed_matrix[i][j] << "]]";
+    for(;i<parsed_matrix.size() && j<parsed_matrix[i].size(); ++j) {
+      out << " [[" << parsed_matrix[i][j] << "]]";
     }
   }    
 
   out << "\nextra parsed matrix:";
-  for(;i<context.parsed_matrix.size(); ++i) {
+  for(;i<parsed_matrix.size(); ++i) {
     out << "\n\t";
-    for(std::size_t j=0; j<context.parsed_matrix[i].size(); ++j) {
-      out << " [[" << context.parsed_matrix[i][j] << "]]";
+    for(std::size_t j=0; j<parsed_matrix[i].size(); ++j) {
+      out << " [[" << parsed_matrix[i][j] << "]]";
     }
   }
   
@@ -489,12 +401,10 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
   std::shared_ptr<dsv_operations_t> 
     operations_sentry(&operations,detail::operations_destroy);  
 
-  detail::field_context header_context("header",headers);
-  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+  file_context context(headers,records);
+  dsv_set_header_callback(header_callback,&context,operations);
+  dsv_set_record_callback(record_callback,&context,operations);
 
-  detail::field_context record_context("records",records);
-  dsv_set_record_callback(detail::field_callback,&record_context,operations);
-  
   int result = dsv_parse(filepath.c_str(),in.get(),parser,operations);
   if(result != expected_result) {
     std::stringstream out;
@@ -512,25 +422,27 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
     else
       out << "[file stream]";
     
-    out << "\nHeader " << output_fields(header_context) 
-      << "\nRecord " << output_fields(record_context);
+    out << "\nHeader " << output_fields(context.valid_headers,context.parsed_headers) 
+      << "\nRecord " << output_fields(context.valid_records,context.parsed_records);
     
     BOOST_REQUIRE_MESSAGE(result == expected_result,out.str()); 
   }
 
   BOOST_REQUIRE_MESSAGE(
-    header_context.valid_matrix.size() == header_context.parsed_matrix.size() &&
-    header_context.valid_matrix == header_context.parsed_matrix,
+    context.valid_headers.size() == context.parsed_headers.size() &&
+    context.valid_headers == context.parsed_headers,
       "Headers did not parse correctly. Correct: " << ": "
-      << header_context.valid_matrix.size() << " Parsed: "
-      << header_context.parsed_matrix.size() << "\n" << output_fields(header_context));
+      << context.valid_headers.size() << " Parsed: "
+      << context.parsed_headers.size() << "\n" 
+      << output_fields(context.valid_headers,context.parsed_headers));
 
   BOOST_REQUIRE_MESSAGE(
-    record_context.valid_matrix.size() == record_context.parsed_matrix.size() &&
-    record_context.valid_matrix == record_context.parsed_matrix,
+    context.valid_records.size() == context.parsed_records.size() &&
+    context.valid_records == context.parsed_records,
       "Records did not parse correctly. Correct: " << ": "
-      << header_context.valid_matrix.size() << " Parsed: "
-      << header_context.parsed_matrix.size() << "\n" << output_fields(record_context));
+      << context.valid_records.size() << " Parsed: "
+      << context.parsed_records.size() << "\n" 
+      << output_fields(context.valid_records,context.parsed_records));
 
   BOOST_REQUIRE_MESSAGE(check_logs(log_msgs,log_context.recd_logs),
     "Did not receive the correct type and/or number of log messages:\n"

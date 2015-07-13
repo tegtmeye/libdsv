@@ -89,16 +89,15 @@ BOOST_AUTO_TEST_CASE( header_getting_and_setting )
   BOOST_REQUIRE_MESSAGE(context == 0,
     "dsv_get_header_context returns nonzero for an unset header context");
 
-  detail::field_context header_context; // may throw
-
-  dsv_set_header_callback(detail::field_callback,&header_context,operations);
+  detail::file_context fcontext; // may throw
+  dsv_set_header_callback(detail::header_callback,&fcontext,operations);
 
   fn = dsv_get_header_callback(operations);
-  BOOST_REQUIRE_MESSAGE(fn == detail::field_callback,
+  BOOST_REQUIRE_MESSAGE(fn == detail::header_callback,
     "dsv_get_header_callback does not return the just-set header callback");
 
   context = dsv_get_header_context(operations);
-  BOOST_REQUIRE_MESSAGE(context == &header_context,
+  BOOST_REQUIRE_MESSAGE(context == &fcontext,
     "dsv_get_header_context does not return the just-set header context");
 
   dsv_operations_destroy(operations);
@@ -121,16 +120,15 @@ BOOST_AUTO_TEST_CASE( record_getting_and_setting )
   BOOST_REQUIRE_MESSAGE(context == 0,
     "dsv_get_record_context returns nonzero for an unset record context");
 
-  detail::field_context record_context; // may throw
-
-  dsv_set_record_callback(detail::field_callback,&record_context,operations);
+  detail::file_context fcontext; // may throw
+  dsv_set_record_callback(detail::record_callback,&fcontext,operations);
 
   fn = dsv_get_record_callback(operations);
-  BOOST_REQUIRE_MESSAGE(fn == detail::field_callback,
+  BOOST_REQUIRE_MESSAGE(fn == detail::record_callback,
     "dsv_get_record_callback does not return the just-set record callback");
 
   context = dsv_get_record_context(operations);
-  BOOST_REQUIRE_MESSAGE(context == &record_context,
+  BOOST_REQUIRE_MESSAGE(context == &fcontext,
     "dsv_get_record_context does not return the just-set record context");
 
   dsv_operations_destroy(operations);
