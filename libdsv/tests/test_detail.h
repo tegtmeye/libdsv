@@ -471,7 +471,8 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
 {
   fs::path filepath = gen_testfile(contents,label);
 
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)> in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)> 
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
   dsv_parser_t parser;
   assert(dsv_parser_create(&parser) == 0);
@@ -485,7 +486,8 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
-  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);  
+  std::shared_ptr<dsv_operations_t> 
+    operations_sentry(&operations,detail::operations_destroy);  
 
   detail::field_context header_context("header",headers);
   dsv_set_header_callback(detail::field_callback,&header_context,operations);

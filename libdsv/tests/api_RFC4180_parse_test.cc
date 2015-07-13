@@ -573,9 +573,6 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
   std::vector<std::vector<std::string> > headers{
     {}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset,d::rfc4180_charset}
-  };
 
   std::vector<std::string> file_contents{
     d::crlf,
@@ -583,10 +580,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_error,{"2","2","94","95",""}}
+    {dsv_column_count_error,{"2","2","0","2",""}}
   };
 
-  d::check_compliance(headers,records,logs,file_contents,
+  d::check_compliance(headers,{},logs,file_contents,
     "parse_rfc4180_empty_header_charset_crlf",-1);
 }
 
