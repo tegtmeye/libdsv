@@ -24,7 +24,8 @@ additional_test_ldflags=\
 check_PROGRAMS= \
 	api_parser_object_suite \
 	api_operations_object_suite \
-	api_RFC4180_parse_test
+	api_RFC4180_parse_test \
+	api_RFC4180_permissive_parse_test
 
 api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -47,10 +48,18 @@ api_RFC4180_parse_test_CPPFLAGS=$(additional_test_cppflags)
 api_RFC4180_parse_test_LDADD=$(additional_test_libs)
 api_RFC4180_parse_test_LDFLAGS=$(additional_test_ldflags)
 
+api_RFC4180_permissive_parse_test_SOURCES=$(master_suite) \
+	test_detail.h \
+	api_RFC4180_permissive_parse_test.cc
+api_RFC4180_permissive_parse_test_CPPFLAGS=$(additional_test_cppflags)
+api_RFC4180_permissive_parse_test_LDADD=$(additional_test_libs)
+api_RFC4180_permissive_parse_test_LDFLAGS=$(additional_test_ldflags)
+
 TESTS=\
 	api_parser_object_suite \
 	api_operations_object_suite \
-	api_RFC4180_parse_test
+	api_RFC4180_parse_test \
+	api_RFC4180_permissive_parse_test
 
 CLEANFILES=\
 	api_parser_object_suite.log \
@@ -59,6 +68,8 @@ CLEANFILES=\
 	api_operations_object_suite.trs \
 	api_RFC4180_parse_test.log \
 	api_RFC4180_parse_test.trs \
+	api_RFC4180_permissive_parse_test.log \
+	api_RFC4180_permissive_parse_test.cc.trs \
 	api_test-suite.log
 
 EXTRA_DIST=
