@@ -28,17 +28,40 @@ namespace d=detail;
 
 
 
+
+
 BOOST_AUTO_TEST_SUITE( RFC4180_parse_suite )
 
 
+/** \test Check for default RFC4180 parser object settings
+ */
+BOOST_AUTO_TEST_CASE( parser_default_RFC4180_object_settings )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  dsv_newline_behavior nl_behavior = dsv_parser_get_newline_behavior(parser);
+  BOOST_REQUIRE_MESSAGE(nl_behavior == dsv_newline_RFC4180_strict,
+    "Default parser newline behavior was not dsv_newline_permissive. Expected "
+    << dsv_newline_permissive << " received " << nl_behavior);
+  
+  ssize_t field_cols = dsv_parser_get_field_columns(parser);
+  BOOST_REQUIRE_MESSAGE(field_cols == 0,
+    "Default parser field columns was not '0' but rather '" << field_cols << "'");
+
+  unsigned char delim = dsv_parser_get_field_delimiter(parser);
+  BOOST_REQUIRE_MESSAGE(delim == ',',
+    "Default parser delimiter was not ',' but rather '" << delim << "'");
+}
 
 
 /** \test Attempt to parse a unnamed file with a zero stream
  */
-BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
+BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_file_with_zero_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
@@ -65,10 +88,10 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
 
 /** \test Attempt to parse a named nonexistent file using a zero stream
  */
-BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
+BOOST_AUTO_TEST_CASE( parse_rfc4180_named_nonexistent_file_with_zero_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
@@ -88,10 +111,10 @@ BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
 
 /** \test Attempt to parse an unnamed empty file opened with a stream
  */
-BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
+BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_empty_file_with_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
@@ -104,9 +127,12 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
   std::vector<std::string> file_contents{
   };
 
-  fs::path filepath = detail::gen_testfile(file_contents,"parse_unnamed_empty_file_with_stream");
+  fs::path filepath = detail::gen_testfile(file_contents,
+    "parse_unnamed_empty_file_with_stream");
 
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)> in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)> 
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
   BOOST_REQUIRE_MESSAGE(in.get() != 0,
     "Unit test failure: could not open unit test data file \"" << filepath << "\"");
 
@@ -125,7 +151,11 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
  */
 BOOST_AUTO_TEST_CASE( parse_empty_file )
 {
-  d::check_compliance({},{},{},{},"parse_empty_file",0);
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
+  d::check_compliance(parser,{},{},{},{},"parse_empty_file",0);
 }
 
 
@@ -137,6 +167,10 @@ BOOST_AUTO_TEST_CASE( parse_empty_file )
  */
 BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -145,7 +179,7 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_crlf )
     d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,{},{},file_contents,
+  d::check_compliance(parser,headers,{},{},file_contents,
     "parse_single_rfc4180_charset_crlf",0);
 }
 
@@ -154,6 +188,10 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_single_quoted_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset}
   };
@@ -162,7 +200,7 @@ BOOST_AUTO_TEST_CASE( parse_single_quoted_rfc4180_charset_crlf )
     d::rfc4180_raw_quoted_charset,d::crlf
   };
 
-  d::check_compliance(headers,{},{},file_contents,
+  d::check_compliance(parser,headers,{},{},file_contents,
   "parse_single_quoted_rfc4180_charset_crlf",0);
 }
 
@@ -182,6 +220,10 @@ BOOST_AUTO_TEST_CASE( parse_single_quoted_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -190,7 +232,7 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset )
     d::rfc4180_charset
   };
 
-  d::check_compliance(headers,{},{},file_contents,
+  d::check_compliance(parser,headers,{},{},file_contents,
   "parse_single_rfc4180_charset",0);
 }
 
@@ -204,6 +246,10 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_missing_trailing_quoted_charset )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<detail::log_msg> logs{
     {dsv_syntax_error,{"1","2","98","1",""}}
   };
@@ -218,7 +264,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_missing_trailing_quoted_charset )
     unterminated_quote
   };
 
-  d::check_compliance({},{},logs,file_contents,
+  d::check_compliance(parser,{},{},logs,file_contents,
   "parse_rfc4180_missing_trailing_quoted_charset",-1);
 }
 
@@ -228,6 +274,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_missing_trailing_quoted_charset )
  */
 BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_lf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -240,7 +290,7 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_lf )
     d::rfc4180_charset,detail::lf
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
   "parse_single_rfc4180_charset_lf",-1);
 }
 
@@ -254,6 +304,10 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_lf )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -266,7 +320,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_crlf )
     d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multiline_single_rfc4180_charset_crlf",0);
 }
 
@@ -275,6 +329,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset}
   };
@@ -287,7 +345,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_crlf )
     d::rfc4180_raw_quoted_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multiline_single_rfc4180_quoted_charset_crlf",0);
 }
 
@@ -296,6 +354,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -308,7 +370,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset )
     d::rfc4180_charset
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multiline_single_rfc4180_charset",0);
 }
 
@@ -317,6 +379,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset}
   };
@@ -329,7 +395,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset )
     d::rfc4180_raw_quoted_charset
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multiline_single_rfc4180_quoted_charset",0);
 }
 
@@ -339,6 +405,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_lf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -355,7 +425,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_lf )
     d::rfc4180_charset
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
   "parse_multiline_single_rfc4180_charset_lf",-1);
 }
 
@@ -365,6 +435,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_lf )
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_lf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset}
   };
@@ -382,7 +456,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_lf )
     d::rfc4180_raw_quoted_charset
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
   "parse_multiline_single_rfc4180_quoted_charset_lf",-1);
 }
 
@@ -399,6 +473,10 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_lf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
@@ -411,7 +489,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_crlf )
     d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
   "parse_rfc4180_charset_crlf",0);
 }
 
@@ -420,6 +498,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset,d::rfc4180_quoted_charset}
   };
@@ -432,7 +514,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_crlf )
     d::rfc4180_raw_quoted_charset,",",d::rfc4180_raw_quoted_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_quoted_charset_crlf",0);
 }
 
@@ -441,6 +523,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_mixed_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_quoted_charset,d::rfc4180_charset,d::rfc4180_quoted_charset}
   };
@@ -453,7 +539,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_mixed_charset_crlf )
     d::rfc4180_raw_quoted_charset,",",d::rfc4180_charset,",",d::rfc4180_raw_quoted_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_mixed_charset_crlf",0);
 }
 
@@ -462,6 +548,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_mixed_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,"",d::rfc4180_charset}
   };
@@ -474,7 +564,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_crlf )
     d::rfc4180_charset,",",",",d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty2_charset_crlf",0);
 }
 
@@ -483,6 +573,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty1_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {"",d::rfc4180_charset,d::rfc4180_charset}
   };
@@ -495,7 +589,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty1_charset_crlf )
     ",",d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty1_charset_crlf",0);
 }
 
@@ -504,6 +598,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty1_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty3_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,d::rfc4180_charset,""}
   };
@@ -516,7 +614,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty3_charset_crlf )
     d::rfc4180_charset,",",d::rfc4180_charset,",",d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty3_charset_crlf",0);
 }
 
@@ -525,6 +623,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty3_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty12_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {"","",d::rfc4180_charset}
   };
@@ -537,7 +639,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty12_charset_crlf )
     ",,",d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty12_charset_crlf",0);
 }
 
@@ -546,6 +648,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty12_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,"",""}
   };
@@ -558,7 +664,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
     d::rfc4180_charset,",,",d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty23_charset_crlf",0);
 }
 
@@ -570,6 +676,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {}
   };
@@ -583,7 +693,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
     {dsv_column_count_error,{"2","2","0","2",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_rfc4180_empty_header_charset_crlf",-1);
 }
 
@@ -594,6 +704,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_record_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {}
   };
@@ -606,7 +720,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_record_charset_crlf )
     d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_rfc4180_empty_header_record_charset_crlf",0);
 }
 
@@ -620,6 +734,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_record_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     //syntax error should be triggered before we see the second field
     {d::rfc4180_charset} 
@@ -633,7 +751,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_c
     {dsv_syntax_error,{"1","1","94","95",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_crlf",-1);
 }
 
@@ -643,6 +761,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_c
  */
 BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     //syntax error should be triggered before we see the second field
     {d::rfc4180_quoted_charset} 
@@ -656,7 +778,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_c
     {dsv_syntax_error,{"2","2","2","95",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_crlf",-1);
 }
 
@@ -671,6 +793,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_c
  */
 BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -687,7 +813,7 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset_crlf )
     d::rfc4180_charset,d::crlf
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multirecord_rfc4180_charset_crlf",0);
 }
 
@@ -696,6 +822,10 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -712,7 +842,7 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
     d::rfc4180_charset
   };
 
-  d::check_compliance(headers,records,{},file_contents,
+  d::check_compliance(parser,headers,records,{},file_contents,
     "parse_multirecord_rfc4180_charset",0);
 }
 
@@ -726,6 +856,10 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
  */
 BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset}
   };
@@ -740,7 +874,7 @@ BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
     {dsv_column_count_error,{"2","2","1","2",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_single_header_multirecord_rfc4180_charset_crlf",-1);
 }
 
@@ -749,6 +883,10 @@ BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
@@ -768,7 +906,7 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
     {dsv_column_count_error,{"2","2","2","1",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
 }
 
@@ -777,6 +915,10 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
  */
 BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+  
   std::vector<std::vector<std::string> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
@@ -796,44 +938,9 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
     {dsv_column_count_error,{"2","3","2","0",""}}
   };
 
-  d::check_compliance(headers,{},logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 BOOST_AUTO_TEST_SUITE_END()

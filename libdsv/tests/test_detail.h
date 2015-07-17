@@ -98,6 +98,7 @@ static const char crlf[] = {0x0D,0x0A,0};
 
 static const char lf[] = {0x0A,0};
 
+
 inline void parser_destroy(dsv_parser_t *p)
 {
   dsv_parser_destroy(*p);
@@ -376,7 +377,8 @@ std::string output_fields(const std::vector<std::vector<std::string> > &valid_ma
   return out.str();
 }
 
-void check_compliance(const std::vector<std::vector<std::string> > &headers,
+void check_compliance(dsv_parser_t parser,
+  const std::vector<std::vector<std::string> > &headers,
   const std::vector<std::vector<std::string> > &records, 
   const std::vector<log_msg> &log_msgs, const std::vector<std::string> contents, 
   const std::string &label, int expected_result)
@@ -385,13 +387,6 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)> 
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
-
-  dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
-  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
-
-  // set RFC4180 strict
-  dsv_parser_set_newline_handling(parser,dsv_newline_RFC4180_strict);
 
   detail::logging_context log_context;
   dsv_set_logger_callback(detail::logger,&log_context,parser);
@@ -447,7 +442,6 @@ void check_compliance(const std::vector<std::vector<std::string> > &headers,
   BOOST_REQUIRE_MESSAGE(check_logs(log_msgs,log_context.recd_logs),
     "Did not receive the correct type and/or number of log messages:\n"
     << compare_logs(log_msgs,log_context.recd_logs));
-  
   
   // if here, then delete the test file
   in.reset(0);

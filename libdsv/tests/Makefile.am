@@ -1,7 +1,7 @@
 master_suite=$(top_srcdir)/tests/master_suite.cc
 
 additional_test_cppflags= \
-	-pedantic -Wno-long-long -ansi -Wall -std=c++11\
+	-arch x86_64 -pedantic -Wno-long-long -ansi -Wall -std=c++11\
         -I$(top_srcdir) \
         -I$(top_srcdir)/libdsv/src \
 	-DTESTDATA_DIR='$(srcdir)/data' \

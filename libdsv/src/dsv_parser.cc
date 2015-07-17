@@ -35,11 +35,12 @@
 #include "dsv_grammar.hh"
 
 #include <cerrno>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include <system_error>
 #include <regex>
 #include <sstream>
+#include <memory>
 
 #include <boost/system/error_code.hpp>
 
@@ -47,12 +48,64 @@ namespace bs = boost::system;
 
 extern "C" {
 
-int dsv_parser_create(dsv_parser_t *parser)
+int dsv_parser_create(dsv_parser_t *_parser)
 {
   int err = 0;
 
   try {
-     parser->p = new detail::parser;
+    std::unique_ptr<detail::parser> parser(new detail::parser);
+
+    parser->newline_behavior(dsv_newline_permissive);
+    parser->field_columns(0);
+    parser->delimiter(',');
+
+    _parser->p = parser.release();
+  }
+  catch (std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+int dsv_parser_create_RFC4180_strict(dsv_parser_t *_parser)
+{
+  int err = 0;
+
+  try {
+    std::unique_ptr<detail::parser> parser(new detail::parser);
+
+    parser->newline_behavior(dsv_newline_RFC4180_strict);
+    parser->field_columns(0);
+    parser->delimiter(',');
+
+    _parser->p = parser.release();
+  }
+  catch (std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+int dsv_parser_create_RFC4180_permissive(dsv_parser_t *_parser)
+{
+  int err = 0;
+
+  try {
+    std::unique_ptr<detail::parser> parser(new detail::parser);
+
+    parser->newline_behavior(dsv_newline_permissive);
+    parser->field_columns(0);
+    parser->delimiter(',');
+
+    _parser->p = parser.release();
   }
   catch (std::bad_alloc &) {
     err = ENOMEM;
@@ -74,7 +127,7 @@ void dsv_parser_destroy(dsv_parser_t parser)
   }
 }
 
-int dsv_parser_set_newline_handling(dsv_parser_t _parser, dsv_newline_behavior behavior)
+int dsv_parser_set_newline_behavior(dsv_parser_t _parser, dsv_newline_behavior behavior)
 {
   assert(_parser.p);
 
@@ -95,7 +148,7 @@ int dsv_parser_set_newline_handling(dsv_parser_t _parser, dsv_newline_behavior b
   return result;
 }
 
-dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t _parser)
+dsv_newline_behavior dsv_parser_get_newline_behavior(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -145,6 +198,83 @@ ssize_t dsv_parser_get_field_columns(dsv_parser_t _parser)
 
   return result;
 }
+
+void dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  try {
+    parser.delimiter(delim);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+unsigned char dsv_parser_get_field_delimiter(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  unsigned char result;
+
+  try {
+    result = parser.delimiter();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+void dsv_parser_set_escaped_binary_fields(dsv_parser_t _parser, int flag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  try {
+    parser.escaped_binary_fields(flag);
+  }
+  catch(...) {
+    abort();
+  }
+}
+
+int dsv_parser_allow_escaped_binary_fields(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result;
+
+  try {
+    result = parser.escaped_binary_fields();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 int dsv_operations_create(dsv_operations_t *_operations)

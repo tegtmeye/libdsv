@@ -53,7 +53,12 @@ extern "C" {
   } dsv_parser_t;
 
   /**
-   *  \brief Initialize a dsv_parser_t object.
+   *  \brief Initialize a default dsv_parser_t object.
+   *
+   *  This parser is set up with the following default settings:
+   *    :dsv_newline_behavior = dsv_newline_permissive
+   *    :dsv_parser_set_field_columns(...,0)
+   *    :dsv_parser_set_field_delimiter(...,',')
    *
    *  \note You must eventually call dsv_parser_destroy.
    *
@@ -63,11 +68,42 @@ extern "C" {
   int dsv_parser_create(dsv_parser_t *parser);
 
   /**
+   *  \brief Initialize a dsv_parser_t object with strict RFC4180 settings
+   *
+   *  This parser is set up with the following settings:
+   *    :dsv_newline_behavior = dsv_newline_RFC4180_strict
+   *    :dsv_parser_set_field_columns(...,0)
+   *    :dsv_parser_set_field_delimiter(...,',')
+   *
+   *  \note You must eventually call dsv_parser_destroy.
+   *
+   *  \retval 0 success
+   *  \retval ENOMEM Could not allocate memory
+   */
+  int dsv_parser_create_RFC4180_strict(dsv_parser_t *parser);
+
+  /**
+   *  \brief Initialize a dsv_parser_t object with permissive RFC4180 settings
+   *
+   *  This parser is set up with the following settings:
+   *    :dsv_newline_behavior = dsv_newline_permissive
+   *    :dsv_parser_set_field_columns(...,0)
+   *    :dsv_parser_set_field_delimiter(...,',')
+   *
+   *  \note You must eventually call dsv_parser_destroy.
+   *
+   *  \retval 0 success
+   *  \retval ENOMEM Could not allocate memory
+   */
+  int dsv_parser_create_RFC4180_permissive(dsv_parser_t *parser);
+
+  /**
    *  \brief Destroy the obj_parser_t object.
    *
    *  \pre \c parser has been previously initialized with \c dsv_parser_create
    */
   void dsv_parser_destroy(dsv_parser_t parser);
+
 
   /**
    *  \brief Behavior flag for handling newlines
@@ -115,7 +151,7 @@ extern "C" {
    *  \retval 0 Success
    *  \retval EINVAL \c behavior has a value not part of dsv_newline_behavior
    */
-  int dsv_parser_set_newline_handling(dsv_parser_t parser, dsv_newline_behavior behavior);
+  int dsv_parser_set_newline_behavior(dsv_parser_t parser, dsv_newline_behavior behavior);
 
   /**
    *  \brief Get the current newline behavior for future parsing with \c parser
@@ -124,7 +160,7 @@ extern "C" {
    *
    *  \retval behavior One of the possible \c dsv_newline_behavior enumerations
    */
-  dsv_newline_behavior dsv_parser_get_newline_handling(dsv_parser_t parser);
+  dsv_newline_behavior dsv_parser_get_newline_behavior(dsv_parser_t parser);
 
   /**
    *  \brief Set the required number of fields for future parsing with \c parser or
@@ -158,6 +194,69 @@ extern "C" {
    *  \retval num_cols The number of columns required for future parsing of \c parser
    */
   ssize_t dsv_parser_get_field_columns(dsv_parser_t parser);
+
+
+
+  /**
+   *  \brief Set the field delimiter to be used for future parsing with \c parser
+   *
+   *  The default is the ASCII comma ','
+   *
+   *  This delimiter is used to separate both headers and fields depending on the settings
+   *
+   *  \param parser A properly initialized dsv_parser_t object
+   *  \param delim The character to be used as a field delimiter
+   */
+  void dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
+
+  /**
+   *  \brief Get the current field delimiter to be used for future parsing with 
+   *  \c parser
+   *
+   *  This delimiter is used to separate both headers and fields depending on the settings
+   *
+   *  \retval delimiter The current field delimiter
+   */
+  unsigned char dsv_parser_get_field_delimiter(dsv_parser_t parser);
+
+
+
+  /**
+   *  \brief Enable or disable binary in double quoted fields for future parsing 
+   *  with \c parser
+   *
+   *  The default setting is 0 (false)
+   *
+   *  Under RFC-4180, the file shall only contain ASCII printable characters. When
+   *  enabled, this turns off most character translation in double quoted fields. Double
+   *  quotes are till recognized as well as newlines are properly interpreted--this 
+   *  includes double quote preceded by another double quote.
+   *
+   *  Enabling is useful if the fields contain non-printing but otherwise useful ASCII
+   *  characters as well as allowing for non-ASCII encoding such as UTF-8. The library
+   *  makes no attempt to translate any such characters.
+   *
+   *  \param parser A properly initialized dsv_parser_t object
+   *  \param flag nonzero to enable, zero to disable
+   */
+  void dsv_parser_set_escaped_binary_fields(dsv_parser_t parser, int flag);
+
+  /**
+   *  \brief Query the whether binary is recognized in double quoted fields for future
+   *  parsing with \c parser
+   *
+   *  Under RFC-4180, the file shall only contain ASCII printable characters. When
+   *  enabled, this turns off character translation in double quoted fields (double
+   *  quotes are till recognized obviously--this includes double quote preceded by
+   *  another double quote.)
+   *
+   *  Enabling is useful if the fields contain non-printing but otherwise useful ASCII
+   *  characters as well as allowing for non-ASCII encoding such as UTF-8.
+   *
+   *  \param parser A properly initialized dsv_parser_t object
+   *  \param flag nonzero to enable, zero to disable
+   */
+  int dsv_parser_allow_escaped_binary_fields(dsv_parser_t parser);
 
 
 

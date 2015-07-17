@@ -249,6 +249,9 @@
 %token DQUOTE "\""
 %token <str_ptr> D2QUOTE "\"\""
 %token <str_ptr> TEXTDATA
+// INVALID_BINARY is only returned if a non-printable ASCII character is seen but
+// not allowed
+%token INVALID_BINARY
 
 
 // file
@@ -339,7 +342,19 @@ field:
   ;
 
 escaped_field:
-    DQUOTE escaped_textdata_list DQUOTE { $$ = $2; }
+    begin_quote escaped_textdata_list end_quote { $$ = $2; }
+  ;
+
+begin_quote:
+    DQUOTE {
+      parser.effective_escaped_binary(parser.escaped_binary_fields());
+    }
+  ;
+
+end_quote:
+    DQUOTE {
+      parser.effective_escaped_binary(false);
+    }
   ;
 
 escaped_textdata_list:  
@@ -512,6 +527,11 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       }
       return DQUOTE;
     }
+  // <32 is non-printing
+  // > 126 is non-printing
+    else if((cur < 32 || cur > 126) && !parser.effective_escaped_binary()) {
+      return INVALID_BINARY;
+    }
     else {
       lvalp->str_ptr = std::shared_ptr<std::string>(new std::string(&cur, (&cur)+1));
 
@@ -519,7 +539,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
         if(cur == parser.delimiter() ||
           cur == 0x0A || //LF
           cur == 0x0D || //CR
-          cur == 0x22) // DQUOTE
+          cur == 0x22 || // DQUOTE
+          ((cur < 32 || cur > 126) && !parser.effective_escaped_binary()))
         {
           return TEXTDATA;
         }
