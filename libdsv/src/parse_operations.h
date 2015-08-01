@@ -47,7 +47,8 @@ namespace detail {
 
     // storage cache for callback functions to avoid memory (re)allocation for each
     // call.
-    mutable std::vector<const char *> field_storage;
+    std::vector<const unsigned char *> field_storage;
+    std::vector<std::size_t> len_storage;
 
     parse_operations(void);
   };

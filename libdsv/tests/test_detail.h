@@ -59,6 +59,10 @@ namespace detail {
 
 namespace fs=boost::filesystem;
 
+
+typedef std::vector<unsigned char> field_storage_type;
+
+
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 
 
@@ -69,34 +73,38 @@ static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 // 0x5C = backslash
 
 // 94 characters not including newline
-static const char rfc4180_charset[] = {
+static const field_storage_type rfc4180_charset = {
   ' ','!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
   '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
   'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
   '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~',0
+  'v','w','x','y','z','{','|','}','~'
 };
 
-static const char rfc4180_quoted_charset[] = {
+static const field_storage_type rfc4180_quoted_charset = {
   ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
   '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
   'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
   '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~',0x0D,0x0A,0
+  'v','w','x','y','z','{','|','}','~',0x0D,0x0A
 };
 
 // 100 characters not including newline
-static const char rfc4180_raw_quoted_charset[] = {
+static const field_storage_type rfc4180_raw_quoted_charset = {
   0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
   '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
   'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
   '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
-  't','u','v','w','x','y','z','{','|','}','~',0x0D,0x0A,0x22,0
+  't','u','v','w','x','y','z','{','|','}','~',0x0D,0x0A,0x22
 };
 
-static const char crlf[] = {0x0D,0x0A,0};
+static const field_storage_type crlf = {0x0D,0x0A};
 
-static const char lf[] = {0x0A,0};
+static const field_storage_type lf = {0x0A};
+
+static const field_storage_type comma = {0x2C};
+
+static const field_storage_type empty;
 
 
 inline void parser_destroy(dsv_parser_t *p)
@@ -136,16 +144,33 @@ std::string to_string(dsv_log_code code)
   switch(code) {
     case dsv_nonrectangular_records_info:
       return "dsv_nonrectangular_records_info";
-    
+
     case dsv_syntax_error:
       return "dsv_syntax_error";
-    
+
     case dsv_column_count_error:
       return "dsv_column_count_error";
-    
+
+    case dsv_invalid_binary_error:
+      return "dsv_invalid_binary_error";
+
   };
-  
+
   return "unknown code";
+}
+
+std::string to_string(const field_storage_type &buf)
+{
+  std::stringstream out;
+
+  for(std::size_t i=0; i<buf.size(); ++i) {
+    if(buf[i] > 32 || buf[i] < 126)
+      out << buf[i];
+    else
+      out << std::hex << std::showbase << buf[i];
+  }
+
+  return out.str();
 }
 
 struct log_msg {
@@ -160,49 +185,49 @@ struct logging_context {
 
 /*
   The required log_msg list is compared to the received msg_log list. For each msg, if the
-  codes are different, then return false. For each log_msg, the parameters are compared 
-  against each other. If the required params are empty (ie param_vec is empty()) then the 
-  received params are ignored. That is, any value of the params are accepted. If the 
-  required param_vec is non-empty, then the entire list must be present. If a single value 
-  of the required param_vec is empty, then any value of the received param is accepted, 
+  codes are different, then return false. For each log_msg, the parameters are compared
+  against each other. If the required params are empty (ie param_vec is empty()) then the
+  received params are ignored. That is, any value of the params are accepted. If the
+  required param_vec is non-empty, then the entire list must be present. If a single value
+  of the required param_vec is empty, then any value of the received param is accepted,
   otherwise it must match exactly.
-  
+
   let req_msg and rec_msg each be the ith value of required and received respectively
   if(req_msg.code != rec_msg.code) then false
   if(req_msg.param_vec.empty()) then accept
   if(req_msg.param_vec.size() != rec_msg.param_vec.size()) then UNIT TEST ERROR
-  
-  let req_param and rec_param each be the jth value of req_msg.param_vec and  
+
+  let req_param and rec_param each be the jth value of req_msg.param_vec and
     rec_msg.param_vec respectively
   if(req_param.empty()) accept this param
   if(req_param != rec_param) return false
 */
-bool check_logs(const std::vector<log_msg> &required, 
+bool check_logs(const std::vector<log_msg> &required,
   const std::vector<log_msg> &received)
 {
   if(required.size() != received.size())
     return false;
-  
+
   for(std::size_t i=0; i<required.size(); ++i) {
     const log_msg &req_msg = required[i];
     const log_msg &rec_msg = received[i];
-    
+
     if(req_msg.code != rec_msg.code)
       return false;
-    
+
     if(req_msg.param_vec.empty())
       continue;
-    
+
     if(req_msg.param_vec.size() != rec_msg.param_vec.size())
       BOOST_FAIL("UNIT TEST ERROR: msg parameter list must either be empty or match that"
         "of the given code: " << to_string(req_msg.code));
-    
+
     for(std::size_t j=0; j<req_msg.param_vec.size(); ++j) {
       if(!req_msg.param_vec[j].empty() && req_msg.param_vec[j] != rec_msg.param_vec[j])
         return false;
     }
   }
-  
+
   return true;
 }
 
@@ -222,16 +247,16 @@ std::string output_logs(const std::vector<log_msg> &logs)
     for(std::size_t j=0; j<logs[i].param_vec.size(); ++j) {
         out << " '" << logs[i].param_vec[j] << "'";
     }
-  }  
+  }
 
   return out.str();
 }
 
-std::string compare_logs(const std::vector<log_msg> &required, 
+std::string compare_logs(const std::vector<log_msg> &required,
   const std::vector<log_msg> &received)
 {
   std::stringstream out;
-  
+
   out << "Required log messages:";
 
   for(std::size_t i=0; i<required.size(); ++i) {
@@ -247,7 +272,7 @@ std::string compare_logs(const std::vector<log_msg> &required,
           out << " " << required[i].param_vec[j];
       }
     }
-  }  
+  }
 
   out << "\nReceived log messages:" << output_logs(received);
 
@@ -257,55 +282,56 @@ std::string compare_logs(const std::vector<log_msg> &required,
 
 
 struct file_context {
-  const std::vector<std::vector<std::string> > valid_headers;
-  std::vector<std::vector<std::string> > parsed_headers;
+  const std::vector<std::vector<field_storage_type > > valid_headers;
+  std::vector<std::vector<field_storage_type > > parsed_headers;
 
-  const std::vector<std::vector<std::string> > valid_records;
-  std::vector<std::vector<std::string> > parsed_records;
-  
+  const std::vector<std::vector<field_storage_type > > valid_records;
+  std::vector<std::vector<field_storage_type > > parsed_records;
+
   file_context(void) {}
-  file_context(const std::vector<std::vector<std::string> > &headers,
-    const std::vector<std::vector<std::string> > &records)
+  file_context(const std::vector<std::vector<field_storage_type > > &headers,
+    const std::vector<std::vector<field_storage_type > > &records)
        :valid_headers(headers), valid_records(records) {}
 };
 
-
-static int header_callback(const char *fields[], size_t size, void *_context)
+static int header_callback(const unsigned char *fields[], const size_t lengths[],
+    size_t size, void *_context)
 {
   file_context &context = *static_cast<file_context*>(_context);
 
   BOOST_REQUIRE_MESSAGE(context.parsed_records.empty(),
     "Header callback called after " << context.parsed_records.size() << " records seen");
 
-  std::vector<std::string> row;
+  std::vector<field_storage_type> row;
   for(std::size_t i=0; i<size; ++i)
-    row.push_back(fields[i]);
-  
+    row.push_back(field_storage_type(fields[i],fields[i]+lengths[i]));
+
   context.parsed_headers.push_back(row);
 
   return 1;
 }
 
-static int record_callback(const char *fields[], size_t size, void *_context)
+static int record_callback(const unsigned char *fields[], const size_t lengths[],
+    size_t size, void *_context)
 {
   file_context &context = *static_cast<file_context*>(_context);
 
-  std::vector<std::string> row;
+  std::vector<field_storage_type> row;
   for(std::size_t i=0; i<size; ++i)
-    row.push_back(fields[i]);
-  
+    row.push_back(field_storage_type(fields[i],fields[i]+lengths[i]));
+
   context.parsed_records.push_back(row);
 
   return 1;
 }
 
-static int logger(dsv_log_code code, dsv_log_level level, const char *params[], 
+static int logger(dsv_log_code code, dsv_log_level level, const char *params[],
   size_t size, void *_context)
 {
   logging_context &context = *static_cast<logging_context*>(_context);
 
   log_msg msg{code};
-  
+
   for(std::size_t i=0; i<size; ++i)
     msg.param_vec.push_back(params[i]);
 
@@ -314,7 +340,7 @@ static int logger(dsv_log_code code, dsv_log_level level, const char *params[],
   return 1;
 }
 
-inline fs::path gen_testfile(const std::vector<std::string> contents,
+inline fs::path gen_testfile(const std::vector<field_storage_type> contents,
   const std::string &label)
 {
   std::time_t now = std::time(0);
@@ -329,63 +355,67 @@ inline fs::path gen_testfile(const std::vector<std::string> contents,
 //   std::pair<file_sentry_type,std::string> result(file_sentry_type(out,&myfclose),filename);
 
   for(std::size_t i=0; i<contents.size(); ++i) {
-    assert(std::fwrite(contents[i].data(),sizeof(std::string::value_type),
+    assert(std::fwrite(contents[i].data(),sizeof(unsigned char),
       contents[i].size(),out.get()) == contents[i].size());
   }
-  
+
   return filepath;
 }
 
-std::string output_fields(const std::vector<std::vector<std::string> > &valid_matrix,
-  const std::vector<std::vector<std::string> > &parsed_matrix)
+std::string output_fields(
+  const std::vector<std::vector<field_storage_type> > &valid_matrix,
+  const std::vector<std::vector<field_storage_type> > &parsed_matrix)
 {
   std::stringstream out;
-  
+
   out << "valid matrix:";
-  
+
   std::size_t i;
   for(i=0; i<valid_matrix.size(); ++i) {
     out << "\n\t";
-    
+
     std::size_t j;
     for(j=0; j<valid_matrix[i].size(); ++j) {
-      out << "-->" << valid_matrix[i][j];
+      out << "-->" << to_string(valid_matrix[i][j]);
       if(i<parsed_matrix.size() && j<parsed_matrix[i].size()) {
         if(valid_matrix[i][j] != parsed_matrix[i][j])
-          out << "[" << parsed_matrix[i][j] << "]";
+          out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
+        else
+          out << "[[parsed identical]]";
       }
       else {
-        out << "[missing]";
+        out << "[[missing]]";
       }
-      
+
       out << "<-- ";
     }
 
     for(;i<parsed_matrix.size() && j<parsed_matrix[i].size(); ++j) {
-      out << " [[" << parsed_matrix[i][j] << "]]";
+      out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
     }
-  }    
+  }
 
   out << "\nextra parsed matrix:";
   for(;i<parsed_matrix.size(); ++i) {
     out << "\n\t";
     for(std::size_t j=0; j<parsed_matrix[i].size(); ++j) {
-      out << " [[" << parsed_matrix[i][j] << "]]";
+      out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
     }
   }
-  
+
   return out.str();
 }
 
 void check_compliance(dsv_parser_t parser,
-  const std::vector<std::vector<std::string> > &headers,
-  const std::vector<std::vector<std::string> > &records, 
-  const std::vector<log_msg> &log_msgs, const std::vector<std::string> contents, 
+  const std::vector<std::vector<field_storage_type> > &headers,
+  const std::vector<std::vector<field_storage_type> > &records,
+  const std::vector<log_msg> &log_msgs,
+  const std::vector<field_storage_type> contents,
   const std::string &label, int expected_result)
 {
   fs::path filepath = gen_testfile(contents,label);
 
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)> 
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
   detail::logging_context log_context;
@@ -393,8 +423,8 @@ void check_compliance(dsv_parser_t parser,
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
-  std::shared_ptr<dsv_operations_t> 
-    operations_sentry(&operations,detail::operations_destroy);  
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
 
   file_context context(headers,records);
   dsv_set_header_callback(header_callback,&context,operations);
@@ -405,22 +435,22 @@ void check_compliance(dsv_parser_t parser,
     std::stringstream out;
     out << "dsv_parse returned with unexpected with code: " << result << ", expecting "
       << expected_result;
-    
+
     if(result > 0)
       out << " (" << strerror(result) << ")";
     else
       out << " MSG LOG:\n" << compare_logs(log_msgs,log_context.recd_logs);
-    
+
     out << "\nfor given file: ";
     if(!filepath.empty())
       out << filepath;
     else
       out << "[file stream]";
-    
-    out << "\nHeader " << output_fields(context.valid_headers,context.parsed_headers) 
+
+    out << "\nHeader " << output_fields(context.valid_headers,context.parsed_headers)
       << "\nRecord " << output_fields(context.valid_records,context.parsed_records);
-    
-    BOOST_REQUIRE_MESSAGE(result == expected_result,out.str()); 
+
+    BOOST_REQUIRE_MESSAGE(result == expected_result,out.str());
   }
 
   BOOST_REQUIRE_MESSAGE(
@@ -428,7 +458,7 @@ void check_compliance(dsv_parser_t parser,
     context.valid_headers == context.parsed_headers,
       "Headers did not parse correctly. Correct: " << ": "
       << context.valid_headers.size() << " Parsed: "
-      << context.parsed_headers.size() << "\n" 
+      << context.parsed_headers.size() << "\n"
       << output_fields(context.valid_headers,context.parsed_headers));
 
   BOOST_REQUIRE_MESSAGE(
@@ -436,13 +466,13 @@ void check_compliance(dsv_parser_t parser,
     context.valid_records == context.parsed_records,
       "Records did not parse correctly. Correct: " << ": "
       << context.valid_records.size() << " Parsed: "
-      << context.parsed_records.size() << "\n" 
+      << context.parsed_records.size() << "\n"
       << output_fields(context.valid_records,context.parsed_records));
 
   BOOST_REQUIRE_MESSAGE(check_logs(log_msgs,log_context.recd_logs),
     "Did not receive the correct type and/or number of log messages:\n"
     << compare_logs(log_msgs,log_context.recd_logs));
-  
+
   // if here, then delete the test file
   in.reset(0);
   fs::remove(filepath);

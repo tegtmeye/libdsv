@@ -42,12 +42,18 @@
 
   // Change me with bison version > 3
   struct YYSTYPE {
-    typedef std::shared_ptr<std::string> str_ptr_type;
-    typedef std::vector<str_ptr_type> str_vec_type;
-    typedef std::shared_ptr<str_vec_type> str_vec_ptr_type;
+    // use vectors of unsigned characters instead of std::string so that we can store 0s
+    typedef std::vector<unsigned char> char_buff_type;
+    typedef std::shared_ptr<char_buff_type> char_buff_ptr_type;
 
-    str_ptr_type str_ptr;
-    str_vec_ptr_type vec_ptr;
+    typedef std::vector<char_buff_ptr_type> char_buff_vec_type;
+    typedef std::shared_ptr<char_buff_vec_type> char_buff_vec_ptr_type;
+
+    // shared_ptr to character buffer
+    char_buff_ptr_type char_buf_ptr;
+
+    // shared_ptr to vector of shared_ptrs to character buffers
+    char_buff_vec_ptr_type char_buf_vec_ptr;
   };
 
 }
@@ -56,6 +62,8 @@
 %code {
   #include "dsv_grammar.hh"
   #include <iostream>
+  #include <sstream>
+  #include <iomanip>
 
   /**
    *  Error reporting function as required by Bison
@@ -71,7 +79,7 @@
       std::string first_column = std::to_string(llocp->first_column);
       std::string last_column = std::to_string(llocp->last_column);
       std::string filename = scanner.filename();
-    
+
       const char *fields[] = {
         first_line.c_str(),
         last_line.c_str(),
@@ -79,7 +87,7 @@
         last_column.c_str(),
         filename.c_str()
       };
-      
+
       logger(dsv_syntax_error,dsv_log_error,fields,sizeof(fields)/sizeof(const char *),
         parser.log_context());
     }
@@ -109,14 +117,55 @@
         rec_columns.c_str(),
         filename.c_str()
       };
-      
+
       logger(dsv_column_count_error,dsv_log_error,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
-    }    
+    }
   }
 
-  bool nonrectangular_column_info(const YYLTYPE &llocp, const detail::scanner_state &scanner,
-    detail::parser &parser, std::size_t rec_cols)
+  void invalid_binary_error(const YYLTYPE &llocp, const detail::scanner_state &scanner,
+    detail::parser &parser, const YYSTYPE::char_buff_type &char_buf)
+  {
+    // - The offending line associated with the start of the syntax error[*][**]
+    // - The offending line associated with the end of the syntax error[*][**]
+    // - The offending character associated with the start of the syntax error[*]
+    // - The offending character associated with the end of the syntax error[*]
+    // - A byted-oriented string containing the hexadecimal representation of the
+    //   offending binary content.[***]
+    // - The location_str associated with the syntax error if it was supplied to
+    //   \c dsv_parse
+    log_callback_t logger = parser.log_callback();
+    if(logger) {
+      std::string first_line = std::to_string(llocp.first_line);
+      std::string last_line = std::to_string(llocp.last_line);
+      std::string first_column = std::to_string(llocp.first_column);
+      std::string last_column = std::to_string(llocp.last_column);
+      std::string filename = scanner.filename();
+
+      std::stringstream out;
+      for(std::size_t i=0; i<char_buf.size(); ++i)
+        out << std::hex << std::showbase << std::internal << std::setfill('0')
+          << std::setw(4) << (unsigned int)(char_buf[i]);
+      std::string out_str = out.str();
+
+      const char *fields[] = {
+        first_line.c_str(),
+        last_line.c_str(),
+        first_column.c_str(),
+        last_column.c_str(),
+        out_str.c_str(),
+        filename.c_str()
+      };
+
+      logger(dsv_invalid_binary_error,dsv_log_error,fields,
+        sizeof(fields)/sizeof(const char *),parser.log_context());
+    }
+  }
+
+
+
+  bool nonrectangular_column_info(const YYLTYPE &llocp,
+    const detail::scanner_state &scanner, detail::parser &parser, std::size_t rec_cols)
   {
     // - The line that triggered the column inconsistency[*][**]
     // - The number of fields that would allow the record columns to remain consistant[*]
@@ -136,17 +185,17 @@
         rec_columns.c_str(),
         filename.c_str()
       };
-      
+
       return logger(dsv_nonrectangular_records_info,dsv_log_info,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
     }
-    
+
     return true;
   }
 
 
-   int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
-     detail::parser &parser);
+  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
+   detail::parser &parser);
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -155,12 +204,12 @@
     /**
      *  convenience declares
      */
-    bool check_or_update_column_count(const YYLTYPE &llocp, 
-      const detail::scanner_state &scanner, detail::parser &parser, 
-      const YYSTYPE::str_vec_ptr_type &str_vec_ptr)
+    bool check_or_update_column_count(const YYLTYPE &llocp,
+      const detail::scanner_state &scanner, detail::parser &parser,
+      const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr)
     {
-      ssize_t columns = str_vec_ptr->size();
-      
+      ssize_t columns = char_buf_vec_ptr->size();
+
       if(!parser.effective_field_columns_set()) {
 //         std::cerr << "effective_field_columns_set NOT set\n";
         parser.effective_field_columns_set(true);
@@ -179,10 +228,9 @@
 
       return true;
     }
-    
-    
-    bool process_header(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
-      const detail::parse_operations &operations)
+
+    bool process_header(const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr,
+      detail::parse_operations &operations)
     {
 //         std::cerr << "CALLING PROCESS_HEADER\n";
       bool keep_going = true;
@@ -190,38 +238,60 @@
 //          std::cerr << "got size " << str_vec_ptr->size() << "\nGot:\n";
 //          for(int i=0; i<str_vec_ptr->size(); ++i)
 //            std::cerr << "\t" << (*str_vec_ptr)[i] << "\n";
-          
+
         operations.field_storage.clear();
-        operations.field_storage.reserve(str_vec_ptr->size());
-        for(size_t i=0; i<str_vec_ptr->size(); ++i)
-          operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
-        
+        operations.len_storage.clear();
+        operations.field_storage.reserve(char_buf_vec_ptr->size());
+        operations.len_storage.reserve(char_buf_vec_ptr->size());
+
+        for(size_t i=0; i<char_buf_vec_ptr->size(); ++i) {
+          operations.field_storage.push_back((*char_buf_vec_ptr)[i]->data());
+          operations.len_storage.push_back((*char_buf_vec_ptr)[i]->size());
+        }
+
 //        std::cerr << "CALLING REGISTERED CALLBACK\n";
         keep_going = operations.header_callback(operations.field_storage.data(),
-          operations.field_storage.size(),operations.header_context);
+          operations.len_storage.data(),operations.field_storage.size(),
+          operations.header_context);
       }
       return keep_going;
     }
 
-    bool process_record(const YYSTYPE::str_vec_ptr_type &str_vec_ptr,
-      const detail::parse_operations &operations)
+    bool process_record(const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr,
+      detail::parse_operations &operations)
     {
 //        std::cerr << "CALLING PROCESS_RECORD\n";
       bool keep_going = true;
       if(operations.record_callback) {
         operations.field_storage.clear();
-        operations.field_storage.reserve(str_vec_ptr->size());
-        for(size_t i=0; i<str_vec_ptr->size(); ++i)
-          operations.field_storage.push_back((*str_vec_ptr)[i]->c_str());
-        
+        operations.field_storage.reserve(char_buf_vec_ptr->size());
+        for(size_t i=0; i<char_buf_vec_ptr->size(); ++i)
+          operations.field_storage.push_back((*char_buf_vec_ptr)[i]->data());
+
         keep_going = operations.record_callback(operations.field_storage.data(),
-          operations.field_storage.size(),operations.record_context);
+          operations.len_storage.data(),operations.field_storage.size(),
+          operations.record_context);
       }
       return keep_going;
     }
 
-    static const std::shared_ptr<std::string> empty_str(new std::string(""));
-    static const YYSTYPE::str_vec_ptr_type empty_vec(new YYSTYPE::str_vec_type());
+    std::string to_string(const YYSTYPE::char_buff_type &buf)
+    {
+      std::stringstream out;
+
+      for(std::size_t i=0; i<buf.size(); ++i) {
+        if(buf[i] > 32 || buf[i] < 126)
+          out << buf[i];
+        else
+          out << std::hex << std::showbase << buf[i];
+      }
+
+      return out.str();
+    }
+
+
+    static const YYSTYPE::char_buff_ptr_type empty_buf(new YYSTYPE::char_buff_type());
+    static const YYSTYPE::char_buff_vec_ptr_type empty_vec(new YYSTYPE::char_buff_vec_type());
   }
 
 }
@@ -237,33 +307,28 @@
 
 %parse-param {detail::scanner_state &scanner}
 %parse-param {detail::parser &parser}
-%parse-param {const detail::parse_operations &operations}
+%parse-param {detail::parse_operations &operations}
 %parse-param {const std::unique_ptr<detail::scanner_state> &context}
 
 %token END 0 "end-of-file"
-%token DELIMITER "delimiter" 
+%token DELIMITER "delimiter"
 //%token HEADER_DELIMITER "header delimiter"
-%token <str_ptr> LF "linefeed"
-%token <str_ptr> CR "carriage-return"
-%token <str_ptr> NL "newline"
+%token <char_buf_ptr> LF "linefeed"
+%token <char_buf_ptr> CR "carriage-return"
+%token <char_buf_ptr> NL "newline"
 %token DQUOTE "\""
-%token <str_ptr> D2QUOTE "\"\""
-%token <str_ptr> TEXTDATA
-// INVALID_BINARY is only returned if a non-printable ASCII character is seen but
-// not allowed
-%token INVALID_BINARY
+%token <char_buf_ptr> D2QUOTE "\"\""
+%token <char_buf_ptr> TEXTDATA
+%token <char_buf_ptr> BINARYDATA
 
 
 // file
-// %type <vec_ptr> header
-%type <vec_ptr> field_list
-%type <str_ptr> field
-%type <str_ptr> escaped_field;
-%type <str_ptr> escaped_textdata_list
-%type <str_ptr> escaped_textdata
-%type <str_ptr> non_escaped_field;
-// record_list
-// record
+%type <char_buf_vec_ptr> field_list
+%type <char_buf_ptr> field
+%type <char_buf_ptr> escaped_field;
+%type <char_buf_ptr> escaped_textdata_list
+%type <char_buf_ptr> escaped_textdata
+%type <char_buf_ptr> non_escaped_field;
 
 
 
@@ -275,7 +340,7 @@ file:
   | empty_header record_block
   | header_block
   | header_block NL
-  | header_block NL record_block 
+  | header_block NL record_block
   ;
 
 empty_header:
@@ -285,11 +350,11 @@ empty_header:
       if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec)) {
 //         std::cerr << "ABORTING!!!!!!!!!!!!!!\n";
         YYABORT;
-      }      
+      }
 
       // do manual process header cause we know it is empty
       if(operations.header_callback &&
-        !operations.header_callback(0,0,operations.header_context)) 
+        !operations.header_callback(0,0,0,operations.header_context))
       {
         YYABORT;
       }
@@ -300,7 +365,7 @@ header_block:
   field_list {
       if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
         YYABORT;
-        
+
       if(!detail::process_header($1,operations))
         YYABORT;
     }
@@ -309,27 +374,27 @@ header_block:
 
 field_list:
     field {
-      $$.reset(new YYSTYPE::str_vec_type());
+      $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->push_back($1);
     }
   | DELIMITER {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->push_back(detail::empty_str);
-      $$->push_back(detail::empty_str);
+      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$->push_back(detail::empty_buf);
+      $$->push_back(detail::empty_buf);
     }
   | DELIMITER field {
-      $$.reset(new YYSTYPE::str_vec_type());
-      $$->push_back(detail::empty_str);
+      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$->push_back(detail::empty_buf);
       $$->push_back($2);
     }
   | field_list DELIMITER {
-      $$.reset(new YYSTYPE::str_vec_type());
+      $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
-      $$->push_back(detail::empty_str);
+      $$->push_back(detail::empty_buf);
     }
   | field_list DELIMITER field {
-      $$.reset(new YYSTYPE::str_vec_type());
+      $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back($3);
@@ -342,44 +407,68 @@ field:
   ;
 
 escaped_field:
-    begin_quote escaped_textdata_list end_quote { $$ = $2; }
-  ;
-
-begin_quote:
-    DQUOTE {
-      parser.effective_escaped_binary(parser.escaped_binary_fields());
+    open_quote escaped_textdata_list close_quote {
+      parser.newline_interpretation(true);
+      $$ = $2;
     }
   ;
 
-end_quote:
+open_quote:
     DQUOTE {
-      parser.effective_escaped_binary(false);
+      if(parser.escaped_binary_fields()) {
+        std::cerr << "TURNING OFF NEWLINE INTERPRETATION\n";
+        parser.newline_interpretation(false);
+      }
     }
   ;
 
-escaped_textdata_list:  
+close_quote:
+    DQUOTE // dummy
+  ;
+
+escaped_textdata_list:
     escaped_textdata { $$ = $1; }
   | escaped_textdata_list escaped_textdata {
-      // need to aggregate so must use unique string
-      $$ = std::shared_ptr<std::string>(new std::string());
+      // need to aggregate so must use unique vector
+      $$.reset(new YYSTYPE::char_buff_type());
       $$->reserve($1->size()+$2->size());
       $$->assign($1->begin(),$1->end());
-      $$->append($2->begin(),$2->end());
+      $$->insert($$->end(),$2->begin(),$2->end());
     }
   ;
 
 escaped_textdata:
     TEXTDATA { $$ = $1; }
+  | BINARYDATA {
+      if(!parser.escaped_binary_fields()) {
+        // add log
+        YYABORT;
+      }
+      $$ = $1;
+    }
   | DELIMITER {
       // delimiter must be recreated as it could change across parser invocations
       // todo, still can be cached in the parser...
-      std::shared_ptr<std::string> tmp(new std::string());
-      tmp->push_back(parser.delimiter());
-      $$ = tmp;
+      $$.reset(new YYSTYPE::char_buff_type(1,parser.delimiter()));
     }
-  | NL { $$ = $1; }
-  | LF { $$ = $1; }
-  | CR { $$ = $1; }
+  | NL { $$ = $1; } // NL are always accepted
+  | LF {
+      // LF is returned if it wasn't already considered an NL
+      if(!parser.escaped_binary_fields()) {
+        invalid_binary_error(@1,scanner,parser,*$1);
+        YYABORT;
+      }
+
+    }
+  | CR {
+      // CR is returned if it wasn't already considered an NL, ie CRLF
+      if(!parser.escaped_binary_fields()) {
+        invalid_binary_error(@1,scanner,parser,*$1);
+        YYABORT;
+      }
+
+      $$ = $1;
+    }
   | D2QUOTE { $$ = $1; }
   ;
 
@@ -395,7 +484,7 @@ record_block:
 
       // manual process record cause we know it is empty, the return value doesn't matter
       if(operations.record_callback)
-        operations.record_callback(0,0,operations.record_context);
+        operations.record_callback(0,0,0,operations.record_context);
 
     }
   | record
@@ -409,10 +498,10 @@ record_list:
       // Single NL means empty record
       if(!detail::check_or_update_column_count(@2,scanner,parser,detail::empty_vec))
         YYABORT;
-    
+
       // do manual process record cause we know it is empty
       if(operations.record_callback &&
-        !operations.record_callback(0,0,operations.record_context))
+        !operations.record_callback(0,0,0,operations.record_context))
       {
         YYABORT;
       }
@@ -424,7 +513,7 @@ record:
     field_list {
       if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
         YYABORT;
-        
+
       if(!detail::process_record($1,operations))
         YYABORT;
     }
@@ -450,11 +539,12 @@ record:
 int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)
 {
-  static const std::shared_ptr<std::string> lf_str(new std::string("\x0A"));
-  static const std::shared_ptr<std::string> cr_str(new std::string("\x0D"));
-  static const std::shared_ptr<std::string> crlf_str(new std::string("\x0D\x0A"));
-  static const std::shared_ptr<std::string> quote_str(new std::string("\x22"));
-  
+  static const unsigned char crlf_il[] = {0x0D,0x0A};
+  static const YYSTYPE::char_buff_ptr_type lf_buf(new YYSTYPE::char_buff_type(1,0x0A));
+  static const YYSTYPE::char_buff_ptr_type cr_buf(new YYSTYPE::char_buff_type(1,0x0D));
+  static const YYSTYPE::char_buff_ptr_type crlf_buf(
+    new YYSTYPE::char_buff_type(crlf_il,crlf_il+sizeof(crlf_il)/sizeof(unsigned char)));
+  static const YYSTYPE::char_buff_ptr_type quote_buf(new YYSTYPE::char_buff_type(1,0x22));
 
   // <32 is non-printing
   // > 126 is non-printing
@@ -475,16 +565,17 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   unsigned char cur;
   while(scanner.getc(cur) && scanner.advance()) {
     llocp->first_line = llocp->last_line;
-    llocp->first_column = (llocp->last_column)++;
+    llocp->first_column = (llocp->last_column)++; // last_column is always 1-past as is C
 
-//     std::cerr << "Top scanned '";
-//     if(cur > 32 && cur < 126)
-//       std::cerr << cur;
+//     std::cerr << "Top scanned ";
+//     if(cur < 32 || cur > 126)
+//       std::cerr << "'" << std::hex << std::showbase << int(cur) << std::dec
+//         << std::noshowbase << "'";
 //     else
-//       std::cerr << static_cast<unsigned int>(cur);
-//     std::cerr << "' at column " << llocp->first_column << ":" 
-//       << llocp->last_column << "\n";
-// 
+//       std::cerr << "'" << char(cur) << "' [" << (unsigned int)(cur) << "]";
+//     std::cerr << " at row: " << llocp->first_line << ":" << llocp->last_line << " col: "
+//       << llocp->first_column << ":" << llocp->last_column << "\n";
+
     unsigned char next;
     scanner.getc(next);
 
@@ -492,72 +583,100 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       return DELIMITER;
     }
     else if(cur == 0x0A) {//LF
-      lvalp->str_ptr = lf_str;
-      if(parser.effective_newline() != dsv_newline_crlf_strict) {
+      lvalp->char_buf_ptr = lf_buf;
+      if(!parser.raw_newline_enabled()
+        && parser.effective_newline() != dsv_newline_crlf_strict)
+      {
         if(parser.effective_newline() == dsv_newline_permissive)
           parser.effective_newline(dsv_newline_lf_strict);
+
         ++(llocp->last_line);
         llocp->last_column = 1;
         return NL;
       }
+
       return LF;
     }
     else if(cur == 0x0D) { //CR
-      if(next == 0x0A && parser.effective_newline() != dsv_newline_lf_strict) { // LF
+      if(!parser.raw_newline_enabled() && next == 0x0A // LF
+        && parser.effective_newline() != dsv_newline_lf_strict)
+      {
         scanner.advance();
         ++(llocp->last_line);
         llocp->last_column = 1;
-        lvalp->str_ptr = crlf_str;
-        
+        lvalp->char_buf_ptr = crlf_buf;
+
         if(parser.effective_newline() == dsv_newline_permissive)
           parser.effective_newline(dsv_newline_crlf_strict);
-        
+
         return NL;
       }
-      lvalp->str_ptr = cr_str;
+
+      lvalp->char_buf_ptr = cr_buf;
       return CR;
     }
     else if(cur == 0x22) { //"
-      lvalp->str_ptr = quote_str;
+      lvalp->char_buf_ptr = quote_buf;
       if(next == 0x22) {
         scanner.advance();
         ++(llocp->last_column);
-//         std::cerr << "got QUOTE column update " << llocp->last_column << "\n";
+
         return D2QUOTE;
       }
       return DQUOTE;
     }
-  // <32 is non-printing
-  // > 126 is non-printing
-    else if((cur < 32 || cur > 126) && !parser.effective_escaped_binary()) {
-      return INVALID_BINARY;
+    /*
+      There is a design trade here. One way of handling the different possibilities of
+      binary and non-binary values in quoted and non-quoted fields based on the set parser
+      behavior is to simply return a BINARY token for binary and TEXTDATA for ASCII and
+      let the parser flag errors as it compiles the \c escaped_textdata and \c
+      non_escaped_textdata non-terminals. There is likely a non-trivial performance hit
+      here though in the case of parsing fields that contain binary data. That is, if a
+      true binary field contains some bytes that are in the ASCII-printable, those will be
+      scanned as a separate token and then compiled by the parser.
+    */
+    else if(cur < 32 || cur > 126) {
+      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
+
+      //scan for non-binary
+      for(; scanner.getc(cur); scanner.advance()) {
+        if(cur == 0x0A //LF
+          || cur == 0x0D //CR
+          || (cur >= 32 && cur <= 126)) // ASCII
+        {
+          return BINARYDATA;
+        }
+
+// std::cerr << "BINARY: incrementing column: " << std::dec << llocp->last_column << "\n";
+        ++(llocp->last_column);
+        lvalp->char_buf_ptr->push_back(cur);
+      }
+
+      return BINARYDATA;
     }
     else {
-      lvalp->str_ptr = std::shared_ptr<std::string>(new std::string(&cur, (&cur)+1));
+      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
 
+      // scan for anything that could terminate the ASCII field
       for(; scanner.getc(cur); scanner.advance()) {
-        if(cur == parser.delimiter() ||
-          cur == 0x0A || //LF
-          cur == 0x0D || //CR
-          cur == 0x22 || // DQUOTE
-          ((cur < 32 || cur > 126) && !parser.effective_escaped_binary()))
+        if(cur == parser.delimiter()
+          || cur == 0x0A //LF
+          || cur == 0x0D //CR
+          || cur == 0x22 // DQUOTE
+          || cur < 32 || cur > 126) // non-ASCII
         {
           return TEXTDATA;
         }
 
         ++(llocp->last_column);
 
-//         std::cerr << "Textdata scanned '";
-//         if(cur > 32 && cur < 126)
-//           std::cerr << cur;
-//         else
-//           std::cerr << static_cast<unsigned int>(cur);
-//         std::cerr << "' at column " << llocp->first_column << ":" 
-//           << llocp->last_column << "\n";
-// 
-        lvalp->str_ptr->push_back(cur);
+// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
+//   << llocp->first_line << ":" << llocp->last_line << " col: "
+//   << llocp->first_column << ":" << llocp->last_column << "\n";
+
+        lvalp->char_buf_ptr->push_back(cur);
       }
-      
+
       return TEXTDATA;
     }
   }

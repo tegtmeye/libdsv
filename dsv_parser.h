@@ -166,7 +166,7 @@ extern "C" {
    *  \brief Set the required number of fields for future parsing with \c parser or
    *  allow a non-uniform number.
    *
-   *  If the behavior specified by \c dsv_parser_fixed_field_columns is violated, 
+   *  If the behavior specified by \c dsv_parser_fixed_field_columns is violated,
    *  dsv_parse will immediately return a nonzero value and an error message will be
    *  logged with the code: \c dsv_column_count_error.
    *
@@ -178,7 +178,7 @@ extern "C" {
    *  immediately return with a nonzero value. If \c num_cols == 0, the parser will set
    *  the required number of columns based on the first row encountered. For example, if
    *  the first header row contains 5 columns, all subsequent rows must contain 5 columns
-   *  otherwise the dsv_parse will immediately return a nonzero value. If 
+   *  otherwise the dsv_parse will immediately return a nonzero value. If
    *  \c num_cols == -1, no restriction will be placed on the number of columns. This
    *  also means that rows with zero columns are acceptable. In this case, any registered
    *  callback will still be called.
@@ -186,7 +186,7 @@ extern "C" {
   void dsv_parser_set_field_columns(dsv_parser_t parser, ssize_t num_cols);
 
   /**
-   *  \brief Get the required number of fields associated with future parsing with 
+   *  \brief Get the required number of fields associated with future parsing with
    *  \c parser
    *
    *  See \c dsv_parser_set_field_columns for an explanation of the return values
@@ -210,7 +210,7 @@ extern "C" {
   void dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
 
   /**
-   *  \brief Get the current field delimiter to be used for future parsing with 
+   *  \brief Get the current field delimiter to be used for future parsing with
    *  \c parser
    *
    *  This delimiter is used to separate both headers and fields depending on the settings
@@ -222,14 +222,14 @@ extern "C" {
 
 
   /**
-   *  \brief Enable or disable binary in double quoted fields for future parsing 
+   *  \brief Enable or disable binary in double quoted fields for future parsing
    *  with \c parser
    *
    *  The default setting is 0 (false)
    *
    *  Under RFC-4180, the file shall only contain ASCII printable characters. When
    *  enabled, this turns off most character translation in double quoted fields. Double
-   *  quotes are till recognized as well as newlines are properly interpreted--this 
+   *  quotes are till recognized as well as newlines are properly interpreted--this
    *  includes double quote preceded by another double quote.
    *
    *  Enabling is useful if the fields contain non-printing but otherwise useful ASCII
@@ -239,7 +239,7 @@ extern "C" {
    *  \param parser A properly initialized dsv_parser_t object
    *  \param flag nonzero to enable, zero to disable
    */
-  void dsv_parser_set_escaped_binary_fields(dsv_parser_t parser, int flag);
+  void dsv_parser_allow_escaped_binary_fields(dsv_parser_t parser, int flag);
 
   /**
    *  \brief Query the whether binary is recognized in double quoted fields for future
@@ -256,7 +256,7 @@ extern "C" {
    *  \param parser A properly initialized dsv_parser_t object
    *  \param flag nonzero to enable, zero to disable
    */
-  int dsv_parser_allow_escaped_binary_fields(dsv_parser_t parser);
+  int dsv_parser_escaped_binary_fields_allowed(dsv_parser_t parser);
 
 
 
@@ -298,17 +298,35 @@ extern "C" {
    *  Therefore, if the parser behavior is set to strictly comply with RFC4180, the
    *  first line in the file will always be interpreted as a header.
    *
+   *  An example method of traversing the fields is:
+   *
+   *  // assume the fields are known to be strings of ASCII characters
+   *  for(size_t i=0; i<size; ++i) {
+   *    // allocate space for copying--make sure we add space for the null terminator
+   *    size_t str_size = lengths[i]+1;
+   *    char *str = (char*)malloc(str_size*sizeof(char));
+   *    memcpy(str,fields[i],lengths[i]);
+   *    str[lengths[i]] = '\0';
+   *
+   *    // str now contains a copy of the field, do something interesting with it
+   *  }
+   *
    *  \param[in] fields \parblock
-   *  A c-array of null-terminated byte strings containing each parsed field. If
-   *  the field was surrounded by quotes, the string does not inlcude this. No
-   *  attempt is made at understanding the content of the string. For example, if
-   *  the string contains a number, no attempt is made at determining if the
-   *  number will not overflow. Additionally, if quoted properly (see format
-   *  documentation), certain non-printing characters may appear in the field
-   *  such as newlines. In all cases however, since delimited seperated values
-   *  are strictly an ASCII format, no binary shall appear in the field.
+   *  An array of pointers to byte arrays each representing the parsed field. If the
+   *  parsed field was surrounded by quotes, the byte array does not include these.
+   *  Although each byte array may be an ASCII string depending on the assigned behavior,
+   *  the array is NOT null-terminated. Additionally, no attempt is made at understanding
+   *  the content of the string. For example, if the parsed field was the
+   *  ASCII-representation of a number, no attempt is made at determining if the number
+   *  will overflow or is a valid representation. Additionally, based on the assigned
+   *  behavior and/or if quoted properly (see format documentation), other non-printing or
+   *  non-ASCII characters may appear in the field such as newlines.
    *  \endparblock
-   *  \param[in] size The size of the field array
+   *  \param[in] lengths \parblock
+   *  An array of values of type size_t representing the lengths of the respective byte
+   *  array contained in \c fields. Each value is the exact number of the contained bytes.
+   *  \endparblock
+   *  \param[in] size The size of the field and length array
    *  \param[in] context A user-defined value associted with this callback set in
    *                      \c dsv_set_header_callback
    *
@@ -316,7 +334,8 @@ extern "C" {
    *          and control should return from the parse function. If a nonzero value
    *          is returned, the parse function will also return <0
    */
-  typedef int (*header_callback_t)(const char *fields[], size_t size, void *context);
+  typedef int (*header_callback_t)(const unsigned char *fields[], const size_t lengths[],
+    size_t size, void *context);
 
   /**
    *  \brief Obtain the callback currently set for headers
@@ -354,24 +373,44 @@ extern "C" {
    *  \brief This function will be called for each record parsed in the file. See
    *  the documentation for the definition of a record.
    *
+   *  An example method of traversing the fields is:
+   *
+   *  // assume the fields are known to be strings of ASCII characters
+   *  for(size_t i=0; i<size; ++i) {
+   *    // allocate space for copying--make sure we add space for the null terminator
+   *    size_t str_size = lengths[i]+1;
+   *    char *str = (char*)malloc(str_size*sizeof(char));
+   *    memcpy(str,fields[i],lengths[i]);
+   *    str[lengths[i]] = '\0';
+   *
+   *    // str now contains a copy of the field, do something interesting with it
+   *  }
+   *
    *  \param[in] fields \parblock
-   *  A c-array of null-terminated byte strings containing each parsed field. If
-   *  the field was surrounded by quotes, the string does not inlcude this. No
-   *  attempt is made at understanding the content of the string. For example, if
-   *  the string contains a number, no attempt is made at determining if the
-   *  number will not overflow. Additionally, if quoted properly (see format
-   *  documentation), certain non-printing characters may appear in the field
-   *  such as newlines. In all cases however, since delimited seperated values
-   *  are strictly an ASCII format, no binary shall appear in the field.
+   *  An array of pointers to byte arrays each representing the parsed field. If the
+   *  parsed field was surrounded by quotes, the byte array does not include these.
+   *  Although each byte array may be an ASCII string depending on the assigned behavior,
+   *  the array is NOT null-terminated. Additionally, no attempt is made at understanding
+   *  the content of the string. For example, if the parsed field was the
+   *  ASCII-representation of a number, no attempt is made at determining if the number
+   *  will overflow or is a valid representation. Additionally, based on the assigned
+   *  behavior and/or if quoted properly (see format documentation), other non-printing or
+   *  non-ASCII characters may appear in the field such as newlines.
    *  \endparblock
-   *  \param[in] size The size of the field array
+   *  \param[in] lengths \parblock
+   *  An array of values of type size_t representing the lengths of the respective byte
+   *  array contained in \c fields. Each value is the exact number of the contained bytes.
+   *  \endparblock
+   *  \param[in] size The size of the field and length array
    *  \param[in] context A user-defined value associted with this callback set in
-   *                      \c dsv_set_record_callback
+   *                      \c dsv_set_header_callback
    *
    *  \retval nonzero if procssing should continue or 0 if processing should cease
-   *          and control should return from the parse function.
+   *          and control should return from the parse function. If a nonzero value
+   *          is returned, the parse function will also return <0
    */
-  typedef int (*record_callback_t)(const char *fields[], size_t size, void *context);
+  typedef int (*record_callback_t)(const unsigned char *fields[], const size_t lengths[],
+    size_t size, void *context);
 
   /**
    *  \brief Obtain the callback currently set for records
@@ -445,11 +484,11 @@ extern "C" {
         of columns in the header and the number of columns in the records are not the
         same.
 
-      This message is only applicable if the \c num_cols parameter of 
+      This message is only applicable if the \c num_cols parameter of
       \c dsv_parser_set_field_columns is set to -1 as all other values for this
       parameter will generate an error instead.
-      
-      This log code has four parameters;
+
+      This log code has the following parameters:
         - The line that triggered the column inconsistency[*][**]
         - The number of fields that would allow the record columns to remain consistant[*]
         - The number of fields parsed for this row that triggered the inconsistency[*]
@@ -457,8 +496,8 @@ extern "C" {
           \c dsv_parse
 
       * Numbers provided as a string are capable of being translated to
-        a signed or unsigned integer value (ie strtoul). 
-      
+        a signed or unsigned integer value (ie strtoul).
+
       **The line associated with the log is counted according to the applied parser
         behavior. For example, if the system newline is LF and the applied behavior is
         RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
@@ -469,12 +508,12 @@ extern "C" {
         behavior will be the CRLF.
     */
     dsv_nonrectangular_records_info,
-    
+
     /*
       \brief An error strictly associated with incorrect syntax based on the current
       parser behavior.
-      
-      This log code has five parameters;
+
+      This log code has the following parameters:
         - The offending line associated with the start of the syntax error[*][**]
         - The offending line associated with the end of the syntax error[*][**]
         - The offending character associated with the start of the syntax error[*]
@@ -483,8 +522,8 @@ extern "C" {
           \c dsv_parse
 
       * Numbers provided as a string are capable of being translated to
-        a signed or unsigned integer value (ie strtoul). 
-      
+        a signed or unsigned integer value (ie strtoul).
+
       **The line associated with the log is counted according to the applied parser
         behavior. For example, if the system newline is LF and the applied behavior is
         RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
@@ -495,13 +534,13 @@ extern "C" {
         behavior will be the CRLF.
     */
     dsv_syntax_error,
-    
+
     /*
       \brief An error strictly associated with parsing a non-uniform number of fields
       when explicitly requested to do so. For example, if the header contains 5 fields
       but the first record only contains 3.
-      
-      This log code has 
+
+      This log code has the following parameters:
         - The line number associated with the start of the offending row[*][**]
         - The line number associated with the end of the offending row[*][**]
         - The expected number of fields[*]
@@ -510,8 +549,8 @@ extern "C" {
           \c dsv_parse
 
       * Numbers provided as a string are capable of being translated to
-        a signed or unsigned integer value (ie strtoul). 
-      
+        a signed or unsigned integer value (ie strtoul).
+
       **The line associated with the log is counted according to the applied parser
         behavior. For example, if the system newline is LF and the applied behavior is
         RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
@@ -521,24 +560,57 @@ extern "C" {
         parsed as a quoted field and not a newline therefore the registered newline
         behavior will be the CRLF.
     */
-    dsv_column_count_error
+    dsv_column_count_error,
+
+    /*
+      \brief An error associated with settings that prohibit non-ASCII characters
+      appearing in quoted fields. This error is also thrown if a invalid newline
+      representation appears in RFC4180-strict mode.
+
+      This log code has the following parameters:
+        - The offending line associated with the start of the syntax error[*][**]
+        - The offending line associated with the end of the syntax error[*][**]
+        - The offending character associated with the start of the syntax error[*]
+        - The offending character associated with the end of the syntax error[*]
+        - A byted-oriented string containing the hexadecimal representation of the
+          offending binary content.[***]
+        - The location_str associated with the syntax error if it was supplied to
+          \c dsv_parse
+
+      * Numbers provided as a string are capable of being translated to
+        a signed or unsigned integer value (ie strtol and family).
+
+      **The line associated with the log is counted according to the applied parser
+        behavior. For example, if the system newline is LF and the applied behavior is
+        RFC4180-strict, then the lines will be counted based on the occurrence of CRLF.
+        If the behavior is newline_permissive, the lines will be counted based on the
+        first parsed occurrence of a newline. Note that this is different than the first
+        seen occurence of a newline. For example, if a record is "..LF.."CRLF, the LF is
+        parsed as a quoted field and not a newline therefore the registered newline
+        behavior will be the CRLF.
+
+      *** Each byte of the hexadecimal representation of binary content is prefixed by
+        a '0x' and therefore is capable of being translated to a signed or unsigned
+        integer value (ie strtol and family).
+    */
+    dsv_invalid_binary_error
   } dsv_log_code;
 
 
   /**
    *  \brief This function will be called each time a message is logged by the parser
    *    according to the set logging level.
-   *  
+   *
    *  \param[in] code The \c dsv_log_code associated with this message
    *  \param[in] level \parblock
-   *  The \c dsv_log_level that this code was generated against. This value may be 
-   *  different depending on the parser settings for a given \c dsv_log_code. For example,  
-   *  under settings that define strict behavior, the message may be considered and error. 
+   *  The \c dsv_log_level that this code was generated against. This value may be
+   *  different depending on the parser settings for a given \c dsv_log_code. For example,
+   *  under settings that define strict behavior, the message may be considered and error.
    *  Under permissive settings the same message may just be a warning.
    *  \endparblock
    *  \param[in] params \parblock
-   *  A c-array of null-terminated byte strings containing the parameters associated with 
-   *  the given \c dsv_log_code (see \c dsv_log_code for an explanation of the different 
+   *  A c-array of null-terminated byte strings containing the parameters associated with
+   *  the given \c dsv_log_code (see \c dsv_log_code for an explanation of the different
    *  parameters for each \c dsv_log_code).
    *  \endparblock
    *  \param[in] size The size of the params array
@@ -547,15 +619,15 @@ extern "C" {
    *
    *  \retval nonzero if procssing should continue or 0 if processing should cease
    *          and control should return from the parse function. If a nonzero value
-   *          is returned, the parse function will also return <0. Use this return value 
-   *          if an outside mechanism determines that parsing should cease based on the 
+   *          is returned, the parse function will also return <0. Use this return value
+   *          if an outside mechanism determines that parsing should cease based on the
    *          log message. NB that the return value is ignored in the case of error
    *          messages as they will always cause processing to cease and a nonzero value
    *          to be returned from from the parse function.
    */
   typedef int (*log_callback_t)(dsv_log_code code, dsv_log_level level,
     const char *params[], size_t size, void *context);
-  
+
   /**
    *  \brief Obtain the callback currently set for log messages
    *

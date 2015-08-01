@@ -231,7 +231,7 @@ unsigned char dsv_parser_get_field_delimiter(dsv_parser_t _parser)
   return result;
 }
 
-void dsv_parser_set_escaped_binary_fields(dsv_parser_t _parser, int flag)
+void dsv_parser_allow_escaped_binary_fields(dsv_parser_t _parser, int flag)
 {
   assert(_parser.p);
 
@@ -245,7 +245,7 @@ void dsv_parser_set_escaped_binary_fields(dsv_parser_t _parser, int flag)
   }
 }
 
-int dsv_parser_allow_escaped_binary_fields(dsv_parser_t _parser)
+int dsv_parser_escaped_binary_fields_allowed(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -449,7 +449,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   int err = 0;
 
   try {
-    //parser_debug = 1;
+    parser_debug = 1;
 
     detail::scanner_state scanner(location_str,stream);
     std::unique_ptr<detail::scanner_state> base_ctx;
@@ -493,7 +493,7 @@ log_callback_t dsv_get_logger_callback(dsv_parser_t _parser)
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
   log_callback_t result = 0;
-  
+
   try {
     result = parser.log_callback();
   }
@@ -517,7 +517,7 @@ void * dsv_get_logger_context(dsv_parser_t _parser)
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
   void *result = 0;
-  
+
   try {
     result = parser.log_context();
   }

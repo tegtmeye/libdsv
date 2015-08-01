@@ -97,7 +97,6 @@ class parser {
     typedef log_list_type::const_iterator const_log_iterator;
 
     parser(void);
-    ~parser(void) {std::cerr << "PARSER DESTROYED!\n";}
 
     log_callback_t log_callback(void) const;
     log_callback_t log_callback(log_callback_t fn);
@@ -121,48 +120,47 @@ class parser {
 
     ssize_t field_columns(void) const;
     ssize_t field_columns(ssize_t num_cols);
-    
+
     bool escaped_binary_fields(void) const;
     bool escaped_binary_fields(bool flag);
-    
+
 
     /* non-exposed behaviors */
     dsv_newline_behavior effective_newline(void) const;
     dsv_newline_behavior effective_newline(dsv_newline_behavior val);
 
+    bool newline_interpretation(void) const;
+    bool newline_interpretation(bool val);
+
     ssize_t effective_field_columns(void) const;
     ssize_t effective_field_columns(ssize_t num_cols);
-    
+
     bool effective_field_columns_set(void) const;
     bool effective_field_columns_set(bool flag);
-
-    bool effective_escaped_binary(void) const;
-    bool effective_escaped_binary(bool flag);
 
     void reset(void);
 
   private:
     log_callback_t log_fn;
     void *lcontext;
-  
+
     log_list_type log_list;
 
-    dsv_newline_behavior newline_flag;
+    unsigned char _delimiter;
+    dsv_newline_behavior _newline_behavior;
     ssize_t _field_columns;
-    unsigned char field_delimiter;
-    bool escaped_binary;
+    bool _escaped_binary_fields;
 
-    dsv_newline_behavior effective_newline_flag;
-    
+    dsv_newline_behavior _effective_newline;
+    bool _newline_interpretation;
     ssize_t _effective_field_columns;
     bool _effective_field_columns_set;
-    bool _effective_escaped_binary;
-    
+
 };
 
-inline parser::parser(void) :log_fn(0), lcontext(0), _field_columns(0), 
-  field_delimiter(','), escaped_binary(false), _effective_field_columns(0),
-  _effective_field_columns_set(false), _effective_escaped_binary(false)
+inline parser::parser(void) :log_fn(0), lcontext(0), _delimiter(','), _field_columns(0),
+   _escaped_binary_fields(false), _newline_interpretation(false),
+   _effective_field_columns(0), _effective_field_columns_set(false)
 {
   newline_behavior(dsv_newline_permissive);
 }
@@ -213,30 +211,28 @@ inline void parser::append_log(dsv_log_level level, const log_description &desc)
 
 inline unsigned char parser::delimiter(void) const
 {
-  return field_delimiter;
+  return _delimiter;
 }
 
 inline unsigned char parser::delimiter(unsigned char d)
 {
-  unsigned char tmp = field_delimiter;
-  field_delimiter = d;
-  return tmp;
+  std::swap(d,_delimiter);
+  return d;
 }
 
 inline const dsv_newline_behavior &
 parser::newline_behavior(void) const
 {
-  return newline_flag;
+  return _newline_behavior;
 }
 
 inline dsv_newline_behavior
 parser::newline_behavior(dsv_newline_behavior behavior)
 {
-  dsv_newline_behavior tmp = newline_flag;
-  newline_flag = behavior;
-  effective_newline_flag = behavior;
-  
-  return tmp;
+  std::swap(behavior,_newline_behavior);
+  _effective_newline = _newline_behavior;
+
+  return behavior;
 }
 
 inline ssize_t parser::field_columns(void) const
@@ -246,39 +242,46 @@ inline ssize_t parser::field_columns(void) const
 
 inline ssize_t parser::field_columns(ssize_t cols)
 {
-  ssize_t tmp = _field_columns;
-  _field_columns = cols;
-  _effective_field_columns = cols;
-  
+  std::swap(cols,_field_columns);
+  _effective_field_columns = _field_columns;
   _effective_field_columns_set = (cols > 0);
-  
-  return tmp;
+
+  return cols;
 }
 
 inline bool parser::escaped_binary_fields(void) const
 {
-  return escaped_binary;
+  return _escaped_binary_fields;
 }
 
 inline bool parser::escaped_binary_fields(bool flag)
 {
-  bool tmp = escaped_binary;
-  escaped_binary = flag;
-  return tmp;
+  std::swap(flag,_escaped_binary_fields);
+  return flag;
 }
 
 
 
 inline dsv_newline_behavior parser::effective_newline(void) const
 {
-  return effective_newline_flag;
+  return _effective_newline;
 }
 
 inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
 {
-  dsv_newline_behavior tmp = effective_newline_flag;
-  effective_newline_flag = val;
-  return tmp;
+  std::swap(val,_effective_newline);
+  return val;
+}
+
+inline bool parser::newline_interpretation(void) const
+{
+  return _newline_interpretation;
+}
+
+inline bool parser::newline_interpretation(bool val)
+{
+  std::swap(val,_newline_interpretation);
+  return val;
 }
 
 inline ssize_t parser::effective_field_columns(void) const
@@ -288,9 +291,8 @@ inline ssize_t parser::effective_field_columns(void) const
 
 inline ssize_t parser::effective_field_columns(ssize_t cols)
 {
-  ssize_t tmp = _effective_field_columns;
-  _effective_field_columns = cols;
-  return tmp;
+  std::swap(cols,_effective_field_columns);
+  return cols;
 }
 
 inline bool parser::effective_field_columns_set(void) const
@@ -300,28 +302,16 @@ inline bool parser::effective_field_columns_set(void) const
 
 inline bool parser::effective_field_columns_set(bool flag)
 {
-  bool tmp = _effective_field_columns_set;
-  _effective_field_columns_set = flag;
-  return tmp;
-}
-
-inline bool parser::effective_escaped_binary(void) const
-{
-  return _effective_escaped_binary;
-}
-
-inline bool parser::effective_escaped_binary(bool flag)
-{
-  bool tmp = _effective_escaped_binary;
-  _effective_escaped_binary = flag;
-  return tmp;
+  std::swap(flag,_effective_field_columns_set);
+  return flag;
 }
 
 
 inline void parser::reset(void)
 {
   log_list.clear();
-  effective_newline_flag = newline_flag;
+  _effective_newline = _newline_behavior;
+  _newline_interpretation = false;
   _effective_field_columns = _field_columns;
   _effective_field_columns_set = (_field_columns > 0);
 }
