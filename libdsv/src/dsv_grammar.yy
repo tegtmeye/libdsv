@@ -319,7 +319,7 @@
 %token DQUOTE "\""
 %token <char_buf_ptr> D2QUOTE "\"\""
 %token <char_buf_ptr> TEXTDATA
-%token <char_buf_ptr> BINARYDATA
+%token BINARYDATA "binary data"
 
 
 // file
@@ -408,22 +408,22 @@ field:
 
 escaped_field:
     open_quote escaped_textdata_list close_quote {
-      parser.newline_interpretation(true);
       $$ = $2;
     }
   ;
 
 open_quote:
     DQUOTE {
-      if(parser.escaped_binary_fields()) {
-        std::cerr << "TURNING OFF NEWLINE INTERPRETATION\n";
-        parser.newline_interpretation(false);
-      }
+      std::cerr << "TURNING ON ESCAPED FIELD\n";
+      parser.escaped_field(true);
     }
   ;
 
 close_quote:
-    DQUOTE // dummy
+    DQUOTE {
+      std::cerr << "TURNING OFF ESCAPED FIELD\n";
+      parser.escaped_field(false);
+    }
   ;
 
 escaped_textdata_list:
@@ -439,13 +439,6 @@ escaped_textdata_list:
 
 escaped_textdata:
     TEXTDATA { $$ = $1; }
-  | BINARYDATA {
-      if(!parser.escaped_binary_fields()) {
-        // add log
-        YYABORT;
-      }
-      $$ = $1;
-    }
   | DELIMITER {
       // delimiter must be recreated as it could change across parser invocations
       // todo, still can be cached in the parser...
@@ -584,11 +577,16 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     }
     else if(cur == 0x0A) {//LF
       lvalp->char_buf_ptr = lf_buf;
-      if(!parser.raw_newline_enabled()
-        && parser.effective_newline() != dsv_newline_crlf_strict)
-      {
-        if(parser.effective_newline() == dsv_newline_permissive)
+      if(parser.effective_newline() != dsv_newline_crlf_strict) {
+        // only register the effective newline if we are not in a quoted field
+        if(parser.effective_newline() == dsv_newline_permissive
+          && !(parser.escaped_field() && parser.escaped_binary_fields()))
+        {
           parser.effective_newline(dsv_newline_lf_strict);
+          std::cerr << "SETTING EFFECTIVE LF\n";
+        }
+        else
+          std::cerr << "IGNORING SETTING EFFECTIVE LF\n";
 
         ++(llocp->last_line);
         llocp->last_column = 1;
@@ -598,7 +596,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       return LF;
     }
     else if(cur == 0x0D) { //CR
-      if(!parser.raw_newline_enabled() && next == 0x0A // LF
+      if(next == 0x0A // LF
         && parser.effective_newline() != dsv_newline_lf_strict)
       {
         scanner.advance();
@@ -606,8 +604,15 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
         llocp->last_column = 1;
         lvalp->char_buf_ptr = crlf_buf;
 
-        if(parser.effective_newline() == dsv_newline_permissive)
+        // only register the effective newline if we are not in a quoted field
+        if(parser.effective_newline() == dsv_newline_permissive
+          && !(parser.escaped_field() && parser.escaped_binary_fields()))
+        {
           parser.effective_newline(dsv_newline_crlf_strict);
+          std::cerr << "SETTING EFFECTIVE CRLF\n";
+        }
+        else
+          std::cerr << "IGNORING SETTING EFFECTIVE CRLF\n";
 
         return NL;
       }
@@ -625,6 +630,65 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       }
       return DQUOTE;
     }
+    else if(parser.escaped_field() && parser.escaped_binary_fields()) {
+      // straight textdata
+      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
+
+      // only a DQUOTE will terminate a binary enabled escaped field
+      for(; scanner.getc(cur); scanner.advance()) {
+        if(cur == 0x22) { // DQUOTE
+          return TEXTDATA;
+        }
+
+        ++(llocp->last_column);
+
+// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
+//   << llocp->first_line << ":" << llocp->last_line << " col: "
+//   << llocp->first_column << ":" << llocp->last_column << "\n";
+
+        lvalp->char_buf_ptr->push_back(cur);
+      }
+
+      return TEXTDATA;
+    }
+    else if(cur < 32 || cur > 126) { // non-ASCII
+      return BINARYDATA;
+    }
+    else {
+      // straight textdata
+      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
+
+      // scan for anything that could terminate the ASCII field
+      for(; scanner.getc(cur); scanner.advance()) {
+        if(cur == parser.delimiter()
+          || cur == 0x0A //LF
+          || cur == 0x0D //CR
+          || cur == 0x22 // DQUOTE
+          || cur < 32 || cur > 126) // non-ASCII
+        {
+          return TEXTDATA;
+        }
+
+        ++(llocp->last_column);
+
+// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
+//   << llocp->first_line << ":" << llocp->last_line << " col: "
+//   << llocp->first_column << ":" << llocp->last_column << "\n";
+
+        lvalp->char_buf_ptr->push_back(cur);
+      }
+
+      return TEXTDATA;
+    }
+
+
+#if 0
+
+
+
+
+
+
     /*
       There is a design trade here. One way of handling the different possibilities of
       binary and non-binary values in quoted and non-quoted fields based on the set parser
@@ -679,6 +743,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
       return TEXTDATA;
     }
+#endif
   }
 
   return 0;

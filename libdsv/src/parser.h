@@ -129,8 +129,8 @@ class parser {
     dsv_newline_behavior effective_newline(void) const;
     dsv_newline_behavior effective_newline(dsv_newline_behavior val);
 
-    bool newline_interpretation(void) const;
-    bool newline_interpretation(bool val);
+    bool escaped_field(void) const;
+    bool escaped_field(bool val);
 
     ssize_t effective_field_columns(void) const;
     ssize_t effective_field_columns(ssize_t num_cols);
@@ -152,14 +152,14 @@ class parser {
     bool _escaped_binary_fields;
 
     dsv_newline_behavior _effective_newline;
-    bool _newline_interpretation;
+    bool _escaped_field;
     ssize_t _effective_field_columns;
     bool _effective_field_columns_set;
 
 };
 
 inline parser::parser(void) :log_fn(0), lcontext(0), _delimiter(','), _field_columns(0),
-   _escaped_binary_fields(false), _newline_interpretation(false),
+   _escaped_binary_fields(false), _escaped_field(false),
    _effective_field_columns(0), _effective_field_columns_set(false)
 {
   newline_behavior(dsv_newline_permissive);
@@ -273,14 +273,14 @@ inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
   return val;
 }
 
-inline bool parser::newline_interpretation(void) const
+inline bool parser::escaped_field(void) const
 {
-  return _newline_interpretation;
+  return _escaped_field;
 }
 
-inline bool parser::newline_interpretation(bool val)
+inline bool parser::escaped_field(bool val)
 {
-  std::swap(val,_newline_interpretation);
+  std::swap(val,_escaped_field);
   return val;
 }
 
@@ -311,7 +311,7 @@ inline void parser::reset(void)
 {
   log_list.clear();
   _effective_newline = _newline_behavior;
-  _newline_interpretation = false;
+  _escaped_field = false;
   _effective_field_columns = _field_columns;
   _effective_field_columns_set = (_field_columns > 0);
 }

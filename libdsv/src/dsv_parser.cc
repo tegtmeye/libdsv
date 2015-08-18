@@ -449,7 +449,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   int err = 0;
 
   try {
-    parser_debug = 1;
+    //parser_debug = 1;
 
     detail::scanner_state scanner(location_str,stream);
     std::unique_ptr<detail::scanner_state> base_ctx;

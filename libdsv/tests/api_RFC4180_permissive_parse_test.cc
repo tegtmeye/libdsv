@@ -434,8 +434,8 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_crlf )
 }
 
 /** \test Attempt to parse an named file with multiple lines consisting of the
- *    rfc4180 character set. The lines are LF terminated and under permissive settings,
- *    this test should pass.
+ *    rfc4180 character set. Although newline permissive is set, this test should fail
+ *    because the newline in the quoted field sets the overall file newline.
  */
 BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf )
 {
@@ -446,8 +446,9 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf )
   std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_quoted_charset}
   };
-  std::vector<std::vector<d::field_storage_type> > records{
-    {d::rfc4180_quoted_charset}
+
+  std::vector<detail::log_msg> logs{
+    {dsv_syntax_error,{"2","2","2","3",""}}
   };
 
   std::vector<d::field_storage_type> file_contents{
@@ -455,8 +456,8 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf )
     d::rfc4180_raw_quoted_charset,d::lf
   };
 
-  d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multiline_single_quoted_rfc4180p_charset_lf",0);
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_multiline_single_quoted_rfc4180p_charset_lf",-1);
 }
 
 
@@ -478,7 +479,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_crlf_lf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_syntax_error,{"2","2","94","95",""}}
+    {dsv_syntax_error,{"4","4","2","3",""}}
   };
 
   std::vector<d::field_storage_type> file_contents{
@@ -503,12 +504,9 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf_crlf )
   std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_quoted_charset}
   };
-  std::vector<std::vector<d::field_storage_type> > records{
-    {d::rfc4180_quoted_charset}
-  };
 
   std::vector<detail::log_msg> logs{
-    {dsv_syntax_error,{"2","2","94","95",""}}
+    {dsv_syntax_error,{"2","2","2","3",""}}
   };
 
   std::vector<d::field_storage_type> file_contents{
@@ -516,7 +514,7 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf_crlf )
     d::rfc4180_raw_quoted_charset,d::crlf
   };
 
-  d::check_compliance(parser,headers,records,logs,file_contents,
+  d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_multiline_single_quoted_rfc4180p_charset_lf_crlf",-1);
 }
 

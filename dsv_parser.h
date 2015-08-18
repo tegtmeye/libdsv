@@ -129,7 +129,7 @@ extern "C" {
      */
     dsv_newline_lf_strict = 1,
 
-    /** Only accept lines terminated by both the Carriage Return (CRL) and the the
+    /** Only accept lines terminated by both the Carriage Return (CRL) and the
      *  Line Feed (LF). [MS Windows]
      */
     dsv_newline_crlf_strict = 2,
@@ -229,12 +229,16 @@ extern "C" {
    *
    *  Under RFC-4180, the file shall only contain ASCII printable characters. When
    *  enabled, this turns off most character translation in double quoted fields. Double
-   *  quotes are till recognized as well as newlines are properly interpreted--this
-   *  includes double quote preceded by another double quote.
+   *  quotes are still recognized as well as double quote preceded by another double
+   *  quote.
    *
    *  Enabling is useful if the fields contain non-printing but otherwise useful ASCII
    *  characters as well as allowing for non-ASCII encoding such as UTF-8. The library
    *  makes no attempt to translate any such characters.
+   *
+   *  The downside is that newline interpretation is also turned off. Therefore only
+   *  newlines outside of the double quoted fields are counted for location tracking. This
+   *  means that if syntax errors are encountered, it can make locating them difficult.
    *
    *  \param parser A properly initialized dsv_parser_t object
    *  \param flag nonzero to enable, zero to disable
