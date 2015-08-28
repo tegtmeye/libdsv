@@ -393,6 +393,58 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180p_charset_lf_crlf )
     "parse_multiline_single_rfc4180p_charset_lf_crlf",-1);
 }
 
+/** \test Attempt to parse an named file with multiple lines consisting of the
+ *    rfc4180 character set. The first line is terminated by lf and the second is
+ *    unterminated. This should pass.
+ */
+BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180p_charset_lf_unterminated )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_multiline_single_rfc4180p_charset_lf_unterminated",0);
+}
+
+/** \test Attempt to parse an named file with multiple lines consisting of the
+ *    rfc4180 character set. The first line is terminated by crlf and the second is
+ *    unterminated. This should pass.
+ */
+BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180p_charset_crlf_unterminated )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::crlf,
+    d::rfc4180_charset
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_multiline_single_rfc4180p_charset_crlf_unterminated",0);
+}
+
 
 
 
@@ -518,178 +570,31 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_lf_crlf )
     "parse_multiline_single_quoted_rfc4180p_charset_lf_crlf",-1);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /** \test Attempt to parse an named file with multiple lines consisting of the
- *    quoted_rfc4180 character set.
+ *    quoted rfc4180 character set. The first line is terminated with a crlf and the
+ *    second is unterminated. This should pass.
  */
-BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_multiline_single_quoted_rfc4180p_charset_crlf_unterminated )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_quoted_charset}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_quoted_charset}
-  };
-
-  std::vector<std::string> file_contents{
-    d::rfc4180_raw_quoted_charset,d::crlf,
-    d::rfc4180_raw_quoted_charset,d::crlf
-  };
-
-  d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multiline_single_rfc4180_quoted_charset_crlf",0);
-}
-
-/** \test Attempt to parse an named file with multiple lines consisting of the
- *    rfc4180 character set. The last line is not terminated.
- */
-BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset )
-{
-  dsv_parser_t parser;
-  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
-  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
-
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_charset}
-  };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset}
-  };
-
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,d::crlf,
-    d::rfc4180_charset
-  };
-
-  d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multiline_single_rfc4180_charset",0);
-}
-
-/** \test Attempt to parse an named file with multiple lines consisting of the
- *    quoted_rfc4180 character set. The last line is not terminated.
- */
-BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset )
-{
-  dsv_parser_t parser;
-  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
-  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
-
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_quoted_charset}
-  };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_quoted_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_raw_quoted_charset,d::crlf,
     d::rfc4180_raw_quoted_charset
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multiline_single_rfc4180_quoted_charset",0);
+    "parse_multiline_single_quoted_rfc4180p_charset_crlf_unterminated",0);
 }
-
-/** \test Attempt to parse an named file with multiple lines consisting of the
- *    rfc4180 character set. The first line is terminated with a LF. When
- *    set to be RFC4180 strict, this is an error.
- */
-BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_charset_lf )
-{
-  dsv_parser_t parser;
-  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
-  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
-
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_charset}
-  };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset}
-  };
-
-  std::vector<detail::log_msg> logs{
-    {dsv_syntax_error,{"1","1","94","95",""}}
-  };
-
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,d::lf,
-    d::rfc4180_charset
-  };
-
-  d::check_compliance(parser,headers,{},logs,file_contents,
-  "parse_multiline_single_rfc4180_charset_lf",-1);
-}
-
-/** \test Attempt to parse an named file with multiple lines consisting of the
- *    quoted rfc4180 character set. The first line is terminated with a LF. Then
- *    set to be RFC4180 strict, this is an error.
- */
-BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_lf )
-{
-  dsv_parser_t parser;
-  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
-  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
-
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_quoted_charset}
-  };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_quoted_charset}
-  };
-
-  // the crlf in the quoted field increases the line count
-  std::vector<detail::log_msg> logs{
-    {dsv_syntax_error,{"2","2","2","3",""}}
-  };
-
-  std::vector<std::string> file_contents{
-    d::rfc4180_raw_quoted_charset,d::lf,
-    d::rfc4180_raw_quoted_charset
-  };
-
-  d::check_compliance(parser,headers,{},logs,file_contents,
-  "parse_multiline_single_rfc4180_quoted_charset_lf",-1);
-}
-
-
-
 
 
 
@@ -699,76 +604,151 @@ BOOST_AUTO_TEST_CASE( parse_multiline_single_rfc4180_quoted_charset_lf )
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    rfc4180 character set.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf,
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-  "parse_rfc4180_charset_crlf",0);
+  "parse_rfc4180p_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. This file is lifefeed terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+  "parse_rfc4180p_charset_lf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    quoted rfc4180 character set.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_quoted_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_quoted_charset,d::rfc4180_quoted_charset}
   };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_quoted_charset,d::rfc4180_quoted_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_raw_quoted_charset,",",d::rfc4180_raw_quoted_charset,d::crlf,
-    d::rfc4180_raw_quoted_charset,",",d::rfc4180_raw_quoted_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf,
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_quoted_charset_crlf",0);
+    "parse_rfc4180p_quoted_charset_crlf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
- *    mixed quoted and unquoted rfc4180 character set.
+ *    quoted rfc4180 character set. This file is linefeed terminated.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_mixed_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_quoted_charset_lf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_quoted_charset,d::rfc4180_charset,d::rfc4180_quoted_charset}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_lf_quoted_charset,d::rfc4180_lf_quoted_charset}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_quoted_charset,d::rfc4180_charset,d::rfc4180_quoted_charset}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_lf_quoted_charset,d::rfc4180_lf_quoted_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_raw_quoted_charset,",",d::rfc4180_charset,",",d::rfc4180_raw_quoted_charset,d::crlf,
-    d::rfc4180_raw_quoted_charset,",",d::rfc4180_charset,",",d::rfc4180_raw_quoted_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_lf_raw_quoted_charset,d::comma,d::rfc4180_lf_raw_quoted_charset,d::lf,
+    d::rfc4180_lf_raw_quoted_charset,d::comma,d::rfc4180_lf_raw_quoted_charset,d::lf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_mixed_charset_crlf",0);
+    "parse_rfc4180p_quoted_charset_lf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    mixed quoted and unquoted rfc4180p character set.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_mixed_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_quoted_charset,d::rfc4180_charset,d::rfc4180_quoted_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_quoted_charset,d::rfc4180_charset,d::rfc4180_quoted_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf,
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_mixed_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    mixed quoted and unquoted rfc4180p character set. This file is linefeed terminated.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_mixed_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_lf_quoted_charset,d::rfc4180_charset,d::rfc4180_lf_quoted_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_lf_quoted_charset,d::rfc4180_charset,d::rfc4180_lf_quoted_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_lf_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_lf_raw_quoted_charset,d::lf,
+    d::rfc4180_lf_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_lf_raw_quoted_charset,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_mixed_charset_lf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
@@ -780,16 +760,41 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_crlf )
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_charset,"",d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::empty,d::rfc4180_charset}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset,"",d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::empty,d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",",",",d::rfc4180_charset,d::crlf,
-    d::rfc4180_charset,",",",",d::rfc4180_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::comma,d::rfc4180_charset,d::crlf,
+    d::rfc4180_charset,d::comma,d::comma,d::rfc4180_charset,d::crlf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180_empty2_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. A middle fields is empty. This file is linefeed terminated.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::empty,d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::empty,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::comma,d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::comma,d::comma,d::rfc4180_charset,d::lf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
@@ -799,47 +804,72 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty2_charset_crlf )
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    rfc4180 character set. The first field is empty
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty1_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty1_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {"",d::rfc4180_charset,d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::empty,d::rfc4180_charset,d::rfc4180_charset}
   };
-  std::vector<std::vector<std::string> > records{
-    {"",d::rfc4180_charset,d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::empty,d::rfc4180_charset,d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
-    ",",d::rfc4180_charset,",",d::rfc4180_charset,d::crlf,
-    ",",d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::comma,d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf,
+    d::comma,d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_empty1_charset_crlf",0);
+    "parse_rfc4180p_empty1_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. The first field is empty. This file is linefeed terminated.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty1_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::empty,d::rfc4180_charset,d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::empty,d::rfc4180_charset,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::comma,d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf,
+    d::comma,d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_empty1_charset_lf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    rfc4180 character set. The last field is empty
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty3_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty3_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_charset,d::rfc4180_charset,""}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::rfc4180_charset,d::empty}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset,d::rfc4180_charset,""}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::rfc4180_charset,d::empty}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",",d::rfc4180_charset,",",d::crlf,
-    d::rfc4180_charset,",",d::rfc4180_charset,",",d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::comma,d::crlf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::comma,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
@@ -847,53 +877,128 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty3_charset_crlf )
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
- *    rfc4180 character set. The first 2 fields are empty
+ *    rfc4180 character set. The last field is empty.  This file is linefeed terminated.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty12_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty3_charset_lf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {"","",d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::rfc4180_charset,d::empty}
   };
-  std::vector<std::vector<std::string> > records{
-    {"","",d::rfc4180_charset}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::rfc4180_charset,d::empty}
   };
 
-  std::vector<std::string> file_contents{
-    ",,",d::rfc4180_charset,d::crlf,
-    ",,",d::rfc4180_charset,d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::comma,d::lf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::comma,d::lf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_empty12_charset_crlf",0);
+    "parse_rfc4180p_empty3_charset_lf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. The first 2 fields are empty
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty12_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::empty,d::empty,d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::empty,d::empty,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::comma,d::comma,d::rfc4180_charset,d::crlf,
+    d::comma,d::comma,d::rfc4180_charset,d::crlf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_empty12_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. The first 2 fields are empty. This file is linefeed terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty12_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::empty,d::empty,d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::empty,d::empty,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::comma,d::comma,d::rfc4180_charset,d::lf,
+    d::comma,d::comma,d::rfc4180_charset,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_empty12_charset_lf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    rfc4180 character set. The last 2 fields are empty
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty23_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
-    {d::rfc4180_charset,"",""}
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::empty,d::empty}
   };
-  std::vector<std::vector<std::string> > records{
-    {d::rfc4180_charset,"",""}
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::empty,d::empty}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",,",d::crlf,
-    d::rfc4180_charset,",,",d::crlf
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::comma,d::crlf,
+    d::rfc4180_charset,d::comma,d::comma,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_empty23_charset_crlf",0);
+    "parse_rfc4180p_empty23_charset_crlf",0);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. The last 2 fields are empty. This file is linefeed terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty23_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::empty,d::empty}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset,d::empty,d::empty}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::comma,d::lf,
+    d::rfc4180_charset,d::comma,d::comma,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_empty23_charset_lf",0);
 }
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
@@ -902,19 +1007,19 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty23_charset_crlf )
  *    means no columns in the record. This interpretation may change and this test case
  *    would then need to be updated accordingly.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty_header_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::crlf,
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf
   };
 
   std::vector<detail::log_msg> logs{
@@ -922,7 +1027,36 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_rfc4180_empty_header_charset_crlf",-1);
+    "parse_rfc4180p_empty_header_charset_crlf",-1);
+}
+
+/** \test Attempt to parse an named file with multiple fields consisting of the
+ *    rfc4180 character set. The header is empty. This should fail under this
+ *    interpretation of RFC4180. That is, an empty header means no columns which
+ *    means no columns in the record. This interpretation may change and this test case
+ *    would then need to be updated accordingly.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty_header_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::lf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_column_count_error,{"2","2","0","2",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_rfc4180p_empty_header_charset_lf",-1);
 }
 
 /** \test Attempt to parse an named file where the header and the record is empty. This
@@ -930,29 +1064,54 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
  *    means no columns which allows for no columns in the record. This interpretation may
  *    change and this test case would then need to be updated accordingly.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_record_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty_header_record_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {}
   };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::crlf,
     d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_rfc4180_empty_header_record_charset_crlf",0);
+    "parse_rfc4180p_empty_header_record_charset_crlf",0);
 }
 
+/** \test Attempt to parse an named file where the header and the record is empty. This
+ *    should pass under the current interpretation of RFC4180. That is, an empty header
+ *    means no columns which allows for no columns in the record. This interpretation may
+ *    change and this test case would then need to be updated accordingly.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_empty_header_record_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::lf,
+    d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_rfc4180p_empty_header_record_charset_lf",0);
+}
 
 /** CHECK ADVANCED INVALID FIELD HANDLING **/
 
@@ -960,18 +1119,18 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_record_charset_crlf )
 /** \test Attempt to parse a named file where the a RFC4180 charset and quoted charset
  *    are back to back. That is, no delimiter. This should cause a syntax error.
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_charset_nodelimiter_rfc4180_quoted_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     //syntax error should be triggered before we see the second field
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_charset,d::rfc4180_raw_quoted_charset,d::crlf,
   };
 
@@ -980,25 +1139,51 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_c
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_crlf",-1);
+    "parse_rfc4180p_charset_nodelimiter_rfc4180_quoted_charset_crlf",-1);
+}
+
+/** \test Attempt to parse a named file where the a RFC4180 charset and quoted charset
+ *    are back to back. That is, no delimiter. This should cause a syntax error.
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_charset_nodelimiter_rfc4180_quoted_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    //syntax error should be triggered before we see the second field
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::rfc4180_lf_raw_quoted_charset,d::lf,
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_syntax_error,{"1","1","94","95",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_rfc4180p_charset_nodelimiter_rfc4180_quoted_charset_lf",-1);
 }
 
 /** \test Attempt to parse a named file where the a RFC4180 quoted charset and the charset
  *    are back to back. That is, no delimiter. This should cause a syntax error.
  *    This is the inverse of parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_crlf
  */
-BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_quoted_charset_nodelimiter_rfc4180_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     //syntax error should be triggered before we see the second field
     {d::rfc4180_quoted_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_raw_quoted_charset,d::rfc4180_charset,d::crlf,
   };
 
@@ -1007,10 +1192,35 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_c
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_crlf",-1);
+    "parse_rfc4180p_quoted_charset_nodelimiter_rfc4180_charset_crlf",-1);
 }
 
+/** \test Attempt to parse a named file where the a RFC4180 quoted charset and the charset
+ *    are back to back. That is, no delimiter. This should cause a syntax error.
+ *    This is the inverse of parse_rfc4180_charset_nodelimiter_rfc4180_quoted_charset_lf
+ */
+BOOST_AUTO_TEST_CASE( parse_rfc4180p_quoted_charset_nodelimiter_rfc4180_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
+  std::vector<std::vector<d::field_storage_type> > headers{
+    //syntax error should be triggered before we see the second field
+    {d::rfc4180_lf_quoted_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_lf_raw_quoted_charset,d::rfc4180_charset,d::lf,
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_syntax_error,{"2","2","2","95",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_rfc4180p_quoted_charset_nodelimiter_rfc4180_charset_lf",-1);
+}
 
 
 
@@ -1019,22 +1229,22 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_nodelimiter_rfc4180_charset_c
 
 /** \test Attempt to parse an named file with a single header and multiple records
  */
-BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180p_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset}
   };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_charset},
     {d::rfc4180_charset},
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf,
@@ -1042,28 +1252,57 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset_crlf )
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multirecord_rfc4180_charset_crlf",0);
+    "parse_multirecord_rfc4180p_charset_crlf",0);
 }
 
 /** \test Attempt to parse an named file with a single header and multiple records.
- *    The last line is not terminated
+ *  This file is linefeed terminated
  */
-BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
+BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180p_charset_lf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset}
   };
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_charset},
     {d::rfc4180_charset},
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_multirecord_rfc4180p_charset_lf",0);
+}
+
+/** \test Attempt to parse an named file with a single header and multiple records.
+ *    The last line is not terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180p_charset_crlf_missing )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset},
+    {d::rfc4180_charset},
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf,
@@ -1071,7 +1310,36 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
-    "parse_multirecord_rfc4180_charset",0);
+    "parse_multirecord_rfc4180p_charset_crlf_missing",0);
+}
+
+/** \test Attempt to parse an named file with a single header and multiple records.
+ *    The last line is not terminated. This file is linefeed terminated
+ */
+BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180p_charset_lf_missing )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset}
+  };
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset},
+    {d::rfc4180_charset},
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+    "parse_multirecord_rfc4180p_charset_lf_missing",0);
 }
 
 
@@ -1082,20 +1350,20 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
 /** \test Attempt to parse an named file with a single header field and multi record
  *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
  */
-BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180p_charset_crlf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
+  std::vector<d::field_storage_type> file_contents{
     d::rfc4180_charset,d::crlf,
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf,
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf
   };
 
   std::vector<detail::log_msg> logs{
@@ -1103,29 +1371,57 @@ BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_single_header_multirecord_rfc4180_charset_crlf",-1);
+    "parse_single_header_multirecord_rfc4180p_charset_crlf",-1);
 }
 
-/** \test Attempt to parse an named file with a multi header field and single record
- *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
+/** \test Attempt to parse an named file with a single header field and multi record
+ *    fields. This should cause a dsv_column_count_error under RFC4180 -strict.
+ *    This file is linefeed terminated.
  */
-BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180p_charset_lf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_column_count_error,{"2","2","1","2",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_single_header_multirecord_rfc4180p_charset_lf",-1);
+}
+
+/** \test Attempt to parse an named file with a multi header field and single record
+ *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
+ */
+BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180p_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
 
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
     {d::rfc4180_charset},
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf,
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf,
     d::rfc4180_charset,d::crlf
   };
@@ -1135,29 +1431,62 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
+    "parse_multi_header_singlerecord_rfc4180p_charset_crlf",-1);
 }
 
-/** \test Attempt to parse an named file with a multi header field and empty record
- *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
+/** \test Attempt to parse an named file with a multi header field and single record
+ *    fields. This should cause a dsv_column_count_error under RFC4180 -strict.
+ *    This file is linefeed terminated.
  */
-BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
+BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180p_charset_lf )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  std::vector<std::vector<std::string> > headers{
+  std::vector<std::vector<d::field_storage_type> > headers{
     {d::rfc4180_charset,d::rfc4180_charset}
   };
 
-  std::vector<std::vector<std::string> > records{
+  std::vector<std::vector<d::field_storage_type> > records{
+    {d::rfc4180_charset},
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf,
+    d::rfc4180_charset,d::lf
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_column_count_error,{"2","2","2","1",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_multi_header_singlerecord_rfc4180p_charset_lf",-1);
+}
+
+/** \test Attempt to parse an named file with a multi header field and empty record
+ *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
+ */
+BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180p_charset_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::rfc4180_charset}
+  };
+
+  std::vector<std::vector<d::field_storage_type> > records{
     {},
     {d::rfc4180_charset}
   };
 
-  std::vector<std::string> file_contents{
-    d::rfc4180_charset,",",d::rfc4180_charset,d::crlf,
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::crlf,
     d::crlf,
     d::rfc4180_charset,d::crlf
   };
@@ -1167,10 +1496,41 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
-    "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
+    "parse_multi_header_emptyrecord_rfc4180p_charset_crlf",-1);
 }
 
-#endif
+/** \test Attempt to parse an named file with a multi header field and empty record
+ *    fields. This should cause a dsv_column_count_error under RFC4180 -strict
+ */
+BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180p_charset_lf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_permissive(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {d::rfc4180_charset,d::rfc4180_charset}
+  };
+
+  std::vector<std::vector<d::field_storage_type> > records{
+    {},
+    {d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    d::rfc4180_charset,d::comma,d::rfc4180_charset,d::lf,
+    d::lf,
+    d::rfc4180_charset,d::lf
+  };
+
+  std::vector<detail::log_msg> logs{
+    {dsv_column_count_error,{"2","3","2","0",""}}
+  };
+
+  d::check_compliance(parser,headers,{},logs,file_contents,
+    "parse_multi_header_emptyrecord_rfc4180p_charset_lf",-1);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

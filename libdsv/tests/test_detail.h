@@ -89,6 +89,15 @@ static const field_storage_type rfc4180_quoted_charset = {
   'v','w','x','y','z','{','|','}','~',0x0D,0x0A
 };
 
+// same as above but embedded linefeed instead of carriage-return line-feed
+static const field_storage_type rfc4180_lf_quoted_charset = {
+  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
+  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
+  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
+  'v','w','x','y','z','{','|','}','~',0x0A
+};
+
 // 100 characters not including newline
 static const field_storage_type rfc4180_raw_quoted_charset = {
   0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
@@ -96,6 +105,15 @@ static const field_storage_type rfc4180_raw_quoted_charset = {
   'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
   '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
   't','u','v','w','x','y','z','{','|','}','~',0x0D,0x0A,0x22
+};
+
+// same as above but embedded linefeed instead of carriage-return line-feed
+static const field_storage_type rfc4180_lf_raw_quoted_charset = {
+  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
+  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
+  'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
+  '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
+  't','u','v','w','x','y','z','{','|','}','~',0x0A,0x22
 };
 
 static const field_storage_type crlf = {0x0D,0x0A};

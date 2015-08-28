@@ -414,14 +414,14 @@ escaped_field:
 
 open_quote:
     DQUOTE {
-      std::cerr << "TURNING ON ESCAPED FIELD\n";
+//       std::cerr << "TURNING ON ESCAPED FIELD\n";
       parser.escaped_field(true);
     }
   ;
 
 close_quote:
     DQUOTE {
-      std::cerr << "TURNING OFF ESCAPED FIELD\n";
+//       std::cerr << "TURNING OFF ESCAPED FIELD\n";
       parser.escaped_field(false);
     }
   ;
@@ -583,10 +583,10 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
           && !(parser.escaped_field() && parser.escaped_binary_fields()))
         {
           parser.effective_newline(dsv_newline_lf_strict);
-          std::cerr << "SETTING EFFECTIVE LF\n";
+//           std::cerr << "SETTING EFFECTIVE LF\n";
         }
-        else
-          std::cerr << "IGNORING SETTING EFFECTIVE LF\n";
+//         else
+//           std::cerr << "IGNORING SETTING EFFECTIVE LF\n";
 
         ++(llocp->last_line);
         llocp->last_column = 1;
@@ -609,10 +609,10 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
           && !(parser.escaped_field() && parser.escaped_binary_fields()))
         {
           parser.effective_newline(dsv_newline_crlf_strict);
-          std::cerr << "SETTING EFFECTIVE CRLF\n";
+//           std::cerr << "SETTING EFFECTIVE CRLF\n";
         }
-        else
-          std::cerr << "IGNORING SETTING EFFECTIVE CRLF\n";
+//         else
+//           std::cerr << "IGNORING SETTING EFFECTIVE CRLF\n";
 
         return NL;
       }
@@ -680,70 +680,6 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
       return TEXTDATA;
     }
-
-
-#if 0
-
-
-
-
-
-
-    /*
-      There is a design trade here. One way of handling the different possibilities of
-      binary and non-binary values in quoted and non-quoted fields based on the set parser
-      behavior is to simply return a BINARY token for binary and TEXTDATA for ASCII and
-      let the parser flag errors as it compiles the \c escaped_textdata and \c
-      non_escaped_textdata non-terminals. There is likely a non-trivial performance hit
-      here though in the case of parsing fields that contain binary data. That is, if a
-      true binary field contains some bytes that are in the ASCII-printable, those will be
-      scanned as a separate token and then compiled by the parser.
-    */
-    else if(cur < 32 || cur > 126) {
-      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
-
-      //scan for non-binary
-      for(; scanner.getc(cur); scanner.advance()) {
-        if(cur == 0x0A //LF
-          || cur == 0x0D //CR
-          || (cur >= 32 && cur <= 126)) // ASCII
-        {
-          return BINARYDATA;
-        }
-
-// std::cerr << "BINARY: incrementing column: " << std::dec << llocp->last_column << "\n";
-        ++(llocp->last_column);
-        lvalp->char_buf_ptr->push_back(cur);
-      }
-
-      return BINARYDATA;
-    }
-    else {
-      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
-
-      // scan for anything that could terminate the ASCII field
-      for(; scanner.getc(cur); scanner.advance()) {
-        if(cur == parser.delimiter()
-          || cur == 0x0A //LF
-          || cur == 0x0D //CR
-          || cur == 0x22 // DQUOTE
-          || cur < 32 || cur > 126) // non-ASCII
-        {
-          return TEXTDATA;
-        }
-
-        ++(llocp->last_column);
-
-// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
-//   << llocp->first_line << ":" << llocp->last_line << " col: "
-//   << llocp->first_column << ":" << llocp->last_column << "\n";
-
-        lvalp->char_buf_ptr->push_back(cur);
-      }
-
-      return TEXTDATA;
-    }
-#endif
   }
 
   return 0;
