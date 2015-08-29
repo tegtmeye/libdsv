@@ -13,7 +13,7 @@
 #include <cstdio>
 
 /** \file
- *  \brief Unit tests for basic parsing
+ *  \brief Unit tests for RFC4180-permissive parsing
  */
 
 
