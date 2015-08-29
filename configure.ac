@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(libdsv, .1.0)
+AC_INIT(libdsv, 0.2.1)
 AC_CONFIG_SRCDIR(Makefile.am)
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_AUX_DIR(config)
