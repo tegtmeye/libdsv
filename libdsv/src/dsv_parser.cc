@@ -529,12 +529,11 @@ void * dsv_get_logger_context(dsv_parser_t _parser)
 }
 
 /**
- *  \brief Associate the logging callback \c fn and a user-specified value \c context
- *  with \c parser.
- *
- *  \note The value of \c context is passed in as the \c context parameter in \c fn
+ *  \brief Associate the logging callback \c fn, a user-specified \c context,
+ *  for logging \c level with \c parser.
  */
-void dsv_set_logger_callback(log_callback_t fn, void *context, dsv_parser_t _parser)
+  void dsv_set_logger_callback(log_callback_t fn, void *context,
+    dsv_log_level level, dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -543,6 +542,7 @@ void dsv_set_logger_callback(log_callback_t fn, void *context, dsv_parser_t _par
   try {
     parser.log_callback(fn);
     parser.log_context(context);
+    parser.log_level(level);
   }
   catch(...) {
     abort();

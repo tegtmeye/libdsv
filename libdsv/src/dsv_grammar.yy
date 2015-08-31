@@ -67,13 +67,14 @@
 
   /**
    *  Error reporting function as required by Bison
+   *  These are always errors
    */
   void parser_error(YYLTYPE *llocp, const detail::scanner_state &scanner,
     detail::parser &parser, const detail::parse_operations &operations,
     const std::unique_ptr<detail::scanner_state> &context, const char *s)
   {
     log_callback_t logger = parser.log_callback();
-    if(logger) {
+    if((parser.log_level() & dsv_log_error) && logger) {
       std::string first_line = std::to_string(llocp->first_line);
       std::string last_line = std::to_string(llocp->last_line);
       std::string first_column = std::to_string(llocp->first_column);
@@ -93,9 +94,14 @@
     }
   }
 
-  void column_count_error(const YYLTYPE &llocp, const detail::scanner_state &scanner,
-    detail::parser &parser, std::size_t rec_cols)
+  bool column_count_message(const YYLTYPE &llocp,
+    const detail::scanner_state &scanner, detail::parser &parser,
+    std::size_t rec_cols, dsv_log_level level)
   {
+    std::cerr << "LOG LEVEL: " << parser.log_level() << "\n";
+
+    bool result = !(level & dsv_log_error);
+
     // - The line number associated with the start of the offending row[*][**]
     // - The line number associated with the end of the offending row[*][**]
     // - The expected number of fields[*]
@@ -103,7 +109,7 @@
     // - The location_str associated with the syntax error if it was supplied to
     //   \c dsv_parse
     log_callback_t logger = parser.log_callback();
-    if(logger) {
+    if((parser.log_level() & level) && logger) {
       std::string first_line = std::to_string(llocp.first_line);
       std::string last_line = std::to_string(llocp.last_line);
       std::string exp_columns = std::to_string(parser.effective_field_columns());
@@ -118,14 +124,23 @@
         filename.c_str()
       };
 
-      logger(dsv_column_count_error,dsv_log_error,fields,
+      bool user_res = logger(dsv_column_count_message,level,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
+
+      // only allow the parsing to continue if the leve was not an error and
+      // logger returns true;
+      result = (result & user_res);
     }
+
+    return result;
   }
 
-  void invalid_binary_error(const YYLTYPE &llocp, const detail::scanner_state &scanner,
-    detail::parser &parser, const YYSTYPE::char_buff_type &char_buf)
+  bool unexpected_binary(const YYLTYPE &llocp,
+    const detail::scanner_state &scanner, detail::parser &parser,
+    const YYSTYPE::char_buff_type &char_buf, dsv_log_level level)
   {
+    bool result = !(level & dsv_log_error);
+
     // - The offending line associated with the start of the syntax error[*][**]
     // - The offending line associated with the end of the syntax error[*][**]
     // - The offending character associated with the start of the syntax error[*]
@@ -135,7 +150,7 @@
     // - The location_str associated with the syntax error if it was supplied to
     //   \c dsv_parse
     log_callback_t logger = parser.log_callback();
-    if(logger) {
+    if((parser.log_level() & level) && logger) {
       std::string first_line = std::to_string(llocp.first_line);
       std::string last_line = std::to_string(llocp.last_line);
       std::string first_column = std::to_string(llocp.first_column);
@@ -157,40 +172,15 @@
         filename.c_str()
       };
 
-      logger(dsv_invalid_binary_error,dsv_log_error,fields,
+      bool user_res = logger(dsv_unexpected_binary,level,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
-    }
-  }
 
-
-
-  bool nonrectangular_column_info(const YYLTYPE &llocp,
-    const detail::scanner_state &scanner, detail::parser &parser, std::size_t rec_cols)
-  {
-    // - The line that triggered the column inconsistency[*][**]
-    // - The number of fields that would allow the record columns to remain consistant[*]
-    // - The number of fields parsed for this row that triggered the inconsistency[*]
-    // - The location_str associated with the syntax error if it was supplied to
-    //   \c dsv_parse
-    log_callback_t logger = parser.log_callback();
-    if(logger) {
-      std::string last_line = std::to_string(llocp.last_line);
-      std::string exp_columns = std::to_string(parser.effective_field_columns());
-      std::string rec_columns = std::to_string(rec_cols);
-      std::string filename = scanner.filename();
-
-      const char *fields[] = {
-        last_line.c_str(),
-        exp_columns.c_str(),
-        rec_columns.c_str(),
-        filename.c_str()
-      };
-
-      return logger(dsv_nonrectangular_records_info,dsv_log_info,fields,
-        sizeof(fields)/sizeof(const char *),parser.log_context());
+      // only allow the parsing to continue if the leve was not an error and
+      // logger returns true;
+      result = (result & user_res);
     }
 
-    return true;
+    return result;
   }
 
 
@@ -217,11 +207,11 @@
       }
       else if(parser.effective_field_columns() != columns) {
 //         std::cerr << "effective_field_columns_set set && cols not equal\n";
-        if(parser.effective_field_columns() < 0) {
-          return nonrectangular_column_info(llocp,scanner,parser,columns);
+        if(parser.field_columns() < 0) {
+          return column_count_message(llocp,scanner,parser,columns,dsv_log_warning);
         }
         else {
-          column_count_error(llocp,scanner,parser,columns);
+          column_count_message(llocp,scanner,parser,columns,dsv_log_error);
           return false;
         }
       }
@@ -264,9 +254,14 @@
       bool keep_going = true;
       if(operations.record_callback) {
         operations.field_storage.clear();
+        operations.len_storage.clear();
         operations.field_storage.reserve(char_buf_vec_ptr->size());
-        for(size_t i=0; i<char_buf_vec_ptr->size(); ++i)
+        operations.len_storage.reserve(char_buf_vec_ptr->size());
+
+        for(size_t i=0; i<char_buf_vec_ptr->size(); ++i) {
           operations.field_storage.push_back((*char_buf_vec_ptr)[i]->data());
+          operations.len_storage.push_back((*char_buf_vec_ptr)[i]->size());
+        }
 
         keep_going = operations.record_callback(operations.field_storage.data(),
           operations.len_storage.data(),operations.field_storage.size(),
@@ -448,7 +443,7 @@ escaped_textdata:
   | LF {
       // LF is returned if it wasn't already considered an NL
       if(!parser.escaped_binary_fields()) {
-        invalid_binary_error(@1,scanner,parser,*$1);
+        unexpected_binary(@1,scanner,parser,*$1,dsv_log_error);
         YYABORT;
       }
 
@@ -456,7 +451,7 @@ escaped_textdata:
   | CR {
       // CR is returned if it wasn't already considered an NL, ie CRLF
       if(!parser.escaped_binary_fields()) {
-        invalid_binary_error(@1,scanner,parser,*$1);
+        unexpected_binary(@1,scanner,parser,*$1,dsv_log_error);
         YYABORT;
       }
 

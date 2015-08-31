@@ -104,6 +104,8 @@ class parser {
     void * log_context(void) const;
     void * log_context(void *context);
 
+    dsv_log_level log_level(void) const;
+    dsv_log_level log_level(dsv_log_level level);
 
     std::size_t log_size(void) const;
     const_log_iterator log_begin(void) const;
@@ -141,8 +143,9 @@ class parser {
     void reset(void);
 
   private:
-    log_callback_t log_fn;
-    void *lcontext;
+    log_callback_t _log_callback;
+    void *_log_context;
+    dsv_log_level _log_level;
 
     log_list_type log_list;
 
@@ -158,35 +161,46 @@ class parser {
 
 };
 
-inline parser::parser(void) :log_fn(0), lcontext(0), _delimiter(','), _field_columns(0),
-   _escaped_binary_fields(false), _escaped_field(false),
-   _effective_field_columns(0), _effective_field_columns_set(false)
+inline parser::parser(void) :_log_callback(0), _log_context(0),
+  _log_level(dsv_log_none),
+  _delimiter(','), _field_columns(0), _escaped_binary_fields(false),
+  _escaped_field(false), _effective_field_columns(0),
+  _effective_field_columns_set(false)
 {
   newline_behavior(dsv_newline_permissive);
 }
 
 inline log_callback_t parser::log_callback(void) const
 {
-  return log_fn;
+  return _log_callback;
 }
 
 inline log_callback_t parser::log_callback(log_callback_t fn)
 {
-  log_callback_t tmp = log_fn;
-  log_fn = fn;
-  return tmp;
+  std::swap(fn,_log_callback);
+  return fn;
 }
 
 inline void * parser::log_context(void) const
 {
-  return lcontext;
+  return _log_context;
 }
 
 inline void * parser::log_context(void *context)
 {
-  void * tmp = lcontext;
-  lcontext = context;
-  return tmp;
+  std::swap(context,_log_context);
+  return context;
+}
+
+inline dsv_log_level parser::log_level(void) const
+{
+  return _log_level;
+}
+
+inline dsv_log_level parser::log_level(dsv_log_level level)
+{
+  std::swap(level,_log_level);
+  return level;
 }
 
 inline std::size_t parser::log_size(void) const

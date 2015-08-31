@@ -142,10 +142,11 @@ inline const std::string & format_str(dsv_log_code msg_code)
       static const std::string parse_error("syntax error: In file $4, line $1 column $3");
       return parse_error;
 
-    case dsv_column_count_error:
-      static const std::string column_count_error("column count error: In file $4, line $1."
-        " Expected $2 fields, read $3 fields");
-      return column_count_error;
+    case dsv_column_count_message:
+      static const std::string column_count_message("inconsistant column count: "
+        "In file $4, line $1. Expected $2 fields, read $3 fields");
+
+      return column_count_message;
 
     default:
       ;
@@ -160,21 +161,44 @@ inline const std::string & format_str(dsv_log_code msg_code)
 std::string to_string(dsv_log_code code)
 {
   switch(code) {
-    case dsv_nonrectangular_records_info:
-      return "dsv_nonrectangular_records_info";
-
     case dsv_syntax_error:
       return "dsv_syntax_error";
 
-    case dsv_column_count_error:
-      return "dsv_column_count_error";
+    case dsv_column_count_message:
+      return "dsv_column_count_message";
 
-    case dsv_invalid_binary_error:
-      return "dsv_invalid_binary_error";
+    case dsv_unexpected_binary:
+      return "dsv_unexpected_binary";
 
   };
 
   return "unknown code";
+}
+
+std::string to_string(dsv_log_level level)
+{
+  if(level == dsv_log_none)
+    return "dsv_log_none";
+
+  std::stringstream out;
+
+  out << "[";
+
+  if(level & dsv_log_error)
+    out << " dsv_log_error";
+
+  if(level & dsv_log_warning)
+    out << " dsv_log_warning";
+
+  if(level & dsv_log_info)
+    out << " dsv_log_info";
+
+  if(level & dsv_log_debug)
+    out << " dsv_log_debug";
+
+  out << "]";
+
+  return out.str();
 }
 
 std::string to_string(const field_storage_type &buf)
@@ -193,6 +217,7 @@ std::string to_string(const field_storage_type &buf)
 
 struct log_msg {
   dsv_log_code code;
+  dsv_log_level level;
   std::vector<std::string> param_vec;
 };
 
@@ -230,7 +255,7 @@ bool check_logs(const std::vector<log_msg> &required,
     const log_msg &req_msg = required[i];
     const log_msg &rec_msg = received[i];
 
-    if(req_msg.code != rec_msg.code)
+    if(req_msg.code != rec_msg.code && req_msg.level != rec_msg.level)
       return false;
 
     if(req_msg.param_vec.empty())
@@ -261,7 +286,8 @@ std::string output_logs(const std::vector<log_msg> &logs)
   }
 
   for(std::size_t i=0; i<logs.size(); ++i) {
-    out << "\n\t" << to_string(logs[i].code) << ":";
+    out << "\n\t" << to_string(logs[i].code) << to_string(logs[i].level)
+      << ":";
     for(std::size_t j=0; j<logs[i].param_vec.size(); ++j) {
         out << " '" << logs[i].param_vec[j] << "'";
     }
@@ -278,7 +304,8 @@ std::string compare_logs(const std::vector<log_msg> &required,
   out << "Required log messages:";
 
   for(std::size_t i=0; i<required.size(); ++i) {
-    out << "\n\t" << to_string(required[i].code) << ":";
+    out << "\n\t" << to_string(required[i].code) << to_string(required[i].level)
+      << ":";
     if(required[i].param_vec.empty()) {
       out << "[params ignored]";
     }
@@ -335,8 +362,9 @@ static int record_callback(const unsigned char *fields[], const size_t lengths[]
   file_context &context = *static_cast<file_context*>(_context);
 
   std::vector<field_storage_type> row;
-  for(std::size_t i=0; i<size; ++i)
+  for(std::size_t i=0; i<size; ++i) {
     row.push_back(field_storage_type(fields[i],fields[i]+lengths[i]));
+  }
 
   context.parsed_records.push_back(row);
 
@@ -348,10 +376,11 @@ static int logger(dsv_log_code code, dsv_log_level level, const char *params[],
 {
   logging_context &context = *static_cast<logging_context*>(_context);
 
-  log_msg msg{code};
+  log_msg msg{code,level};
 
-  for(std::size_t i=0; i<size; ++i)
+  for(std::size_t i=0; i<size; ++i) {
     msg.param_vec.push_back(params[i]);
+  }
 
   context.recd_logs.push_back(msg);
 
@@ -437,7 +466,7 @@ void check_compliance(dsv_parser_t parser,
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
   detail::logging_context log_context;
-  dsv_set_logger_callback(detail::logger,&log_context,parser);
+  dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
@@ -451,7 +480,7 @@ void check_compliance(dsv_parser_t parser,
   int result = dsv_parse(filepath.c_str(),in.get(),parser,operations);
   if(result != expected_result) {
     std::stringstream out;
-    out << "dsv_parse returned with unexpected with code: " << result << ", expecting "
+    out << "dsv_parse returned with unexpected code: " << result << ", expecting "
       << expected_result;
 
     if(result > 0)

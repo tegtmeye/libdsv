@@ -62,6 +62,8 @@ extern "C" {
    *
    *  \note You must eventually call dsv_parser_destroy.
    *
+   *  \param[in,out] parser A pointer to a dsv_parser_t object to initialize
+   *    with default settings
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
    */
@@ -77,6 +79,8 @@ extern "C" {
    *
    *  \note You must eventually call dsv_parser_destroy.
    *
+   *  \param[in,out] parser A pointer to a dsv_parser_t object to initialize
+   *    with settings suitable for RFC4180 strict parsing
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
    */
@@ -92,6 +96,8 @@ extern "C" {
    *
    *  \note You must eventually call dsv_parser_destroy.
    *
+   *  \param[in,out] parser A pointer to a dsv_parser_t object to initialize
+   *    with settings suitable for RFC4180 permissive parsing
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
    */
@@ -100,7 +106,11 @@ extern "C" {
   /**
    *  \brief Destroy the obj_parser_t object.
    *
-   *  \pre \c parser has been previously initialized with \c dsv_parser_create
+   *  \post using \c parser with any function other than \c dsv_parser_create
+   *    is undefined
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with \c dsv_parser_create*
    */
   void dsv_parser_destroy(dsv_parser_t parser);
 
@@ -147,7 +157,8 @@ extern "C" {
    *
    *  The default value is \c dsv_newline_permissive
    *
-   *  \param parser A properly initialized dsv_parser_t object
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
    *  \param behavior One of the possible \c dsv_newline_behavior enumerations
    *
    *  \retval 0 Success
@@ -159,7 +170,8 @@ extern "C" {
   /**
    *  \brief Get the current newline behavior for future parsing with \c parser
    *
-   *  \param parser A properly initialized dsv_parser_t object
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
    *
    *  \retval behavior One of the possible \c dsv_newline_behavior enumerations
    */
@@ -176,40 +188,51 @@ extern "C" {
    *  The default value is 0. This value is also appropriate for RFC4180-strict
    *  processing
    *
-   *  \param parser A properly initialized dsv_parser_t object
-   *  \param num_cols If > 0, the number of columns expected during future
-   *  parsing. If during parsing, a row with less than \c num_cols is
-   *  encountered, dsv_parse will immediately return with a nonzero value. If
-   *  \c num_cols == 0, the parser will set the required number of columns based
-   *  on the first row encountered. For example, if the first header row
-   *  contains 5 columns, all subsequent rows must contain 5 columns otherwise
-   *  the dsv_parse will immediately return a nonzero value. If
-   *  \c num_cols == -1, no restriction will be placed on the number of columns.
-   *  This also means that rows with zero columns are acceptable. In this case,
-   *  any registered callback will still be called.
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] num_cols \parblock
+   *    If > 0, the number of columns expected during future
+   *    parsing. If during parsing, a row with less than \c num_cols is
+   *    encountered, dsv_parse will immediately return with a nonzero value. If
+   *    \c num_cols == 0, the parser will set the required number of columns
+   *     based on the first row encountered. For example, if the first header
+   *    row contains 5 columns, all subsequent rows must contain 5 columns
+   *    otherwise the dsv_parse will immediately return a nonzero value. If
+   *    \c num_cols == -1, no restriction will be placed on the number of
+   *    columns. This also means that rows with zero columns are acceptable. In
+   *    this case, any registered callback will still be called.
+   *  \endparblock
    */
   void dsv_parser_set_field_columns(dsv_parser_t parser, ssize_t num_cols);
 
   /**
-   *  \brief Get the required number of fields associated with future parsing with
-   *  \c parser
+   *  \brief Get the required number of fields associated with future parsing
+   *    with \c parser
    *
-   *  See \c dsv_parser_set_field_columns for an explanation of the return values
+   *  See \c dsv_parser_set_field_columns for an explanation of the return
+   *    values
    *
-   *  \retval num_cols The number of columns required for future parsing of \c parser
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
+   *  \retval num_cols The number of columns required for future parsing of \c
+   *    parser
    */
   ssize_t dsv_parser_get_field_columns(dsv_parser_t parser);
 
 
 
   /**
-   *  \brief Set the field delimiter to be used for future parsing with \c parser
+   *  \brief Set the field delimiter to be used for future parsing with
+   *    \c parser
    *
    *  The default is the ASCII comma ','
    *
-   *  This delimiter is used to separate both headers and fields depending on the settings
+   *  This delimiter is used to separate both headers and fields depending on
+   *  the settings
    *
-   *  \param parser A properly initialized dsv_parser_t object
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
    *  \param delim The character to be used as a field delimiter
    */
   void dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
@@ -218,7 +241,8 @@ extern "C" {
    *  \brief Get the current field delimiter to be used for future parsing with
    *  \c parser
    *
-   *  This delimiter is used to separate both headers and fields depending on the settings
+   *  This delimiter is used to separate both headers and fields depending on
+   *  the settings
    *
    *  \retval delimiter The current field delimiter
    */
@@ -246,8 +270,9 @@ extern "C" {
    *  tracking. This means that if syntax errors are encountered, it can make
    *  locating them difficult.
    *
-   *  \param parser A properly initialized dsv_parser_t object
-   *  \param flag nonzero to enable, zero to disable
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] flag nonzero to enable, zero to disable
    */
   void dsv_parser_allow_escaped_binary_fields(dsv_parser_t parser, int flag);
 
@@ -263,8 +288,9 @@ extern "C" {
    *  Enabling is useful if the fields contain non-printing but otherwise useful
    *  ASCII characters as well as allowing for non-ASCII encoding such as UTF-8.
    *
-   *  \param parser A properly initialized dsv_parser_t object
-   *  \param flag nonzero to enable, zero to disable
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] flag nonzero to enable, zero to disable
    */
   int dsv_parser_escaped_binary_fields_allowed(dsv_parser_t parser);
 
@@ -282,6 +308,9 @@ extern "C" {
    *
    *  \note You must eventually call dsv_parser_destroy.
    *
+   *  \param[in,out] operations A pointer to a dsv_operations_t object to
+   *    initialize with default settings
+
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
    */
@@ -290,8 +319,11 @@ extern "C" {
   /**
    *  \brief Destroy the dsv_operations_t object.
    *
-   *  \pre \c operations has been previously initialized with \c
-   *  dsv_operations_t
+   *  \post using \c parser with any function other than \c dsv_parser_create
+   *    is undefined
+   *
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    */
   void dsv_operations_destroy(dsv_operations_t operations);
 
@@ -356,6 +388,9 @@ extern "C" {
   /**
    *  \brief Obtain the callback currently set for headers
    *
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
+   *
    *  \retval 0 No callback is registered
    *  \retval nonzero The currently registered callback
    */
@@ -363,6 +398,9 @@ extern "C" {
 
   /**
    *  \brief Obtain the user-defined context currently set for header
+   *
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    *
    *  \retval 0 No context is registered
    *  \retval nonzero The currently registered context
@@ -375,6 +413,12 @@ extern "C" {
    *
    *  \note The value of \c context is passed in as the \c context parameter in
    *  \c fn
+   *
+   *  \param[in] fn A function pointer conforming to \c header_callback_t
+   *  \param[in] context A user defined pointer to be supplied in future
+   *    calls to \c fn
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    */
   void dsv_set_header_callback(header_callback_t fn, void *context, dsv_operations_t operations);
 
@@ -430,12 +474,15 @@ extern "C" {
    *  cease and control should return from the parse function. If a nonzero
    *  value is returned, the parse function will also return <0
    */
-  typedef int (*record_callback_t)(const unsigned char *fields[], const size_t lengths[],
-    size_t size, void *context);
+  typedef int (*record_callback_t)(const unsigned char *fields[],
+    const size_t lengths[], size_t size, void *context);
 
   /**
    *  \brief Obtain the callback currently set for records
    *
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
+
    *  \retval 0 No callback is registered
    *  \retval nonzero The currently registered callback
    */
@@ -443,6 +490,9 @@ extern "C" {
 
   /**
    *  \brief Obtain the user-defined context currently set for records
+   *
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    *
    *  \retval 0 No context is registered
    *  \retval nonzero The currently registered context
@@ -455,6 +505,12 @@ extern "C" {
    *
    *  \note The value of \c context is passed in as the \c context parameter
    *  in \c fn
+   *
+   *  \param[in] fn A function pointer conforming to \c record_callback_t
+   *  \param[in] context A user defined pointer to be supplied in future
+   *    calls to \c fn
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    */
   void dsv_set_record_callback(record_callback_t fn, void *context, dsv_operations_t operations);
 
@@ -463,7 +519,9 @@ extern "C" {
    *  \c parser, using the operations contained in \c operations. If \c stream
    *  is \c NULL, then attempt to open the location \location_str using fopen.
    *
-   *  If the filename begins with the '/' character, then the file is
+   *
+
+   *  If the location_str begins with the '/' character, then the file is
    *  understood to be an absolute path starting at the root directory. If the
    *  filename does not begin with a '/' character, the file is understood to
    *  be relative to the current working directory. In either case any
@@ -475,6 +533,35 @@ extern "C" {
    *
    *  Warnings or information about non-implemented features will return success
    *  and be reported via \c dsv_parse_error.
+   *
+   *  \param[in] location_str \parblock
+   *    A null-terminated byte string (NTBS) that is used to identify and
+   *    potentially locate the content to be parsed. Regardless of how the value
+   *    is used to initiate parsing, it is supplied as a reference value for
+   *    logging messages. See \c dsv_log_code.
+   *      - If the \c stream parameter is zero, the \c location_str parameter is
+   *        taken to mean the location of a file to be opened and parsed. If the
+   *        location_str begins with the '/' character, then the file is
+   *        understood to be an absolute path starting at the root directory. If
+   *        the filename does not begin with a '/' character, the file is
+   *        understood to be relative to the current working directory. The
+   *        parse function will open the file for reading and parse the
+   *        contents.
+   *      - If the \c stream parameter is non-zero, the \c location_str
+   *        parameter is not referenced and simply sued as an identifier for log
+   *        messages.
+   *  \endparblock
+   *  \param[in] stream \parblock
+   *    - If nonzero, the value is assumed to be a valid file stream opened for
+   *      reading and the content will be parsed. \c dsv_parse does not close
+   *      the stream when finished.
+   *    - If zero, \c dsv_parse will attempt to use the value of \c location_str
+   *      to open a file location for parsing.
+   *  \endparblock
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] operations A pointer to a dsv_operations_t object previously
+   *    initialized with \c dsv_operations_create
    *
    *  \retval 0 success
    *  \retval ENOMEM out of memory
@@ -489,60 +576,18 @@ extern "C" {
    *  \brief Logging levels for parser messages
    */
   typedef enum {
-    /* Filter all messages */
     dsv_log_none = 0,
-
-    /* Filter all messages except info messages */
-    dsv_log_info = 1L,
-
-    /* Filter all messages except warning messages */
-    dsv_log_warning = 1L << 1,
-
-    /* Filter all messages except error messages */
-    dsv_log_error = 1L << 2,
-
-    /* Do not filter messages */
-    dsv_log_all = (dsv_log_error|dsv_log_warning|dsv_log_info)
+    dsv_log_error = 1L,
+    dsv_log_warning = (1L << 1),
+    dsv_log_info = (1L << 2),
+    dsv_log_debug = (1L << 3),
+    dsv_log_all = (dsv_log_error|dsv_log_warning|dsv_log_info|dsv_log_debug)
   } dsv_log_level;
 
   /**
    *  \brief Logging message codes
    */
   typedef enum {
-    /**
-     *  \brief An informational message indicating that the number of columns
-     *  for each row of the records are not consistant. This message is also
-     *  generated if the number of columns in the header and the number of
-     *  columns in the records are not the same.
-     *
-     *  This message is only applicable if the \c num_cols parameter of
-     *  \c dsv_parser_set_field_columns is set to -1 as all other values for
-     *  this parameter will generate an error instead.
-     *
-     *  This log code has the following parameters:
-     *    - The line that triggered the column inconsistency[*][**]
-     *    - The number of fields that would allow the record columns to remain
-     *      consistant[*]
-     *    - The number of fields parsed for this row that triggered the
-     *      inconsistency[*]
-     *    - The location_str associated with the syntax error if it was supplied
-     *      to \c dsv_parse
-     *
-     *  [*] Numbers provided as a string are capable of being translated to
-     *  a signed or unsigned integer value (ie strtoul).
-     *
-     *  [**] The line associated with the log is counted according to the
-     *  applied parser behavior. For example, if the system newline is LF and
-     *  the applied behavior is RFC4180-strict, then the lines will be counted
-     *  based on the occurrence of CRLF. If the behavior is newline_permissive,
-     *  the lines will be counted based on the first parsed occurrence of a
-     *  newline. Note that this is different than the first seen occurence of a
-     *  newline. For example, if a record is "..LF.."CRLF, the LF is parsed as a
-     *  quoted field and not a newline therefore the registered newline behavior
-     *  will be the CRLF.
-    */
-    dsv_nonrectangular_records_info,
-
     /**
      *  \brief An error strictly associated with incorrect syntax based on the
      *  current parser behavior.
@@ -601,10 +646,10 @@ extern "C" {
      *  quoted field and not a newline therefore the registered newline behavior
      *  will be the CRLF.
     */
-    dsv_column_count_error,
+    dsv_column_count_message,
 
     /**
-     *  \brief An error associated with settings that prohibit non-ASCII
+     *  \brief An message associated with settings that prohibit non-ASCII
      *  characters appearing in quoted fields. This error is also thrown if a
      *  invalid newline representation appears in RFC4180-strict mode.
      *
@@ -639,7 +684,7 @@ extern "C" {
      *  prefixed by a '0x' and therefore is capable of being translated to a
      *  signed or unsigned integer value (ie strtol and family).
     */
-    dsv_invalid_binary_error
+    dsv_unexpected_binary
   } dsv_log_code;
 
 
@@ -678,6 +723,9 @@ extern "C" {
   /**
    *  \brief Obtain the callback currently set for log messages
    *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
    *  \retval 0 No callback is registered
    *  \retval nonzero The currently registered callback
    */
@@ -686,21 +734,39 @@ extern "C" {
   /**
    *  \brief Obtain the user-defined context currently set for header
    *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
    *  \retval 0 No context is registered
    *  \retval nonzero The currently registered context
    */
   void * dsv_get_logger_context(dsv_parser_t parser);
 
   /**
-   *  \brief Associate the logging callback \c fn and a user-specified value
-   *  \c context with \c parser.
+   *  \brief Associate the logging callback \c fn, a user-specified \c context,
+   *  for logging \c level with \c parser.
    *
    *  \note The value of \c context is passed in as the \c context parameter
    *  in \c fn
+   *
+   *  \note The value of \c level may not be the value passed in \c fn. See
+   *  \c log_callback_t
+   *
+   *  \param[in] fn A function pointer conforming to \c log_callback_t
+   *  \param[in] context A user-defined value to associate with this callback
+   *    and provide in future calls to \c fn
+   *  \param[in] level \parablock
+   *    A filter to apply to the generated log messages. When parsing encounters
+   *    a condition that would result in a log messaged being generated, it is
+   *    OR'ed against the value of \c level. If the potential messaged passes
+   *    the check, \c fn is called with the supplied parameters.
+   *  \endparblock
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
    */
-  void dsv_set_logger_callback(log_callback_t fn, void *context, dsv_parser_t parser);
-
-
+  void dsv_set_logger_callback(log_callback_t fn, void *context,
+    dsv_log_level level, dsv_parser_t parser);
 
 #if defined(__cplusplus)
 }
