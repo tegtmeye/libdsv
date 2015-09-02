@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE( default_column_count_less )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","3","2",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","3","2",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE( default_column_count_more )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","3","4",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","3","4",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE( default_column_count_zero )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","3","3","0",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","3","3","0",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE( exact_column_count_less )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","3","2",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","3","2",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -245,7 +245,7 @@ BOOST_AUTO_TEST_CASE( exact_column_count_more )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","3","4",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","3","4",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -275,7 +275,7 @@ BOOST_AUTO_TEST_CASE( exact_column_count_zero )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","3","3","0",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","3","3","0",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -346,7 +346,7 @@ BOOST_AUTO_TEST_CASE( permissive_column_count_less )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_warning,{"2","2","3","2",""}}
+    {dsv_inconsistant_column_count,dsv_log_warning,{"2","2","3","2",""}}
   };
 
   d::check_compliance(parser,headers,records,logs,file_contents,
@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE( permissive_column_count_more )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","3","4",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","3","4",""}}
   };
 
   d::check_compliance(parser,headers,records,logs,file_contents,
@@ -416,7 +416,7 @@ BOOST_AUTO_TEST_CASE( permissive_column_count_zero )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","3","3","0",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","3","3","0",""}}
   };
 
   d::check_compliance(parser,headers,records,logs,file_contents,

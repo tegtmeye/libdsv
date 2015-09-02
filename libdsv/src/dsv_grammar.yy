@@ -124,7 +124,7 @@
         filename.c_str()
       };
 
-      bool user_res = logger(dsv_column_count_message,level,fields,
+      bool user_res = logger(dsv_inconsistant_column_count,level,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
 
       // only allow the parsing to continue if the leve was not an error and
@@ -143,9 +143,11 @@
 
     // - The offending line associated with the start of the syntax error[*][**]
     // - The offending line associated with the end of the syntax error[*][**]
-    // - The offending character associated with the start of the syntax error[*]
+    // - The offending character associated with the start of the syntax
+    //    error[*]
     // - The offending character associated with the end of the syntax error[*]
-    // - A byted-oriented string containing the hexadecimal representation of the
+    // - A byted-oriented string containing the hexadecimal representation of
+    //    the
     //   offending binary content.[***]
     // - The location_str associated with the syntax error if it was supplied to
     //   \c dsv_parse

@@ -528,6 +528,25 @@ void * dsv_get_logger_context(dsv_parser_t _parser)
   return result;
 }
 
+dsv_log_level dsv_get_log_level(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  dsv_log_level result;
+
+  try {
+    result = parser.log_level();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
 /**
  *  \brief Associate the logging callback \c fn, a user-specified \c context,
  *  for logging \c level with \c parser.

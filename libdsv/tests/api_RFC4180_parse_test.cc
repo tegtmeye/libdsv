@@ -756,7 +756,7 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_empty_header_charset_crlf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","0","2",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","0","2",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
@@ -917,8 +917,9 @@ BOOST_AUTO_TEST_CASE( parse_multirecord_rfc4180_charset )
 /** CHECK COLUMN COUNT ERRORS **/
 
 
-/** \test Attempt to parse an named file with a single header field and multi record
- *    fields. This should cause a dsv_column_count_message under RFC4180 -strict
+/** \test Attempt to parse an named file with a single header field and
+ *    multi record fields. This should cause a dsv_inconsistant_column_count
+ *    under RFC4180 -strict
  */
 BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
 {
@@ -937,15 +938,16 @@ BOOST_AUTO_TEST_CASE( parse_single_header_multirecord_rfc4180_charset_crlf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","1","2",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","1","2",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_single_header_multirecord_rfc4180_charset_crlf",-1);
 }
 
-/** \test Attempt to parse an named file with a multi header field and single record
- *    fields. This should cause a dsv_column_count_message under RFC4180 -strict
+/** \test Attempt to parse an named file with a multi header field and single
+ *    record fields. This should cause a dsv_inconsistant_column_count under
+ *    RFC4180 -strict
  */
 BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
 {
@@ -969,15 +971,16 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_singlerecord_rfc4180_charset_crlf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","2","2","1",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","2","2","1",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
 }
 
-/** \test Attempt to parse an named file with a multi header field and empty record
- *    fields. This should cause a dsv_column_count_message under RFC4180 -strict
+/** \test Attempt to parse an named file with a multi header field and empty
+ *    record fields. This should cause a dsv_inconsistant_column_count under
+ *    RFC4180 -strict
  */
 BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
 {
@@ -1001,7 +1004,7 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
   };
 
   std::vector<detail::log_msg> logs{
-    {dsv_column_count_message,dsv_log_error,{"2","3","2","0",""}}
+    {dsv_inconsistant_column_count,dsv_log_error,{"2","3","2","0",""}}
   };
 
   d::check_compliance(parser,headers,{},logs,file_contents,

@@ -142,7 +142,7 @@ inline const std::string & format_str(dsv_log_code msg_code)
       static const std::string parse_error("syntax error: In file $4, line $1 column $3");
       return parse_error;
 
-    case dsv_column_count_message:
+    case dsv_inconsistant_column_count:
       static const std::string column_count_message("inconsistant column count: "
         "In file $4, line $1. Expected $2 fields, read $3 fields");
 
@@ -164,8 +164,8 @@ std::string to_string(dsv_log_code code)
     case dsv_syntax_error:
       return "dsv_syntax_error";
 
-    case dsv_column_count_message:
-      return "dsv_column_count_message";
+    case dsv_inconsistant_column_count:
+      return "dsv_inconsistant_column_count";
 
     case dsv_unexpected_binary:
       return "dsv_unexpected_binary";

@@ -646,7 +646,7 @@ extern "C" {
      *  quoted field and not a newline therefore the registered newline behavior
      *  will be the CRLF.
     */
-    dsv_column_count_message,
+    dsv_inconsistant_column_count,
 
     /**
      *  \brief An message associated with settings that prohibit non-ASCII
@@ -741,6 +741,16 @@ extern "C" {
    *  \retval nonzero The currently registered context
    */
   void * dsv_get_logger_context(dsv_parser_t parser);
+
+  /**
+   *  \brief Obtain the log level set for future parsing with \c parser
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
+   *  \retval level The current set log level
+   */
+  dsv_log_level dsv_get_log_level(dsv_parser_t parser);
 
   /**
    *  \brief Associate the logging callback \c fn, a user-specified \c context,
