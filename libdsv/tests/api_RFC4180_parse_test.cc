@@ -183,8 +183,8 @@ BOOST_AUTO_TEST_CASE( parse_single_rfc4180_charset_crlf )
     "parse_single_rfc4180_charset_crlf",0);
 }
 
-/** \test Attempt to parse an named file with a the invalid characters of the ASCII
- *    character set
+/** \test Attempt to parse an named file with a the invalid characters of the
+ *    ASCII character set
  */
 BOOST_AUTO_TEST_CASE( parse_single_rfc4180_invalid_charset_crlf )
 {
@@ -558,6 +558,44 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_charset_crlf )
   d::check_compliance(parser,headers,records,{},file_contents,
   "parse_rfc4180_charset_crlf",0);
 }
+
+/** \test Parse a named file with multiple fields in both headers and records
+  *   each with different field lengths. This should pass. This address a bug in
+  *   v0.1.0 where the records field lengths were not getting reported properly.
+ */
+BOOST_AUTO_TEST_CASE( parse_mixed_field_length_crlf )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  d::field_storage_type h1 = {'0','1','2','3','4','5','6','7','8','9'};
+  d::field_storage_type h2 = {
+    '0','1','2','3','4','5','6','7',
+    '8','9','8','7','6','5','4','3','2','1','0'
+  };
+  d::field_storage_type r1 = {
+    'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
+    't','u','v','w','x','y','z'
+  };
+
+  std::vector<std::vector<d::field_storage_type> > headers{
+    {h1,h2}
+  };
+
+  std::vector<std::vector<d::field_storage_type> > records{
+    {r1,d::rfc4180_charset}
+  };
+
+  std::vector<d::field_storage_type> file_contents{
+    h1,d::comma,h2,d::crlf,
+    r1,d::comma,d::rfc4180_charset,d::crlf
+  };
+
+  d::check_compliance(parser,headers,records,{},file_contents,
+  "parse_mixed_field_length_crlf",0);
+}
+
 
 /** \test Attempt to parse an named file with multiple fields consisting of the
  *    quoted rfc4180 character set.

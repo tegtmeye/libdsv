@@ -415,7 +415,7 @@ std::string output_fields(
 {
   std::stringstream out;
 
-  out << "valid matrix:";
+  out << "Matrix. valid='--><--' parsed='[[]]' extra='(())'";
 
   std::size_t i;
   for(i=0; i<valid_matrix.size(); ++i) {
@@ -423,22 +423,20 @@ std::string output_fields(
 
     std::size_t j;
     for(j=0; j<valid_matrix[i].size(); ++j) {
-      out << "-->" << to_string(valid_matrix[i][j]);
+      out << "-->" << to_string(valid_matrix[i][j]) << "<--";
       if(i<parsed_matrix.size() && j<parsed_matrix[i].size()) {
         if(valid_matrix[i][j] != parsed_matrix[i][j])
           out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
         else
-          out << "[[parsed identical]]";
+          out << " [[parsed identical]]";
       }
       else {
         out << "[[missing]]";
       }
-
-      out << "<-- ";
     }
 
     for(;i<parsed_matrix.size() && j<parsed_matrix[i].size(); ++j) {
-      out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
+      out << " ((" << to_string(parsed_matrix[i][j]) << "))";
     }
   }
 
@@ -446,7 +444,7 @@ std::string output_fields(
   for(;i<parsed_matrix.size(); ++i) {
     out << "\n\t";
     for(std::size_t j=0; j<parsed_matrix[i].size(); ++j) {
-      out << " [[" << to_string(parsed_matrix[i][j]) << "]]";
+      out << " ((" << to_string(parsed_matrix[i][j]) << "))";
     }
   }
 
