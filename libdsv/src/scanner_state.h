@@ -34,11 +34,10 @@
 #include "dsv_parser.h"
 
 #include <string>
+#include <vector>
 #include <cstdio>
 #include <memory>
 #include <system_error>
-
-#include <iostream>
 
 #include <cerrno>
 
@@ -54,25 +53,57 @@ namespace detail {
 
       const char * filename(void) const;
 
-      bool getc(unsigned char &c) const;
-      bool advance(void);
+      /*
+          Get the current character from the input. Do not advance the read
+          location. That is, getc can be called multiple consecutive times with
+          the same return value.
+       */
+      int getc(void);
+
+      /*
+          Get the current character from the input and advance the read
+          location. That is, calling advancec multiple consecutive times will
+          not return the same value until the end of stream is reached and then
+          EOF is returned.
+
+          Do not adjust the putback buffer
+       */
+      int advancec(void);
+
+      /*
+          Forget any putback buffer, get the current character from the input,
+          and advance the read location. That is, calling fadvancec multiple
+          consecutive times will not return the same value until the end of
+          stream is reached and then EOF is returned.
+       */
+      int fadvancec(void);
+
+      /*
+          Putback any bytes from the putback buffer to be read again. If the
+          putback buffer is empty, this has no effect.
+      */
+      void putback(void);
+
+      /*
+          Forget the putback buffer if any exists
+      */
+      void forget(void);
 
     private:
       std::string fname;
       std::shared_ptr<FILE> stream;
 
-      std::size_t buff_max;
-      std::shared_ptr<unsigned char> buff;
-      mutable unsigned char *cur;
-      mutable unsigned char *end;
+      std::vector<unsigned char> buff;
+      std::size_t begin_off;
+      std::size_t cur_off;
+      std::size_t end_off;
 
-      // logically const
-      bool refill(void) const;
+      bool refill(void);
   };
 
-  inline scanner_state::scanner_state(const char *str, FILE *in, std::size_t buff_size)
-    :buff_max(buff_size), buff(new unsigned char[buff_size]), cur(buff.get()),
-      end(buff.get())
+  inline scanner_state::scanner_state(const char *str, FILE *in,
+    std::size_t buff_size) :buff(buff_size), begin_off(0), cur_off(0),
+    end_off(0)
   {
     if(str)
       fname = str;
@@ -93,31 +124,85 @@ namespace detail {
     return fname.c_str();
   }
 
-  inline bool scanner_state::getc(unsigned char &c) const
+  inline int scanner_state::getc(void)
   {
-    if(cur == end && !refill())
-      return false;
+    if(cur_off == end_off && !refill())
+      return EOF;
 
-    c = *cur;
-    return true;
+    return buff.at(cur_off);
   }
 
-  inline bool scanner_state::advance(void)
+  inline int scanner_state::advancec(void)
   {
-    if(cur == end && !refill())
-      return false;
+    int result = getc();
 
-    ++cur;
-    return true;
+    if(result != EOF)
+      ++cur_off;
+
+    return result;
   }
 
-  inline bool scanner_state::refill(void) const
+  inline int scanner_state::fadvancec(void)
   {
-    std::size_t result;
+    int result = getc();
+
+    if(result != EOF)
+      begin_off = ++cur_off;
+
+    return result;
+  }
+
+  inline void scanner_state::putback(void)
+  {
+    cur_off = begin_off;
+  }
+
+  inline void scanner_state::forget(void)
+  {
+    begin_off = cur_off;
+  }
+
+
+  /**
+      IMPORTANT! Buff MUST be bigger than twice the minimum putback size
+      or this will likely infinite loop!
+   */
+  inline bool scanner_state::refill(void)
+  {
+//     std::cerr << "(Pre) begin_off (" << begin_off << "); cur_off ("
+//       << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
+//     for(std::size_t i=begin_off; i<cur_off; ++i) {
+//       if(i>begin_off)
+//         std::cerr << " ";
+//       std::cerr << "'" << buff.at(i) << "'";
+//     }
+//     std::cerr << "]]\n";
+
+    // move the putback buffer to the beginning of the read buffer
+    // and reset the offset values
+    if(begin_off != 0) {
+      std::size_t putback_len = (cur_off - begin_off);
+      std::move(buff.begin()+begin_off,buff.begin()+cur_off,buff.begin());
+      begin_off = 0;
+      cur_off = end_off = putback_len;
+
+//       std::cerr << "(Move) begin_off (" << begin_off << "); cur_off ("
+//         << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
+//       for(std::size_t i=begin_off; i<cur_off; ++i) {
+//         if(i>begin_off)
+//           std::cerr << " ";
+//         std::cerr << "'" << buff.at(i) << "'";
+//       }
+//       std::cerr << "]]\n";
+    }
 
     // code adapted from flex non-posix fread
     errno=0;
-    while ( (result = std::fread(buff.get(), 1, buff_max, stream.get()))==0 && std::ferror(stream.get())) {
+    std::size_t len;
+    std::size_t buf_len = buff.size()-cur_off;
+    while ((len = std::fread(buff.data()+cur_off,1,buf_len,stream.get()))==0
+      && std::ferror(stream.get()))
+    {
       if( errno != EINTR) {
         throw std::system_error(errno,std::system_category());
       }
@@ -125,10 +210,21 @@ namespace detail {
       std::clearerr(stream.get());
     }
 
-    cur = buff.get();
-    end = cur + result;
+    end_off = cur_off + len;
 
-    return cur != end;
+//     std::cerr << "(Final) begin_off (" << begin_off << "); cur_off ("
+//       << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
+//     for(std::size_t i=begin_off; i<cur_off; ++i) {
+//       if(i>begin_off)
+//         std::cerr << " ";
+//       std::cerr << "'" << buff.at(i) << "'";
+//     }
+//     std::cerr << "]] ";
+//     for(std::size_t i=cur_off; i<end_off; ++i)
+//       std::cerr << " '" << buff.at(i) << "'";
+//     std::cerr << "\n";
+
+    return cur_off != end_off;
   }
 }
 

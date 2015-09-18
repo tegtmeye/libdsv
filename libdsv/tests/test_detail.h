@@ -227,15 +227,17 @@ struct logging_context {
 
 
 /*
-  The required log_msg list is compared to the received msg_log list. For each msg, if the
-  codes are different, then return false. For each log_msg, the parameters are compared
-  against each other. If the required params are empty (ie param_vec is empty()) then the
-  received params are ignored. That is, any value of the params are accepted. If the
-  required param_vec is non-empty, then the entire list must be present. If a single value
-  of the required param_vec is empty, then any value of the received param is accepted,
-  otherwise it must match exactly.
+  The required log_msg list is compared to the received msg_log list. For each
+  msg, if the codes are different, then return false. For each log_msg, the
+  parameters are compared against each other. If the required params are empty
+  (ie param_vec is empty()) then the received params are ignored. That is, any
+  value of the params are accepted. If the required param_vec is non-empty, then
+  the entire list must be present. If a single value of the required param_vec
+  is empty, then any value of the received param is accepted, otherwise it must
+  match exactly.
 
-  let req_msg and rec_msg each be the ith value of required and received respectively
+  let req_msg and rec_msg each be the ith value of required and received
+    respectively
   if(req_msg.code != rec_msg.code) then false
   if(req_msg.param_vec.empty()) then accept
   if(req_msg.param_vec.size() != rec_msg.param_vec.size()) then UNIT TEST ERROR
@@ -339,13 +341,14 @@ struct file_context {
        :valid_headers(headers), valid_records(records) {}
 };
 
-static int header_callback(const unsigned char *fields[], const size_t lengths[],
-    size_t size, void *_context)
+static int header_callback(const unsigned char *fields[],
+  const size_t lengths[], size_t size, void *_context)
 {
   file_context &context = *static_cast<file_context*>(_context);
 
   BOOST_REQUIRE_MESSAGE(context.parsed_records.empty(),
-    "Header callback called after " << context.parsed_records.size() << " records seen");
+    "Header callback called after " << context.parsed_records.size()
+      << " records seen");
 
   std::vector<field_storage_type> row;
   for(std::size_t i=0; i<size; ++i)
@@ -356,8 +359,8 @@ static int header_callback(const unsigned char *fields[], const size_t lengths[]
   return 1;
 }
 
-static int record_callback(const unsigned char *fields[], const size_t lengths[],
-    size_t size, void *_context)
+static int record_callback(const unsigned char *fields[],
+  const size_t lengths[], size_t size, void *_context)
 {
   file_context &context = *static_cast<file_context*>(_context);
 
@@ -387,19 +390,19 @@ static int logger(dsv_log_code code, dsv_log_level level, const char *params[],
   return 1;
 }
 
-inline fs::path gen_testfile(const std::vector<field_storage_type> contents,
+inline fs::path gen_testfile(const std::vector<field_storage_type> &contents,
   const std::string &label)
 {
   std::time_t now = std::time(0);
 
   fs::path tmpdir = fs::temp_directory_path();
-  fs::path filename = std::string("libdsv_") + std::to_string(now) + "_" + label + ".dsv";
+  fs::path filename = std::string("libdsv_") + std::to_string(now) + "_"
+    + label + ".dsv";
   fs::path filepath = tmpdir/filename;
 
 
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)> out(std::fopen(filepath.c_str(),"wb"),&std::fclose);
-//  std::pair<file_sentry_type,std::string> result(file_sentry_type(out,&std::fclose),filename);
-//   std::pair<file_sentry_type,std::string> result(file_sentry_type(out,&myfclose),filename);
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    out(std::fopen(filepath.c_str(),"wb"),&std::fclose);
 
   for(std::size_t i=0; i<contents.size(); ++i) {
     assert(std::fwrite(contents[i].data(),sizeof(unsigned char),
@@ -415,7 +418,7 @@ std::string output_fields(
 {
   std::stringstream out;
 
-  out << "Matrix. valid='--><--' parsed='[[]]' extra='(())'";
+  out << "Matrix. Key := valid='--><--' parsed='[[]]' extra='(())'";
 
   std::size_t i;
   for(i=0; i<valid_matrix.size(); ++i) {

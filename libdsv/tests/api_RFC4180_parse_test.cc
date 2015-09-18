@@ -48,7 +48,8 @@ BOOST_AUTO_TEST_CASE( parser_default_RFC4180_object_settings )
 
   ssize_t field_cols = dsv_parser_get_field_columns(parser);
   BOOST_REQUIRE_MESSAGE(field_cols == 0,
-    "Default parser field columns was not '0' but rather '" << field_cols << "'");
+    "Default parser field columns was not '0' but rather '" << field_cols
+      << "'");
 
   unsigned char delim = dsv_parser_get_field_delimiter(parser);
   BOOST_REQUIRE_MESSAGE(delim == ',',
@@ -66,7 +67,8 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_file_with_zero_stream )
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
-  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
 
   detail::logging_context log_context;
   dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
@@ -76,13 +78,14 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_file_with_zero_stream )
     std::cerr << output_logs(log_context.recd_logs) << "\n";
 
   /**
-   *  It appears that the underlying fopen call can return error codes in platform
-   *  dependent ways. For example, in POSIX it seems that fopen(0,...) would return 0
-   *  and set errno to ENOENT but on MAC it return EFAULT which is equally justifiable
-   *  so just make sure it doesn't return 0 here.
+   *  It appears that the underlying fopen call can return error codes in
+   *  platform dependent ways. For example, in POSIX it seems that fopen(0,...)
+   *  would return 0 and set errno to ENOENT but on MAC it return EFAULT which
+   *  is equally justifiable so just make sure it doesn't return 0 here.
    */
   BOOST_REQUIRE_MESSAGE(result != 0,
-    "dsv_parse attempted to open a nonexistent file and did not return nonzero");
+    "dsv_parse attempted to open a nonexistent file and did not return "
+    "nonzero");
 }
 
 
@@ -96,7 +99,8 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_named_nonexistent_file_with_zero_stream )
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
-  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
 
   detail::logging_context log_context;
   dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
@@ -119,7 +123,8 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_empty_file_with_stream )
 
   dsv_operations_t operations;
   assert(dsv_operations_create(&operations) == 0);
-  std::shared_ptr<dsv_operations_t> operations_sentry(&operations,detail::operations_destroy);
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
 
   detail::logging_context log_context;
   dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
@@ -134,7 +139,8 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_unnamed_empty_file_with_stream )
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
   BOOST_REQUIRE_MESSAGE(in.get() != 0,
-    "Unit test failure: could not open unit test data file \"" << filepath << "\"");
+    "Unit test failure: could not open unit test data file \"" << filepath
+      << "\"");
 
   int result = dsv_parse(0,in.get(),parser,operations);
   if(result < 0)

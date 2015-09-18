@@ -520,9 +520,9 @@ record:
 
 
 /**
-    There are only a few tokens to be lexicographically generated. Many are setting and
-    contextually dependent. The only non-single character tokens are field data content
-    and the double quote (ie "");
+    There are only a few tokens to be lexicographically generated. Many are
+    setting and contextually dependent. The only non-single character tokens are
+    field data content and the double quote (ie "");
 
     Only TEXTDATA strings are returned in YYSTYPE
  */
@@ -530,11 +530,16 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)
 {
   static const unsigned char crlf_il[] = {0x0D,0x0A};
-  static const YYSTYPE::char_buff_ptr_type lf_buf(new YYSTYPE::char_buff_type(1,0x0A));
-  static const YYSTYPE::char_buff_ptr_type cr_buf(new YYSTYPE::char_buff_type(1,0x0D));
-  static const YYSTYPE::char_buff_ptr_type crlf_buf(
-    new YYSTYPE::char_buff_type(crlf_il,crlf_il+sizeof(crlf_il)/sizeof(unsigned char)));
-  static const YYSTYPE::char_buff_ptr_type quote_buf(new YYSTYPE::char_buff_type(1,0x22));
+  static const YYSTYPE::char_buff_ptr_type
+    lf_buf(new YYSTYPE::char_buff_type(1,0x0A));
+  static const YYSTYPE::char_buff_ptr_type
+    cr_buf(new YYSTYPE::char_buff_type(1,0x0D));
+  static const YYSTYPE::char_buff_ptr_type
+    crlf_buf(new YYSTYPE::char_buff_type(crlf_il,
+      crlf_il+sizeof(crlf_il)/sizeof(unsigned char)));
+
+  static const YYSTYPE::char_buff_ptr_type
+    quote_buf(new YYSTYPE::char_buff_type(1,0x22));
 
   // <32 is non-printing
   // > 126 is non-printing
@@ -550,12 +555,14 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   //   int last_column;
   // } YYLTYPE;
 
-  // cur holds the current value
-  // next holds the lookahead
-  unsigned char cur;
-  while(scanner.getc(cur) && scanner.advance()) {
+
+//  while(cur = scanner.getc() && scanner.advance()) {
+
+  int cur;
+  while((cur = scanner.fadvancec()) != EOF) {
     llocp->first_line = llocp->last_line;
-    llocp->first_column = (llocp->last_column)++; // last_column is always 1-past as is C
+    // last_column is always 1-past as is C
+    llocp->first_column = (llocp->last_column)++;
 
 //     std::cerr << "Top scanned ";
 //     if(cur < 32 || cur > 126)
@@ -566,8 +573,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //     std::cerr << " at row: " << llocp->first_line << ":" << llocp->last_line << " col: "
 //       << llocp->first_column << ":" << llocp->last_column << "\n";
 
-    unsigned char next;
-    scanner.getc(next);
+    int lookahead = scanner.getc();
 
     if(cur == parser.delimiter()) {
       return DELIMITER;
@@ -593,10 +599,10 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       return LF;
     }
     else if(cur == 0x0D) { //CR
-      if(next == 0x0A // LF
+      if(lookahead == 0x0A // LF
         && parser.effective_newline() != dsv_newline_lf_strict)
       {
-        scanner.advance();
+        scanner.fadvancec();
         ++(llocp->last_line);
         llocp->last_column = 1;
         lvalp->char_buf_ptr = crlf_buf;
@@ -619,8 +625,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     }
     else if(cur == 0x22) { //"
       lvalp->char_buf_ptr = quote_buf;
-      if(next == 0x22) {
-        scanner.advance();
+      if(lookahead == 0x22) {
+        scanner.fadvancec();
         ++(llocp->last_column);
 
         return D2QUOTE;
@@ -631,8 +637,9 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       // straight textdata
       lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
 
-      // only a DQUOTE will terminate a binary enabled escaped field
-      for(; scanner.getc(cur); scanner.advance()) {
+      // only a DQUOTE will terminate a binary enabled escaped field. Don't eat
+      // until we know it is not a terminating byte
+      while((cur = scanner.getc()) != EOF) {
         if(cur == 0x22) { // DQUOTE
           return TEXTDATA;
         }
@@ -644,6 +651,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //   << llocp->first_column << ":" << llocp->last_column << "\n";
 
         lvalp->char_buf_ptr->push_back(cur);
+        scanner.fadvancec();
       }
 
       return TEXTDATA;
@@ -655,8 +663,9 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       // straight textdata
       lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
 
-      // scan for anything that could terminate the ASCII field
-      for(; scanner.getc(cur); scanner.advance()) {
+      // scan for anything that could terminate the ASCII field. Don't eat
+      // until we know it is not a terminating byte
+      while((cur = scanner.getc()) != EOF) {
         if(cur == parser.delimiter()
           || cur == 0x0A //LF
           || cur == 0x0D //CR
@@ -673,6 +682,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //   << llocp->first_column << ":" << llocp->last_column << "\n";
 
         lvalp->char_buf_ptr->push_back(cur);
+        scanner.fadvancec();
       }
 
       return TEXTDATA;

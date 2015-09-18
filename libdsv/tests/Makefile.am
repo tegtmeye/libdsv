@@ -22,11 +22,18 @@ additional_test_ldflags=\
 	$(BOOST_FILESYSTEM_LDFLAGS)
 
 check_PROGRAMS= \
+	scanner_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
 	api_column_count_test
+
+scanner_test_SOURCES=$(master_suite) \
+        scanner_test.cc
+scanner_test_CPPFLAGS=$(additional_test_cppflags)
+scanner_test_LDADD=$(additional_test_libs)
+scanner_test_LDFLAGS=$(additional_test_ldflags)
 
 api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -65,6 +72,7 @@ api_column_count_test_LDFLAGS=$(additional_test_ldflags)
 
 
 TESTS=\
+	scanner_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
@@ -72,6 +80,8 @@ TESTS=\
 	api_column_count_test
 
 CLEANFILES=\
+	scanner_test.log \
+	scanner_test.trs \
 	api_parser_object_suite.log \
 	api_parser_object_suite.trs \
 	api_operations_object_suite.log \
