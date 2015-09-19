@@ -27,7 +27,8 @@ check_PROGRAMS= \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
-	api_column_count_test
+	api_column_count_test \
+	api_alt_delimiter_test
 
 scanner_test_SOURCES=$(master_suite) \
         scanner_test.cc
@@ -70,6 +71,12 @@ api_column_count_test_CPPFLAGS=$(additional_test_cppflags)
 api_column_count_test_LDADD=$(additional_test_libs)
 api_column_count_test_LDFLAGS=$(additional_test_ldflags)
 
+api_alt_delimiter_test_SOURCES=$(master_suite) \
+	test_detail.h \
+	api_alt_delimiter_test.cc
+api_alt_delimiter_test_CPPFLAGS=$(additional_test_cppflags)
+api_alt_delimiter_test_LDADD=$(additional_test_libs)
+api_alt_delimiter_test_LDFLAGS=$(additional_test_ldflags)
 
 TESTS=\
 	scanner_test \
@@ -77,7 +84,8 @@ TESTS=\
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
-	api_column_count_test
+	api_column_count_test \
+	api_alt_delimiter_test
 
 CLEANFILES=\
 	scanner_test.log \
@@ -91,7 +99,9 @@ CLEANFILES=\
 	api_RFC4180_permissive_parse_test.log \
 	api_RFC4180_permissive_parse_test.trs \
 	api_column_count_test.log \
-	api_column_count_test.trs
+	api_column_count_test.trs \
+	api_alt_delimiter_test.log \
+	api_alt_delimiter_test.trs \
 	api_test-suite.log
 
 EXTRA_DIST=

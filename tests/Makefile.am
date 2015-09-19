@@ -26,7 +26,9 @@ libdsv_tests=\
 	$(libdsv_testdir)/api_parser_object_suite.cc \
 	$(libdsv_testdir)/api_operations_object_suite.cc \
 	$(libdsv_testdir)/api_RFC4180_parse_test.cc \
-	$(libdsv_testdir)/api_RFC4180_permissive_parse_test.cc
+	$(libdsv_testdir)/api_RFC4180_permissive_parse_test.cc \
+	$(libdsv_testdir)/api_column_count_test.cc \
+	$(libdsv_testdir)/api_alt_delimiter_test.cc
 
 check_PROGRAMS=libdsv_test
 
