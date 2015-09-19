@@ -51,9 +51,13 @@ BOOST_AUTO_TEST_CASE( parser_default_RFC4180_object_settings )
     "Default parser field columns was not '0' but rather '" << field_cols
       << "'");
 
-  unsigned char delim = dsv_parser_get_field_delimiter(parser);
-  BOOST_REQUIRE_MESSAGE(delim == ',',
-    "Default parser delimiter was not ',' but rather '" << delim << "'");
+  std::vector<unsigned char> buf(2,'*');
+  std::size_t len = dsv_parser_get_field_delimiter(parser,buf.data(),
+    buf.size());
+
+  BOOST_REQUIRE_MESSAGE(buf[0] == ',' && buf[1] == '*',
+    "Default RFC4180 parser delimiter was not ',' but instead the first " <<
+    len << " bytes of '" << buf[0] << "','" << buf[1] << "'");
 }
 
 
@@ -254,7 +258,8 @@ BOOST_AUTO_TEST_CASE( parse_single_quoted_rfc4180_charset_crlf )
  *    Fields containing line breaks (CRLF), double quotes, and commas
  *    should be enclosed in double-quotes.
  *
- *  Therefore a since LF in a quoted field in RFC4180-strict is considered an error
+ *  Therefore since LF is not a valid line break, in a RFC4180-strict quoted
+ *  field it is considered an error
  */
 BOOST_AUTO_TEST_CASE( parse_single_quoted_rfc4180_lf_charset_crlf )
 {

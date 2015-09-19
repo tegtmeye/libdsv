@@ -46,9 +46,13 @@ BOOST_AUTO_TEST_CASE( parser_default_RFC4180_permissive_object_settings )
   BOOST_REQUIRE_MESSAGE(field_cols == 0,
     "Default parser field columns was not '0' but rather '" << field_cols << "'");
 
-  unsigned char delim = dsv_parser_get_field_delimiter(parser);
-  BOOST_REQUIRE_MESSAGE(delim == ',',
-    "Default parser delimiter was not ',' but rather '" << delim << "'");
+  std::vector<unsigned char> buf(2,'*');
+  std::size_t len = dsv_parser_get_field_delimiter(parser,buf.data(),
+    buf.size());
+
+  BOOST_REQUIRE_MESSAGE(buf[0] == ',' && buf[1] == '*',
+    "Default RFC4180-permissive parser delimiter was not ',' but instead the "
+    "first " << len << " bytes of '" << buf[0] << "','" << buf[1] << "'");
 }
 
 /** \test Attempt to parse a unnamed file with a zero stream

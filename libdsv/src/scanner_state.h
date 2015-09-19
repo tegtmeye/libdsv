@@ -180,6 +180,8 @@ namespace detail {
 
     // move the putback buffer to the beginning of the read buffer
     // and reset the offset values
+
+    //todo investigate how much we really refill with a nonempty putback buffer
     if(begin_off != 0) {
       std::size_t putback_len = (cur_off - begin_off);
       std::move(buff.begin()+begin_off,buff.begin()+cur_off,buff.begin());

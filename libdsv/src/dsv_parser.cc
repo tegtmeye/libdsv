@@ -57,7 +57,8 @@ int dsv_parser_create(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_permissive);
     parser->field_columns(0);
-    parser->delimiter(',');
+    parser->delimiter(
+      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -80,7 +81,8 @@ int dsv_parser_create_RFC4180_strict(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_RFC4180_strict);
     parser->field_columns(0);
-    parser->delimiter(',');
+    parser->delimiter(
+      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -103,7 +105,8 @@ int dsv_parser_create_RFC4180_permissive(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_permissive);
     parser->field_columns(0);
-    parser->delimiter(',');
+    parser->delimiter(
+      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -199,30 +202,70 @@ ssize_t dsv_parser_get_field_columns(dsv_parser_t _parser)
   return result;
 }
 
-void dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
+int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
+  int err = 0;
+
   try {
-    parser.delimiter(delim);
+    parser.delimiter(std::vector<unsigned char>(&delim,&delim+1));
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
   }
   catch(...) {
     abort();
   }
+
+  return err;
 }
 
-unsigned char dsv_parser_get_field_delimiter(dsv_parser_t _parser)
+int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
+  const unsigned char *delim, size_t size)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  unsigned char result;
+  int err = 0;
 
   try {
-    result = parser.delimiter();
+    parser.delimiter(std::vector<unsigned char>(delim,delim+size));
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch(...) {
+    abort();
+  }
+
+  return err;
+}
+
+
+size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, unsigned char *buf,
+  size_t bufsize)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t result = 0;
+
+  try {
+    if(bufsize == 0)
+      result = parser.delimiter().size();
+    else {
+      const std::vector<unsigned char> &delimiter = parser.delimiter();
+
+      while(result < delimiter.size() && result < bufsize) {
+        buf[result] = delimiter[result];
+        ++result;
+      }
+    }
   }
   catch(...) {
     abort();

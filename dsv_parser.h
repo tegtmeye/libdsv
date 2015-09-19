@@ -234,21 +234,61 @@ extern "C" {
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \param delim The character to be used as a field delimiter
+   *  \retval 0 success
+   *  \retval ENOMEM Could not allocate memory
    */
-  void dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
+  int dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
 
   /**
-   *  \brief Get the current field delimiter to be used for future parsing with
-   *  \c parser
+   *  \brief Set the multibyte field delimiter to be used for future parsing
+   *  with \c parser
+   *
+   *  The default is the ASCII comma ','
+   *
+   *  Multibyte sequences can be used to support other character encodings such
+   *  as UTF-8
    *
    *  This delimiter is used to separate both headers and fields depending on
    *  the settings
    *
-   *  \retval delimiter The current field delimiter
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] delim A sequence of bytes to be used as a field delimiter
+   *  \retval 0 success
+   *  \retval ENOMEM Could not allocate memory
    */
-  unsigned char dsv_parser_get_field_delimiter(dsv_parser_t parser);
+  int dsv_parser_set_field_wdelimiter(dsv_parser_t parser,
+    const unsigned char *delim, size_t size);
 
-
+  /**
+   *  \brief Copy the current field delimiter to be used for future parsing with
+   *  \c parser into the buffer \c buf of size \c bufsize,
+   *
+   *  This delimiter is used to separate both headers and fields depending on
+   *  the settings.
+   *
+   *  If \c bufsize is zero, return the number of bytes needed to hold the
+   *  current set delimiter. This number is suitable for allocating memory for
+   *  \c buf. If \c bufsize is nonzero, copy the bytes representing the
+   *  delimiter or \c bufsize whichever is smaller and return this value. If \c
+   *  bufsize is zero, \c buf is not referenced and may also be safely zero for
+   *  the call.
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
+   *  size \bufsize to which the current field delimiter will be copied into.
+   *  N.B. since the sequence of bytes contained in \c buf may not represent a
+   *  string, no null terminator will be added to the end of the bytes.
+   *  \param [in] bufsize The size of the unsigned char buffer pointed to
+   *  by \c buf.
+   *  \retval If \c bufsize is zero, return the number of bytes needed to hold
+   *  the current delimiter. If \c bufsize is nonzero, return the number of
+   *  bytes copied to \c buf which is not necessarily the same size as \c
+   *  bufsize.
+   */
+  size_t dsv_parser_get_field_delimiter(dsv_parser_t parser,
+    unsigned char *buf, size_t bufsize);
 
   /**
    *  \brief Enable or disable binary in double quoted fields for future parsing

@@ -481,8 +481,8 @@ void check_compliance(dsv_parser_t parser,
   int result = dsv_parse(filepath.c_str(),in.get(),parser,operations);
   if(result != expected_result) {
     std::stringstream out;
-    out << "dsv_parse returned with unexpected code: " << result << ", expecting "
-      << expected_result;
+    out << "dsv_parse returned with unexpected code: " << result
+      << ", expecting " << expected_result;
 
     if(result > 0)
       out << " (" << strerror(result) << ")";
@@ -495,8 +495,10 @@ void check_compliance(dsv_parser_t parser,
     else
       out << "[file stream]";
 
-    out << "\nHeader " << output_fields(context.valid_headers,context.parsed_headers)
-      << "\nRecord " << output_fields(context.valid_records,context.parsed_records);
+    out << "\nHeader "
+      << output_fields(context.valid_headers,context.parsed_headers)
+      << "\nRecord "
+      << output_fields(context.valid_records,context.parsed_records);
 
     BOOST_REQUIRE_MESSAGE(result == expected_result,out.str());
   }

@@ -35,6 +35,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 #include <utility>
 
 #include <iostream>
@@ -114,8 +115,8 @@ class parser {
     void append_log(dsv_log_level level, const log_description &desc);
 
     /* exposed behaviors */
-    unsigned char delimiter(void) const;
-    unsigned char delimiter(unsigned char d);
+    const std::vector<unsigned char> & delimiter(void) const;
+    std::vector<unsigned char> delimiter(const std::vector<unsigned char> &d);
 
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
@@ -149,7 +150,7 @@ class parser {
 
     log_list_type log_list;
 
-    unsigned char _delimiter;
+    std::vector<unsigned char> _delimiter;
     dsv_newline_behavior _newline_behavior;
     ssize_t _field_columns;
     bool _escaped_binary_fields;
@@ -163,9 +164,9 @@ class parser {
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
   _log_level(dsv_log_none),
-  _delimiter(','), _field_columns(0), _escaped_binary_fields(false),
-  _escaped_field(false), _effective_field_columns(0),
-  _effective_field_columns_set(false)
+  _delimiter(1,static_cast<unsigned char>(',')), _field_columns(0),
+  _escaped_binary_fields(false), _escaped_field(false),
+  _effective_field_columns(0), _effective_field_columns_set(false)
 {
   newline_behavior(dsv_newline_permissive);
 }
@@ -223,15 +224,17 @@ inline void parser::append_log(dsv_log_level level, const log_description &desc)
   log_list.push_back(std::make_pair(level,desc));
 }
 
-inline unsigned char parser::delimiter(void) const
+inline const std::vector<unsigned char> & parser::delimiter(void) const
 {
   return _delimiter;
 }
 
-inline unsigned char parser::delimiter(unsigned char d)
+inline std::vector<unsigned char>
+parser::delimiter(const std::vector<unsigned char> &d)
 {
-  std::swap(d,_delimiter);
-  return d;
+  std::vector<unsigned char> tmp(_delimiter);
+  _delimiter = d;
+  return tmp;
 }
 
 inline const dsv_newline_behavior &

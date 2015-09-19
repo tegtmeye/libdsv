@@ -439,7 +439,7 @@ escaped_textdata:
   | DELIMITER {
       // delimiter must be recreated as it could change across parser invocations
       // todo, still can be cached in the parser...
-      $$.reset(new YYSTYPE::char_buff_type(1,parser.delimiter()));
+      $$.reset(new YYSTYPE::char_buff_type(parser.delimiter()));
     }
   | NL { $$ = $1; } // NL are always accepted
   | LF {
@@ -514,10 +514,25 @@ record:
 
 
 
+/**
+    Convenience function for parser_lex
 
+    Forget any existing putback buffer and try to read the delimiter from the
+    scanner input if possible. The read characters remain in the putback buffer.
+ */
+bool read_delimiter(detail::scanner_state &scanner,
+  const std::vector<unsigned char> &delimiter)
+{
+  scanner.forget();
+  for(std::size_t i=0; i<delimiter.size(); ++i) {
+    int val = scanner.advancec();
+    if(val == EOF || val != static_cast<int>(delimiter[i])) {
+      return false;
+    }
+  }
 
-
-
+  return true;
+}
 
 /**
     There are only a few tokens to be lexicographically generated. Many are
@@ -546,40 +561,42 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   // ' is 0x27
   // " is 0x22
 
-
-  // typedef struct YYLTYPE
-  // {
-  //   int first_line;
-  //   int first_column;
-  //   int last_line;
-  //   int last_column;
-  // } YYLTYPE;
-
-
-//  while(cur = scanner.getc() && scanner.advance()) {
-
   int cur;
-  while((cur = scanner.fadvancec()) != EOF) {
+  while((cur = scanner.getc()) != EOF) {
+    // precondition is the putback buffer is empty
+    // we know it isn't EOF but not sure how big the token is...
+
+
     llocp->first_line = llocp->last_line;
     // last_column is always 1-past as is C
-    llocp->first_column = (llocp->last_column)++;
+    llocp->first_column = llocp->last_column;
 
-//     std::cerr << "Top scanned ";
-//     if(cur < 32 || cur > 126)
-//       std::cerr << "'" << std::hex << std::showbase << int(cur) << std::dec
-//         << std::noshowbase << "'";
-//     else
-//       std::cerr << "'" << char(cur) << "' [" << (unsigned int)(cur) << "]";
-//     std::cerr << " at row: " << llocp->first_line << ":" << llocp->last_line << " col: "
-//       << llocp->first_column << ":" << llocp->last_column << "\n";
+//     {
+//       std::cerr << "Top scanned ";
+//       if(cur < 32 || cur > 126)
+//         std::cerr << "'" << std::hex << std::showbase << int(cur) << std::dec
+//           << std::noshowbase << "'";
+//       else
+//         std::cerr << "'" << char(cur) << "' [" << (unsigned int)(cur) << "]";
+//
+//       std::cerr << " at row: " << llocp->first_line << ":" << llocp->last_line
+//         << " col: "
+//         << llocp->first_column << ":" << llocp->last_column << "\n";
+//     }
 
-    int lookahead = scanner.getc();
-
-    if(cur == parser.delimiter()) {
+    if(read_delimiter(scanner,parser.delimiter())) {
+      scanner.forget();
+      llocp->last_column += parser.delimiter().size();
       return DELIMITER;
     }
-    else if(cur == 0x0A) {//LF
-      lvalp->char_buf_ptr = lf_buf;
+    else {
+      scanner.putback();
+    }
+
+    if(cur == 0x0A) {//LF
+      ++(llocp->last_column);
+      scanner.fadvancec();
+
       if(parser.effective_newline() != dsv_newline_crlf_strict) {
         // only register the effective newline if we are not in a quoted field
         if(parser.effective_newline() == dsv_newline_permissive
@@ -593,13 +610,19 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
         ++(llocp->last_line);
         llocp->last_column = 1;
+        lvalp->char_buf_ptr =lf_buf;
         return NL;
       }
 
+      lvalp->char_buf_ptr = lf_buf;
       return LF;
     }
-    else if(cur == 0x0D) { //CR
-      if(lookahead == 0x0A // LF
+
+    if(cur == 0x0D) { //CR
+      ++(llocp->last_column);
+      scanner.fadvancec();
+
+      if(scanner.getc() == 0x0A // LF
         && parser.effective_newline() != dsv_newline_lf_strict)
       {
         scanner.fadvancec();
@@ -623,19 +646,25 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       lvalp->char_buf_ptr = cr_buf;
       return CR;
     }
-    else if(cur == 0x22) { //"
+
+    if(cur == 0x22) { //"
+      ++(llocp->last_column);
+      scanner.fadvancec();
       lvalp->char_buf_ptr = quote_buf;
-      if(lookahead == 0x22) {
-        scanner.fadvancec();
+
+      if(scanner.getc() == 0x22) {
         ++(llocp->last_column);
+        scanner.fadvancec();
 
         return D2QUOTE;
       }
+
       return DQUOTE;
     }
-    else if(parser.escaped_field() && parser.escaped_binary_fields()) {
+
+    if(parser.escaped_field() && parser.escaped_binary_fields()) {
       // straight textdata
-      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
+      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
 
       // only a DQUOTE will terminate a binary enabled escaped field. Don't eat
       // until we know it is not a terminating byte
@@ -644,49 +673,55 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
           return TEXTDATA;
         }
 
-        ++(llocp->last_column);
-
 // std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
 //   << llocp->first_line << ":" << llocp->last_line << " col: "
 //   << llocp->first_column << ":" << llocp->last_column << "\n";
 
+        ++(llocp->last_column);
         lvalp->char_buf_ptr->push_back(cur);
         scanner.fadvancec();
       }
 
       return TEXTDATA;
     }
-    else if(cur < 32 || cur > 126) { // non-ASCII
+
+    if(cur < 32 || cur > 126) { // non-ASCII
+      ++(llocp->last_column);
+      scanner.fadvancec();
       return BINARYDATA;
     }
-    else {
-      // straight textdata
-      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type(&cur, (&cur)+1));
 
-      // scan for anything that could terminate the ASCII field. Don't eat
-      // until we know it is not a terminating byte
-      while((cur = scanner.getc()) != EOF) {
-        if(cur == parser.delimiter()
-          || cur == 0x0A //LF
-          || cur == 0x0D //CR
-          || cur == 0x22 // DQUOTE
-          || cur < 32 || cur > 126) // non-ASCII
-        {
-          return TEXTDATA;
-        }
+    // fallthrough
+    // straight textdata
+    lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
 
-        ++(llocp->last_column);
+    // scan for anything that could terminate the ASCII field. Don't eat
+    // until we know it is not a terminating byte
+    while((cur = scanner.getc()) != EOF) {
+      bool lookahead_delimiter = read_delimiter(scanner,parser.delimiter());
+      scanner.putback();
 
-// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
-//   << llocp->first_line << ":" << llocp->last_line << " col: "
-//   << llocp->first_column << ":" << llocp->last_column << "\n";
-
-        lvalp->char_buf_ptr->push_back(cur);
-        scanner.fadvancec();
+      if(lookahead_delimiter
+        || cur == 0x0A //LF
+        || cur == 0x0D //CR
+        || cur == 0x22 // DQUOTE
+        || cur < 32 || cur > 126) // non-ASCII
+      {
+        return TEXTDATA;
       }
 
-      return TEXTDATA;
+//       {
+//         std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
+//           << llocp->first_line << ":" << llocp->last_line << " col: "
+//           << llocp->first_column << ":" << llocp->last_column << "\n";
+//       }
+
+      ++(llocp->last_column);
+      scanner.fadvancec();
+      lvalp->char_buf_ptr->push_back(cur);
     }
+
+    return TEXTDATA;
   }
 
   return 0;
