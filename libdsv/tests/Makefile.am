@@ -13,8 +13,10 @@ additional_test_libs= \
 	$(BOOST_SYSTEM_LIBS) \
 	$(BOOST_FILESYSTEM_LIBS)
 
+libdsv_test_ldflags=\
+        $(top_builddir)/libdsv/src/libdsv.la
+
 additional_test_ldflags=\
-        $(top_builddir)/libdsv/src/libdsv.la \
         $(BOOST_LDFLAGS) \
         $(BOOST_REGEX_LDFLAGS) \
         $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
@@ -23,6 +25,7 @@ additional_test_ldflags=\
 
 check_PROGRAMS= \
 	scanner_test \
+	compile_bytesequence_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
@@ -36,50 +39,69 @@ scanner_test_CPPFLAGS=$(additional_test_cppflags)
 scanner_test_LDADD=$(additional_test_libs)
 scanner_test_LDFLAGS=$(additional_test_ldflags)
 
+compile_bytesequence_test_SOURCES=$(master_suite) \
+        compile_bytesequence_test.cc
+compile_bytesequence_test_CPPFLAGS=$(additional_test_cppflags)
+compile_bytesequence_test_LDADD=$(additional_test_libs)
+compile_bytesequence_test_LDFLAGS=$(additional_test_ldflags)
+
 api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
         api_parser_object_suite.cc
 api_parser_object_suite_CPPFLAGS=$(additional_test_cppflags)
 api_parser_object_suite_LDADD=$(additional_test_libs)
-api_parser_object_suite_LDFLAGS=$(additional_test_ldflags)
+api_parser_object_suite_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 api_operations_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
         api_operations_object_suite.cc
 api_operations_object_suite_CPPFLAGS=$(additional_test_cppflags)
 api_operations_object_suite_LDADD=$(additional_test_libs)
-api_operations_object_suite_LDFLAGS=$(additional_test_ldflags)
+api_operations_object_suite_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 api_RFC4180_parse_test_SOURCES=$(master_suite) \
 	test_detail.h \
 	api_RFC4180_parse_test.cc
 api_RFC4180_parse_test_CPPFLAGS=$(additional_test_cppflags)
 api_RFC4180_parse_test_LDADD=$(additional_test_libs)
-api_RFC4180_parse_test_LDFLAGS=$(additional_test_ldflags)
+api_RFC4180_parse_test_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 api_RFC4180_permissive_parse_test_SOURCES=$(master_suite) \
 	test_detail.h \
 	api_RFC4180_permissive_parse_test.cc
 api_RFC4180_permissive_parse_test_CPPFLAGS=$(additional_test_cppflags)
 api_RFC4180_permissive_parse_test_LDADD=$(additional_test_libs)
-api_RFC4180_permissive_parse_test_LDFLAGS=$(additional_test_ldflags)
+api_RFC4180_permissive_parse_test_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 api_column_count_test_SOURCES=$(master_suite) \
 	test_detail.h \
 	api_column_count_test.cc
 api_column_count_test_CPPFLAGS=$(additional_test_cppflags)
 api_column_count_test_LDADD=$(additional_test_libs)
-api_column_count_test_LDFLAGS=$(additional_test_ldflags)
+api_column_count_test_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 api_alt_delimiter_test_SOURCES=$(master_suite) \
 	test_detail.h \
 	api_alt_delimiter_test.cc
 api_alt_delimiter_test_CPPFLAGS=$(additional_test_cppflags)
 api_alt_delimiter_test_LDADD=$(additional_test_libs)
-api_alt_delimiter_test_LDFLAGS=$(additional_test_ldflags)
+api_alt_delimiter_test_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
 
 TESTS=\
 	scanner_test \
+	compile_bytesequence_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
@@ -90,6 +112,8 @@ TESTS=\
 CLEANFILES=\
 	scanner_test.log \
 	scanner_test.trs \
+	compile_bytesequence_test.log \
+	compile_bytesequence_test.trs \
 	api_parser_object_suite.log \
 	api_parser_object_suite.trs \
 	api_operations_object_suite.log \

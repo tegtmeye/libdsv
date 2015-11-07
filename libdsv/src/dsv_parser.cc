@@ -211,7 +211,11 @@ int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
   int err = 0;
 
   try {
-    parser.delimiter(std::vector<unsigned char>(&delim,&delim+1));
+    unsigned char *delim_arr[1] = {&delim};
+    size_t *delimsize_arr[1] = {1};
+    size_t *delimrepeat_arr[1] = {1};
+    err = dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
+      delimrepeat_arr,1,1);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -224,7 +228,7 @@ int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
 }
 
 int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
-  const unsigned char *delim, size_t size)
+  const unsigned char *delim, size_t size, int repeatflag)
 {
   assert(_parser.p);
 
@@ -233,7 +237,11 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
   int err = 0;
 
   try {
-    parser.delimiter(std::vector<unsigned char>(delim,delim+size));
+    unsigned char *delim_arr[1] = {&delim};
+    size_t *delimsize_arr[1] = {size};
+    size_t *delimrepeat_arr[1] = {repeatflag};
+    err = dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
+      delimrepeat_arr,1,1);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -244,6 +252,33 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
 
   return err;
 }
+
+// todo, cause the exclusive to carry over and have reset API
+int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
+  const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
+  size_t size, int repeatflag, int exclusiveflag);
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int err = 0;
+
+  try {
+    parser.set_equiv_delimiters(delim,delimsize,delim_repeat,size,
+      repeatflag,exclusiveflag);
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch(...) {
+    abort();
+  }
+
+  return err;
+}
+
+
 
 
 size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, unsigned char *buf,

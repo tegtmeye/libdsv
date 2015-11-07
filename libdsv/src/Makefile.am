@@ -7,11 +7,12 @@ AM_YFLAGS= -d -p parser_ --report=all
 libdsv_la_SOURCES= \
 	dsv_grammar.yy \
 	scanner_state.h \
+	bytesequence_compiler.h \
 	parse_operations.h \
 	parser.h \
 	dsv_parser.cc
 
-libdsv_la_CPPFLAGS=-pedantic -ansi -Wall -I$(top_srcdir) \
+libdsv_la_CPPFLAGS=-pedantic -ansi -Wall -std=c++11 -I$(top_srcdir) \
 	$(BOOST_CPPFLAGS)
 
 libdsv_la_LDFLAGS= -version-info 0:0:0

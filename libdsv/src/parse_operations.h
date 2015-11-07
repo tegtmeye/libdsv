@@ -45,18 +45,16 @@ namespace detail {
     record_callback_t record_callback;
     void *record_context;
 
-    // storage cache for callback functions to avoid memory (re)allocation for each
-    // call.
+    // storage cache for callback functions to avoid memory (re)allocation for
+    // each call.
     std::vector<const unsigned char *> field_storage;
     std::vector<std::size_t> len_storage;
 
     parse_operations(void);
   };
 
-  inline parse_operations::parse_operations(void) :header_callback(0), header_context(0),
-    record_callback(0), record_context(0)
-  {
-  }
+  inline parse_operations::parse_operations(void) :header_callback(0),
+    header_context(0), record_callback(0), record_context(0) {}
 
 
 }

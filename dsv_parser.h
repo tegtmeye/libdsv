@@ -222,9 +222,19 @@ extern "C" {
 
 
 
+
   /**
-   *  \brief Set the field delimiter to be used for future parsing with
-   *    \c parser
+   *  \brief Set a single byte field delimiter to be used for future parsing
+   *   with \c parser
+   *
+   *  This is a convenience function and is equivalent to:
+   *    dsv_parser_t parser; // assume exists
+   *    unsigned char delim ; // assume exists
+   *    unsigned char *delim_arr[1] = {&delim};
+   *    size_t *delimsize_arr[1] = {1};
+   *    size_t *delimrepeat_arr[1] = {1};
+   *    dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
+   *      delimrepeat_arr,1,1);
    *
    *  The default is the ASCII comma ','
    *
@@ -243,6 +253,17 @@ extern "C" {
    *  \brief Set the multibyte field delimiter to be used for future parsing
    *  with \c parser
    *
+   *  This is a convenience function and is equivalent to:
+   *    dsv_parser_t parser; // assume exists
+   *    unsigned char delim[] ; // assume exists
+   *    size_t delimsize; // assume exists and equals length of delim
+   *    int repeatflag; // assume exists
+   *    unsigned char *delim_arr[1] = {&delim};
+   *    size_t *delimsize_arr[1] = {delimsize};
+   *    size_t *delimrepeat_arr[1] = {repeatflag};
+   *    dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
+   *      delimrepeat_arr,1,1);
+   *
    *  The default is the ASCII comma ','
    *
    *  Multibyte sequences can be used to support other character encodings such
@@ -258,7 +279,80 @@ extern "C" {
    *  \retval ENOMEM Could not allocate memory
    */
   int dsv_parser_set_field_wdelimiter(dsv_parser_t parser,
-    const unsigned char *delim, size_t size);
+    const unsigned char *delim, size_t size, int repeatflag);
+
+
+  /**
+   *  \brief Set equivalent, potentially repeating, and optionally
+   *  parse-exclusive multibyte field delimiters to be used for future parsing
+   *  with \c parser.
+   *
+   *  Equivalent delimiters are single or multibyte sequences such that if any sequence is seen, it is considered an acceptable delimiter. For example, in an RFC 4180-strict parser, a single non-repeating ASCII comma is the only acceptable delimiter. However, in other formats, any single or repeating sequence of white spaces are considered in whole as an acceptable delimiter. For example, repeating ASCII space or tab characters. Said another way, given some sequence representing a delimiter \c DELIM, it is equivalent to the regular expression DELIM*. It is possible to set the delimiter as repeating on a per-delimiter sequence basis. For example, given several sequences representing equivalent delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the entire equivalent delimiter set to repeat. That is, for some delimiter sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to repeat only along with the entire equivalent delimiter set is equivalent to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*. Setting a single delimiter sequence to repeat is equivalent to setting the entire delimiter set consisting of a single delimiter to repeat is equivalent but the parser achieves the same result in different ways. That is \c (DELIM*) achieves the same result as \c (DELIM)*. It is also possible to enable parse-level exclusivity. That is, once one of the given delimiters is parsed, it becomes the only valid delimiter for the remainder of the parse operation.
+   *
+   *  \note If unlimited repeating delimiter sequences is enabled, it becomes
+   *  impossible to represent an empty field based solely on repeating the
+   *  delimiter. For example, given the default delimiter of an ASCII comma ',',
+   *  two consecutive commas would represent an empty field. That is:
+   *
+   *    "foo",,"bar"
+   *
+   *  would have three fields, "foo", [[empty]], and "bar". If, for example.
+   *  repeating whitespace is set as the delimiter, the input "foo" and "bar"
+   *  separated by two spaces:
+   *
+   *    "foo"  "bar"
+   *
+   *  represents two fields "foo" and "bar"
+   *
+   *  The default delimiter is a single, non-repeating ASCII comma ','
+   *
+   *  Multibyte sequences can be used to support other character encodings such
+   *  as UTF-8
+   *
+   *  This delimiter is used to separate both headers and fields depending on
+   *  the settings
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] delim \parablock
+   *    An array of length  \c size such that the ith element is a pointer to a
+   *    sequence of bytes of size \c delimsize[i] to be used as a field
+   *    delimiter.
+   *  \endparblock
+   *  \param[in] delimsize \parablock
+   *    An array of length \c size such that the ith element is the size of the
+   *    ith sequence of bytes pointed to by \c delim[i].
+   *  \endparblock
+   *  \param[in] delim_repeat \parablock
+   *    An array of length \c size such that if the ith element is nonzero, the
+   *    ith delimiter in \c delim may be repeated indefinitely.
+   *  \endparblock
+   *  \param[in] size The size of each arrays \c delim, \c delimsize,
+   *    \c repeatflag
+   *  \param[in] repeatflag If nonzero, any delimiter chosen from \c delim my be
+   *    repeated an indefinite number of times.
+   *  \param[in] exclusiveflag \parblock
+   *    If nonzero, then the first delimiter sequence represented by \c delim
+   *    according to the repeat rules set in \c repeat is encountered, it
+   *    becomes the only valid delimiter sequence for the remainder of the
+   *    parser operation. This is reset when a new parse operation begins.
+   *  \endparblock
+   *  \retval 0 success
+   *  \retval ENOMEM Could not allocate memory
+   */
+  int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
+    const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
+    size_t size, int repeatflag, int exclusiveflag);
+
+
+
+
+
+
+
+
+
+
 
   /**
    *  \brief Copy the current field delimiter to be used for future parsing with

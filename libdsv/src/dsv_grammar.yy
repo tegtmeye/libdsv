@@ -534,12 +534,94 @@ bool read_delimiter(detail::scanner_state &scanner,
   return true;
 }
 
+
+
+
+
+
+
+
+
+
+template<typename ByteIter>
+std::size_t search_equiv(ByteIter first, ByteIter last,
+  const std::vector<parser::delim_byte> &packed_vec)
+{
+  typedef std::vector<parser::delim_byte>::const_iterator packed_iter;
+
+  ByteIter cur = first;
+  ByteIter accept_end = first;
+  std::cerr << "accept_end now: " << accept_end-first << "\n";
+  for(std::size_t off=0; cur != last;) {
+    std::cerr << "At loc: " << off << " ";
+    if(packed_vec[off].byte == *cur) {
+      std::cerr << "match: " << *cur << "\n";
+      ++cur;
+
+      if(packed_vec[off].accept) {
+        accept_end = cur;
+        std::cerr << "accept_end now: " << accept_end-first << "\n";
+      }
+
+      off += 1;
+    }
+    else {
+      off = packed_vec[off].fail_off;
+      std::cerr << "reject: " << *cur << " goto " << off << "\n";
+      if(!off)
+        break;
+    }
+  }
+
+  return accept_end-first;
+}
+
+
+
+
+bool search_equiv_delimiters(detail::scanner_state &scanner,
+  const std::vector<parser::delim_byte> &packed_vec)
+{
+  typedef std::vector<parser::delim_byte>::const_iterator packed_iter_t;
+
+  bool result = false;
+
+  scanner.forget();
+
+  int val;
+  packed_iter_t packed_iter = packed_vec.begin();
+  while((val = scanner.getc()) != EOF) {
+    if(packed_iter->byte == val) {
+      std::cerr << "match: " << val << "\n";
+      scanner.advancec();
+
+      if(packed_iter->accept) {
+        scanner.forget();
+        result = true;
+        std::cerr << "accepting. forgetting putback\n";
+      }
+
+      ++packed_iter;
+    }
+    else {
+      if(!packed_iter->fail_off)
+        break;
+      std::cerr << "reject: " << val << " goto " << off << "\n";
+
+      packed_iter += packed_iter->fail_off;
+    }
+  }
+
+  scanner.putback();
+  return result;
+}
+
+
 /**
     There are only a few tokens to be lexicographically generated. Many are
     setting and contextually dependent. The only non-single character tokens are
     field data content and the double quote (ie "");
 
-    Only TEXTDATA strings are returned in YYSTYPE
  */
 int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)

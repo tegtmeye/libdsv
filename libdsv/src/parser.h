@@ -32,6 +32,7 @@
 #define LIBDSV_PARSER_H
 
 #include "dsv_parser.h"
+#include "bytesequence_compiler.h"
 
 #include <string>
 #include <list>
@@ -50,7 +51,8 @@ class log_description {
     typedef param_list_type::const_iterator const_param_iterator;
 
     template<typename StringIteratorT>
-    log_description(dsv_log_code c, StringIteratorT first, StringIteratorT last);
+    log_description(dsv_log_code c, StringIteratorT first,
+      StringIteratorT last);
 
     dsv_log_code code(void) const;
     std::size_t param_size(void) const;
@@ -115,8 +117,17 @@ class parser {
     void append_log(dsv_log_level level, const log_description &desc);
 
     /* exposed behaviors */
-    const std::vector<unsigned char> & delimiter(void) const;
-    std::vector<unsigned char> delimiter(const std::vector<unsigned char> &d);
+
+    // set_equiv_delimiters causes a recompilation of the delimiters
+    void set_equiv_delimiters(const unsigned char *delim[], size_t delimsize[],
+      int delim_repeat[], size_t size, bool repeatflag, bool exclusiveflag);
+
+    const std::vector<unsigned char> & packed_delimiters(void) const;
+    const std::vector<std::size_t> & delimiter_offsets(void) const;
+    const std::vector<int> & delimiter_repeats(void) const;
+
+    bool delimiter_repeatflag(void) const;
+    bool delimiter_parse_exclusive(void) const;
 
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
@@ -129,6 +140,9 @@ class parser {
 
 
     /* non-exposed behaviors */
+    const std::vector<byte_chunk> & compiled_delimiter_vec(void) const;
+
+
     dsv_newline_behavior effective_newline(void) const;
     dsv_newline_behavior effective_newline(dsv_newline_behavior val);
 
@@ -150,7 +164,15 @@ class parser {
 
     log_list_type log_list;
 
-    std::vector<unsigned char> _delimiter;
+    std::vector<unsigned char> _packed_delimiter_vec;
+    std::vector<std::size_t> _delim_off_vec;
+    std::vector<int> _delim_repeat_vec;
+    bool _delim_repeat;
+    bool _delim_exclusive;
+
+    // internal use
+    std::vector<byte_chunk> _compiled_delimiter_vec;
+
     dsv_newline_behavior _newline_behavior;
     ssize_t _field_columns;
     bool _escaped_binary_fields;
@@ -159,13 +181,13 @@ class parser {
     bool _escaped_field;
     ssize_t _effective_field_columns;
     bool _effective_field_columns_set;
-
 };
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
   _log_level(dsv_log_none),
-  _delimiter(1,static_cast<unsigned char>(',')), _field_columns(0),
-  _escaped_binary_fields(false), _escaped_field(false),
+  _packed_delimiter_vec(1,static_cast<unsigned char>(',')),
+  _delim_off_vec(1), _delim_repeat_vec(1), _delim_exclusive(true),
+  _field_columns(0), _escaped_binary_fields(false), _escaped_field(false),
   _effective_field_columns(0), _effective_field_columns_set(false)
 {
   newline_behavior(dsv_newline_permissive);
@@ -224,21 +246,67 @@ inline void parser::append_log(dsv_log_level level, const log_description &desc)
   log_list.push_back(std::make_pair(level,desc));
 }
 
-inline const std::vector<unsigned char> & parser::delimiter(void) const
+void parser::set_equiv_delimiters(const unsigned char *delim[],
+  size_t delimsize[], int delim_repeat[], size_t size, bool repeatflag,
+  bool exclusiveflag)
 {
-  return _delimiter;
+  std::size_t packed_size = 0;
+  for(std::size_t i=0; i<size; ++i)
+    packed_size += delimsize[i];
+
+  _packed_delimiter_vec.clear();
+  _packed_delimiter_vec.reserve(packed_size);
+
+  _delim_off_vec.clear();
+  _delim_off_vec.reserve(size);
+
+  _delim_repeat_vec.assign(delim_repeat, delim_repeat+size);
+
+  for(std::size_t i=0; i<size; ++i) {
+    _packed_delimiter_vec.insert(_packed_delimiter_vec.end(),
+      delim[i],delim[i]+delimsize[i]);
+    _delim_off_vec.push_back(delimsize[i]);
+  }
+
+  _delim_repeat = repeatflag;
+  _delim_exclusive = exclusiveflag;
+
+
+  // set up delimiter description and compile
+  std::vector<bytesequence_desc> delim_desc;
+  for(std::size_t i=0; i<size; ++i)
+    delim_desc.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
+
+  _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
 }
 
-inline std::vector<unsigned char>
-parser::delimiter(const std::vector<unsigned char> &d)
+
+inline const std::vector<unsigned char> & parser::packed_delimiters(void) const
 {
-  std::vector<unsigned char> tmp(_delimiter);
-  _delimiter = d;
-  return tmp;
+  return _packed_delimiter_vec;
 }
 
-inline const dsv_newline_behavior &
-parser::newline_behavior(void) const
+inline const std::vector<std::size_t> & parser::delimiter_offsets(void) const
+{
+  return _delim_off_vec;
+}
+
+inline const std::vector<int> & parser::delimiter_repeats(void) const
+{
+  return _delim_repeat_vec;
+}
+
+inline bool parser::delimiter_repeatflag(void) const
+{
+  return _delim_repeat;
+}
+
+inline bool parser::delimiter_parse_exclusive(void) const
+{
+  return _delim_exclusive;
+}
+
+inline const dsv_newline_behavior & parser::newline_behavior(void) const
 {
   return _newline_behavior;
 }
@@ -278,6 +346,11 @@ inline bool parser::escaped_binary_fields(bool flag)
 }
 
 
+inline const std::vector<byte_chunk> &
+parser::compiled_delimiter_vec(void) const
+{
+  return _compiled_delimiter_vec;
+}
 
 inline dsv_newline_behavior parser::effective_newline(void) const
 {
@@ -332,7 +405,6 @@ inline void parser::reset(void)
   _effective_field_columns = _field_columns;
   _effective_field_columns_set = (_field_columns > 0);
 }
-
 
 
 }

@@ -1,6 +1,7 @@
 #include <boost/test/unit_test.hpp>
 
-#include <boost/filesystem.hpp>
+#include <dsv_parser.h>
+#include "test_detail.h"
 
 #include <errno.h>
 
@@ -21,29 +22,7 @@ namespace test {
 
 
 namespace fs=boost::filesystem;
-// namespace d=detail;
-
-
-inline fs::path gen_testfile(const std::vector<unsigned char> &contents,
-  const std::string &label)
-{
-  std::time_t now = std::time(0);
-
-  fs::path tmpdir = fs::temp_directory_path();
-  fs::path filename = std::string("libdsv_") + std::to_string(now) + "_"
-    + label + ".dsv";
-  fs::path filepath = tmpdir/filename;
-
-
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
-    out(std::fopen(filepath.c_str(),"wb"),&std::fclose);
-
-  assert(std::fwrite(contents.data(),sizeof(unsigned char),
-    contents.size(),out.get()) == contents.size());
-
-  return filepath;
-}
-
+namespace d=detail;
 
 
 BOOST_AUTO_TEST_SUITE( alt_delimiter_test_suite )
@@ -54,6 +33,10 @@ BOOST_AUTO_TEST_SUITE( alt_delimiter_test_suite )
  */
 BOOST_AUTO_TEST_CASE( check_single_byte_test )
 {
+  dsv_parser_t parser;
+  assert(dsv_parser_create_RFC4180_strict(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
 }
 
 
