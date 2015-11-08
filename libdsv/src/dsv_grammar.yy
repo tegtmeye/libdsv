@@ -554,6 +554,8 @@ bool read_delimiter(detail::scanner_state &scanner,
 std::size_t search_delimiter(detail::scanner_state &scanner,
   const std::vector<detail::byte_chunk> &comp_byte_seq)
 {
+  assert(!comp_byte_seq.empty());
+
   scanner.forget();
 
   std::size_t result = 0;

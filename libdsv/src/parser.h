@@ -274,19 +274,29 @@ inline void parser::set_equiv_delimiters(const unsigned char *delim[],
   _delimiter_vec.clear();
   _delimiter_vec.reserve(size);
 
+  _effective_delimiter.reset();
+
   for(std::size_t i=0; i<size; ++i)
     _delimiter_vec.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
 
-  _delim_repeat = repeatflag;
-  _delim_exclusive = exclusiveflag;
+  if(size == 1) {
+    // optimize for single delimiter case
+    _delim_repeat = repeatflag || delim_repeat[0];
+    _delim_exclusive = !_delim_repeat;
+    _effective_delimiter.reset(
+      new byte_vec_type(delim[0],delim[0]+delimsize[0]));
+  }
+  else {
+    _delim_repeat = repeatflag;
+    _delim_exclusive = exclusiveflag;
 
+    // set up delimiter description and compile
+    std::vector<bytesequence_desc> delim_desc;
+    for(std::size_t i=0; i<size; ++i)
+      delim_desc.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
 
-  // set up delimiter description and compile
-  std::vector<bytesequence_desc> delim_desc;
-  for(std::size_t i=0; i<size; ++i)
-    delim_desc.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
-
-  _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
+    _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
+  }
 }
 
 
