@@ -44,7 +44,10 @@
 namespace detail {
 
   /**
-   *  Object that holds the current state of the scanner. Also handles buffered reads.
+   *  Object that holds the current state of the scanner.
+   *  Also handles buffered reads. That is, we could have just used C
+   *  functionality but the buffering scheme is implementation dependent so we
+   *  buffer on our own here.
    *
    */
   class scanner_state {
@@ -54,9 +57,9 @@ namespace detail {
       const char * filename(void) const;
 
       /*
-          Get the current character from the input. Do not advance the read
-          location. That is, getc can be called multiple consecutive times with
-          the same return value.
+          Get the current character from the input. Unlike C and POSIX, do not
+          advance the read location. That is, getc can be called multiple
+          consecutive times with the same return value.
        */
       int getc(void);
 

@@ -54,8 +54,8 @@ struct bytesequence_desc {
 struct byte_chunk {
   int byte;
   int accept;
-  std::ptrdiff_t pass_skip;
-  std::size_t fail_skip;
+  std::ptrdiff_t pass_skip; // repeats can cause the skip to be negative
+  std::size_t fail_skip;  // fail_skip is always positive
 
   byte_chunk(int b, int a, std::ptrdiff_t ps, std::size_t fs)
     :byte(b), accept(a), pass_skip(ps), fail_skip(fs) {}

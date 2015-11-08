@@ -113,39 +113,122 @@ BOOST_AUTO_TEST_CASE( parser_field_columns_getting_and_setting )
   dsv_parser_destroy(parser);
 }
 
-/** \test Test delimiter getting and setting
+/** \test Test single delimiter getting and setting
  */
-BOOST_AUTO_TEST_CASE( parser_delimiter_getting_and_setting )
+BOOST_AUTO_TEST_CASE( parser_single_delimiter_getting_and_setting )
 {
   dsv_parser_t parser = {};
 
   assert(dsv_parser_create(&parser) == 0);
 
   std::vector<unsigned char> delimiter = {'a'};
-  std::vector<unsigned char> multibyte_delimiter = {'a','b','c','d','e','f'};
 
   // add one for error checking
-  std::vector<unsigned char> buf(multibyte_delimiter.size()+1,'*');
+  std::vector<unsigned char> buf(7,'*');
 
   // CHECK dsv_parser_set_field_delimiter FUNCTION
   int err;
   BOOST_REQUIRE_MESSAGE((err = dsv_parser_set_field_delimiter(parser,'a')) == 0,
     "dsv_parser_set_field_delimiter failed with code: " << err);
 
-
-  // CHECK dsv_parser_get_field_delimiter FUNCTION
-  size_t size = dsv_parser_get_field_delimiter(parser,0,0);
+  // CHECK dsv_parser_num_field_delimiters FUNCTION
+  size_t size = dsv_parser_num_field_delimiters(parser);
   BOOST_REQUIRE_MESSAGE(size == 1,
-    "dsv_parser_get_field_delimiter did not return a byte length of 1 for a "
+    "dsv_parser_num_field_delimiters did not return 1 for a "
     "single byte delimiter but instead returned: " << size);
 
+  // CHECK dsv_parser_get_field_delimiter FUNCTION
+  size = dsv_parser_get_field_delimiter(parser,0,0,0,0);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a buffer length of 1 for a "
+    "single byte delimiter but instead returned: " << size);
+
+
   // check for get with exact buffer size
-  size = dsv_parser_get_field_delimiter(parser,buf.data(),1);
+  int repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),1,&repeatflag);
   BOOST_REQUIRE_MESSAGE(size == 1,
     "dsv_parser_get_field_delimiter did not return a byte length of 1 when "
     "retrieving a single byte delimiter but instead returned: " << size);
 
-  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == '*',
+  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == '*' && buf[2] == '*'
+     && buf[3] == '*' && buf[4] == '*' && buf[5] == '*' && buf[6] == '*',
+    "dsv_parser_get_field_delimiter did not copy a sigle byte buffer "
+    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
+
+  BOOST_REQUIRE_MESSAGE(repeatflag == 0,
+    "dsv_parser_get_field_delimiter did not return a nonrepeating flag but "
+    "instead returned '" << repeatflag << "'");
+
+  // reset buf
+  buf.assign(7,'*');
+
+
+  // check for get with larger buffer size
+  repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),buf.size(),
+    &repeatflag);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a byte length of 1 when "
+    "retrieving a single byte delimiter but instead returned: " << size);
+
+  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == '*' && buf[2] == '*'
+     && buf[3] == '*' && buf[4] == '*' && buf[5] == '*' && buf[6] == '*',
+    "dsv_parser_get_field_delimiter did not copy a sigle byte buffer "
+    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
+
+  BOOST_REQUIRE_MESSAGE(repeatflag == 0,
+    "dsv_parser_get_field_delimiter did not return a nonrepeating flag but "
+    "instead returned '" << repeatflag << "'");
+
+  dsv_parser_destroy(parser);
+}
+
+
+
+/** \test Test single delimiter getting and setting
+ */
+BOOST_AUTO_TEST_CASE( parser_multibyte_delimiter_getting_and_setting )
+{
+  dsv_parser_t parser = {};
+
+  assert(dsv_parser_create(&parser) == 0);
+
+  std::vector<unsigned char> multibyte_delimiter = {'a','b','c','d','e','f'};
+
+  // add one for error checking
+  std::vector<unsigned char> buf(multibyte_delimiter.size()+4,'*');
+
+  // CHECK dsv_parser_set_field_wdelimiter FUNCTION
+  int err = dsv_parser_set_field_wdelimiter(parser,multibyte_delimiter.data(),
+    multibyte_delimiter.size(),false);
+  BOOST_REQUIRE_MESSAGE(err == 0,
+    "dsv_parser_set_field_wdelimiter failed with code: " << err
+    << " for multibyte delimiter");
+
+  // CHECK dsv_parser_num_field_delimiters FUNCTION
+  size_t size = dsv_parser_num_field_delimiters(parser);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_num_field_delimiters did not return 1 for a "
+    "single byte delimiter but instead returned: " << size);
+
+  // CHECK dsv_parser_get_field_delimiter FUNCTION
+  size = dsv_parser_get_field_delimiter(parser,0,0,0,0);
+  BOOST_REQUIRE_MESSAGE(size == multibyte_delimiter.size(),
+    "dsv_parser_get_field_delimiter did not return a buffer length of "
+    << multibyte_delimiter.size() << " for a "
+    "single byte delimiter but instead returned: " << size);
+
+  // check for get with exact buffer size
+  int repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),
+    multibyte_delimiter.size(),&repeatflag);
+  BOOST_REQUIRE_MESSAGE(size == 6,
+    "dsv_parser_get_field_delimiter did not return a byte length of 6 when "
+    "retrieving the multibyte delimiter but instead returned: " << size);
+
+  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == 'b' && buf[2] == 'c'
+     && buf[3] == 'd' && buf[4] == 'e' && buf[5] == 'f' && buf[6] == '*',
     "dsv_parser_get_field_delimiter did not copy a sigle byte buffer "
     "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
 
@@ -153,51 +236,21 @@ BOOST_AUTO_TEST_CASE( parser_delimiter_getting_and_setting )
   buf.assign(multibyte_delimiter.size()+1,'*');
 
 
-  // CHECK dsv_parser_set_field_wdelimiter FUNCTION
-  err = dsv_parser_set_field_wdelimiter(parser,delimiter.data(),
-    delimiter.size());
-
-  BOOST_REQUIRE_MESSAGE(err == 0,
-    "dsv_parser_set_field_wdelimiter failed with code: " << err
-    << " for single byte delimiter");
-
   // check for get with larger buffer size
-  size = dsv_parser_get_field_delimiter(parser,buf.data(),buf.size());
-  BOOST_REQUIRE_MESSAGE(size == 1,
-    "dsv_parser_get_field_delimiter did not return a byte length of 1 when "
-    "retrieving a single byte delimiter but instead returned: " << size
-    << "for a larger than necessary buffer size");
+  repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),buf.size(),
+    &repeatflag);
+  BOOST_REQUIRE_MESSAGE(size == 6,
+    "dsv_parser_get_field_delimiter did not return a byte length of 6 when "
+    "retrieving the multibyte delimiter but instead returned: " << size);
 
-  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == '*',
-    "dsv_parser_get_field_delimiter did not copy a single byte buffer "
-    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
-
-  // reset buf
-  buf.assign(multibyte_delimiter.size()+1,'*');
-
-
-  // CHECK MULTIBYTE dsv_parser_set_field_wdelimiter FUNCTION
-  err = dsv_parser_set_field_wdelimiter(parser,multibyte_delimiter.data(),
-    multibyte_delimiter.size());
-
-  BOOST_REQUIRE_MESSAGE(err == 0,
-    "dsv_parser_set_field_wdelimiter failed with code: " << err
-    << " for multi-byte delimiter");
-
-  // check for get with larger buffer size
-  size = dsv_parser_get_field_delimiter(parser,buf.data(),buf.size());
-  BOOST_REQUIRE_MESSAGE(size == multibyte_delimiter.size(),
-    "dsv_parser_get_field_delimiter did not return a byte length of "
-    << multibyte_delimiter.size() << " when "
-    "retrieving a multi-byte delimiter but instead returned: " << size
-    << "for a larger than necessary buffer size");
-
-  BOOST_REQUIRE_MESSAGE(
-    std::equal(multibyte_delimiter.begin(), multibyte_delimiter.end(),
-      buf.begin()) && buf[multibyte_delimiter.size()]=='*',
-    "dsv_parser_get_field_delimiter did not copy a multi byte buffer "
-    "correctly.");
-
+  BOOST_REQUIRE_MESSAGE(buf[0] == 'a' && buf[1] == 'b' && buf[2] == 'c'
+     && buf[3] == 'd' && buf[4] == 'e' && buf[5] == 'f' && buf[6] == '*'
+     && buf[7] == '*' && buf[8] == '*' && buf[9] == '*',
+    "dsv_parser_get_field_delimiter did not copy a sigle byte buffer "
+    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "','" << buf[2]
+     << "','" << buf[3] << "','" << buf[4] << "','" << buf[5] << "','" << buf[6]
+     << "','" << buf[7] << "','" << buf[8] << "','" << buf[9] << "'");
 
   dsv_parser_destroy(parser);
 }
@@ -205,7 +258,7 @@ BOOST_AUTO_TEST_CASE( parser_delimiter_getting_and_setting )
 
 
 
-
+#if 0
 /** \test Check for default settings
  */
 BOOST_AUTO_TEST_CASE( parser_default_object_settings )
@@ -232,7 +285,7 @@ BOOST_AUTO_TEST_CASE( parser_default_object_settings )
     "Default parser delimiter was not ',' but instead the first " << len <<
     " bytes of '" << buf[0] << "','" << buf[1] << "'");
 }
-
+#endif
 
 
 BOOST_AUTO_TEST_SUITE_END()

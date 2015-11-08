@@ -230,11 +230,11 @@ extern "C" {
    *  This is a convenience function and is equivalent to:
    *    dsv_parser_t parser; // assume exists
    *    unsigned char delim ; // assume exists
-   *    unsigned char *delim_arr[1] = {&delim};
-   *    size_t *delimsize_arr[1] = {1};
-   *    size_t *delimrepeat_arr[1] = {1};
-   *    dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
-   *      delimrepeat_arr,1,1);
+   *    const unsigned char *delim_arr[1] = {&delim};
+   *    size_t delimsize_arr[1] = {1};
+   *    int delimrepeat_arr[1] = {0};
+   *    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,
+   *      delimsize_arr,delimrepeat_arr,1,0,1);
    *
    *  The default is the ASCII comma ','
    *
@@ -257,12 +257,11 @@ extern "C" {
    *    dsv_parser_t parser; // assume exists
    *    unsigned char delim[] ; // assume exists
    *    size_t delimsize; // assume exists and equals length of delim
-   *    int repeatflag; // assume exists
    *    unsigned char *delim_arr[1] = {&delim};
    *    size_t *delimsize_arr[1] = {delimsize};
-   *    size_t *delimrepeat_arr[1] = {repeatflag};
+   *    size_t *delimrepeat_arr[1] = {0};
    *    dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
-   *      delimrepeat_arr,1,1);
+   *      delimrepeat_arr,repeatflag,1);
    *
    *  The default is the ASCII comma ','
    *
@@ -312,6 +311,9 @@ extern "C" {
    *  This delimiter is used to separate both headers and fields depending on
    *  the settings
    *
+   *  \note There must always be a field delimiter. That is, setting \c size to
+   *  zero is invalid.
+   *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \param[in] delim \parablock
@@ -328,7 +330,8 @@ extern "C" {
    *    ith delimiter in \c delim may be repeated indefinitely.
    *  \endparblock
    *  \param[in] size The size of each arrays \c delim, \c delimsize,
-   *    \c repeatflag
+   *    \c repeatflag. If \c size is zero, this call has no effect on the
+   *    previous delimiter state.
    *  \param[in] repeatflag If nonzero, any delimiter chosen from \c delim my be
    *    repeated an indefinite number of times.
    *  \param[in] exclusiveflag \parblock
@@ -339,6 +342,7 @@ extern "C" {
    *  \endparblock
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
+   *  \retval EINVAL Either \c size or an element of delimsize is zero
    */
   int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
     const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
@@ -351,12 +355,54 @@ extern "C" {
 
 
 
-
-
+  /**
+   *  \brief Obtain the number of field delimiters currently assigned to
+   *  \c parser
+   *
+   *  The returned values is the same as the \c size parameter in
+   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \retval The number of field delimiters set for \c parser
+   */
+  size_t dsv_parser_num_field_delimiters(dsv_parser_t parser);
 
   /**
-   *  \brief Copy the current field delimiter to be used for future parsing with
-   *  \c parser into the buffer \c buf of size \c bufsize,
+   *  \brief Obtain whether or not the field delimiters assigned to \parser are
+   *  allowed to repeat indefinitely
+   *
+   *  The returned values is the same as the \c repeatflag parameter in
+   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \retval If nonzero, the currently assigned field delimiters to \c parser
+   *    are allowed to repeat indefinitely
+   */
+  int dsv_parser_get_field_delimiters_repeatflag(dsv_parser_t parser);
+
+  /**
+   *  \brief Obtain whether or not the first parsed field delimiter assigned to
+   *  \parser is the only permitted subsequent delimiter for the remainder of
+   *  parsing
+   *
+   *  The returned values is the same as the \c exclusiveflag parameter in
+   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \retval If nonzero, the first delimiter parsed among the currently
+   *    assigned field delimiters in\c parser shall be the only permitted
+   *    delimiter for the remainder of the parsing session.
+   */
+  int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t parser);
+
+  /**
+   *  \brief Copy the \c n th field delimiter to be used for future parsing with
+   *  \c parser into the buffer \c buf of size \c bufsize and set the location
+   *  pointed to by \c repeatflag as to if the delimiter was allowed to be
+   *  repeated indefinitely.
    *
    *  This delimiter is used to separate both headers and fields depending on
    *  the settings.
@@ -365,24 +411,32 @@ extern "C" {
    *  current set delimiter. This number is suitable for allocating memory for
    *  \c buf. If \c bufsize is nonzero, copy the bytes representing the
    *  delimiter or \c bufsize whichever is smaller and return this value. If \c
-   *  bufsize is zero, \c buf is not referenced and may also be safely zero for
-   *  the call.
+   *  bufsize is zero, \c buf is not referenced and may be zero for the call.
+   *
+   *  If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
+   *  the repeat value of the \c n th delimiter regardless of the value of \c
+   *  buf and \c buffsize
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
-   *  size \bufsize to which the current field delimiter will be copied into.
-   *  N.B. since the sequence of bytes contained in \c buf may not represent a
-   *  string, no null terminator will be added to the end of the bytes.
+   *    size \bufsize to which the current field delimiter will be copied into.
+   *    N.B. since the sequence of bytes contained in \c buf may not represent a
+   *    string, no null terminator will be added to the end of the bytes.
    *  \param [in] bufsize The size of the unsigned char buffer pointed to
-   *  by \c buf.
+   *    by \c buf.
+   *  \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
+   *    pointed to by \c repeatflag to a value if nonzero indicates that the
+   *    \c th delimiter can be repeated indefinitely.
    *  \retval If \c bufsize is zero, return the number of bytes needed to hold
-   *  the current delimiter. If \c bufsize is nonzero, return the number of
-   *  bytes copied to \c buf which is not necessarily the same size as \c
-   *  bufsize.
+   *    the current delimiter. If \c bufsize is nonzero, return the number of
+   *    bytes copied to \c buf which is not necessarily the same size as \c
+   *    bufsize.
+   * \retval 0 \c n is greater than the number of field delimiters currently set
+   *    for \c parser
    */
-  size_t dsv_parser_get_field_delimiter(dsv_parser_t parser,
-    unsigned char *buf, size_t bufsize);
+  size_t dsv_parser_get_field_delimiter(dsv_parser_t parser, size_t n,
+    unsigned char *buf, size_t bufsize, int *repeatflag);
 
   /**
    *  \brief Enable or disable binary in double quoted fields for future parsing

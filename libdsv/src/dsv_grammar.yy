@@ -42,7 +42,8 @@
 
   // Change me with bison version > 3
   struct YYSTYPE {
-    // use vectors of unsigned characters instead of std::string so that we can store 0s
+    // use vectors of unsigned characters instead of std::string so that we
+    // can store 0s
     typedef std::vector<unsigned char> char_buff_type;
     typedef std::shared_ptr<char_buff_type> char_buff_ptr_type;
 
@@ -89,8 +90,8 @@
         filename.c_str()
       };
 
-      logger(dsv_syntax_error,dsv_log_error,fields,sizeof(fields)/sizeof(const char *),
-        parser.log_context());
+      logger(dsv_syntax_error,dsv_log_error,fields,
+        sizeof(fields)/sizeof(const char *),parser.log_context());
     }
   }
 
@@ -112,7 +113,9 @@
     if((parser.log_level() & level) && logger) {
       std::string first_line = std::to_string(llocp.first_line);
       std::string last_line = std::to_string(llocp.last_line);
-      std::string exp_columns = std::to_string(parser.effective_field_columns());
+      std::string exp_columns =
+        std::to_string(parser.effective_field_columns());
+
       std::string rec_columns = std::to_string(rec_cols);
       std::string filename = scanner.filename();
 
@@ -287,8 +290,10 @@
     }
 
 
-    static const YYSTYPE::char_buff_ptr_type empty_buf(new YYSTYPE::char_buff_type());
-    static const YYSTYPE::char_buff_vec_ptr_type empty_vec(new YYSTYPE::char_buff_vec_type());
+    static const YYSTYPE::char_buff_ptr_type empty_buf(
+      new YYSTYPE::char_buff_type());
+    static const YYSTYPE::char_buff_vec_ptr_type empty_vec(
+      new YYSTYPE::char_buff_vec_type());
   }
 
 }
@@ -308,7 +313,7 @@
 %parse-param {const std::unique_ptr<detail::scanner_state> &context}
 
 %token END 0 "end-of-file"
-%token DELIMITER "delimiter"
+%token <char_buf_ptr> DELIMITER "delimiter"
 //%token HEADER_DELIMITER "header delimiter"
 %token <char_buf_ptr> LF "linefeed"
 %token <char_buf_ptr> CR "carriage-return"
@@ -436,11 +441,7 @@ escaped_textdata_list:
 
 escaped_textdata:
     TEXTDATA { $$ = $1; }
-  | DELIMITER {
-      // delimiter must be recreated as it could change across parser invocations
-      // todo, still can be cached in the parser...
-      $$.reset(new YYSTYPE::char_buff_type(parser.delimiter()));
-    }
+  | DELIMITER { $$ = $1; }
   | NL { $$ = $1; } // NL are always accepted
   | LF {
       // LF is returned if it wasn't already considered an NL
@@ -469,10 +470,14 @@ non_escaped_field:
 record_block:
     NL {  // A single NL means an empty record block
       // check to see if empty records are allowed
-      if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec))
+      if(!detail::check_or_update_column_count(@1,scanner,parser,
+        detail::empty_vec))
+      {
         YYABORT;
+      }
 
-      // manual process record cause we know it is empty, the return value doesn't matter
+      // manual process record cause we know it is empty, the return value
+      // doesn't matter
       if(operations.record_callback)
         operations.record_callback(0,0,0,operations.record_context);
 
@@ -486,8 +491,11 @@ record_list:
     record NL
   | record_list NL {
       // Single NL means empty record
-      if(!detail::check_or_update_column_count(@2,scanner,parser,detail::empty_vec))
+      if(!detail::check_or_update_column_count(@2,scanner,parser,
+        detail::empty_vec))
+      {
         YYABORT;
+      }
 
       // do manual process record cause we know it is empty
       if(operations.record_callback &&
@@ -517,104 +525,78 @@ record:
 /**
     Convenience function for parser_lex
 
+    We don't copy into the actual delimiter representation here for efficiency
+
     Forget any existing putback buffer and try to read the delimiter from the
     scanner input if possible. The read characters remain in the putback buffer.
  */
+template<typename ForwardIterator>
 bool read_delimiter(detail::scanner_state &scanner,
-  const std::vector<unsigned char> &delimiter)
+  ForwardIterator first, ForwardIterator last)
 {
   scanner.forget();
-  for(std::size_t i=0; i<delimiter.size(); ++i) {
-    int val = scanner.advancec();
-    if(val == EOF || val != static_cast<int>(delimiter[i])) {
-      return false;
-    }
-  }
+  while(first != last && scanner.advancec() == static_cast<int>(*first))
+    ++first;
 
-  return true;
+  return first == last;
 }
 
+/**
+    Convenience function for parser_lex
 
+    We don't copy into the actual delimiter representation here for efficiency
 
+    Forget any existing putback buffer and search for a valid delimiter as
+    represented by the compiled byte sequence \c comp_byte_seq
 
-
-
-
-
-
-
-template<typename ByteIter>
-std::size_t search_equiv(ByteIter first, ByteIter last,
-  const std::vector<parser::delim_byte> &packed_vec)
+    todo, optimize for single delimiter case
+ */
+std::size_t search_delimiter(detail::scanner_state &scanner,
+  const std::vector<detail::byte_chunk> &comp_byte_seq)
 {
-  typedef std::vector<parser::delim_byte>::const_iterator packed_iter;
-
-  ByteIter cur = first;
-  ByteIter accept_end = first;
-  std::cerr << "accept_end now: " << accept_end-first << "\n";
-  for(std::size_t off=0; cur != last;) {
-    std::cerr << "At loc: " << off << " ";
-    if(packed_vec[off].byte == *cur) {
-      std::cerr << "match: " << *cur << "\n";
-      ++cur;
-
-      if(packed_vec[off].accept) {
-        accept_end = cur;
-        std::cerr << "accept_end now: " << accept_end-first << "\n";
-      }
-
-      off += 1;
-    }
-    else {
-      off = packed_vec[off].fail_off;
-      std::cerr << "reject: " << *cur << " goto " << off << "\n";
-      if(!off)
-        break;
-    }
-  }
-
-  return accept_end-first;
-}
-
-
-
-
-bool search_equiv_delimiters(detail::scanner_state &scanner,
-  const std::vector<parser::delim_byte> &packed_vec)
-{
-  typedef std::vector<parser::delim_byte>::const_iterator packed_iter_t;
-
-  bool result = false;
-
   scanner.forget();
 
-  int val;
-  packed_iter_t packed_iter = packed_vec.begin();
-  while((val = scanner.getc()) != EOF) {
-    if(packed_iter->byte == val) {
-      std::cerr << "match: " << val << "\n";
-      scanner.advancec();
+  std::size_t result = 0;
 
-      if(packed_iter->accept) {
-        scanner.forget();
-        result = true;
-        std::cerr << "accepting. forgetting putback\n";
-      }
+  std::size_t read_bytes = 0;
+  std::ptrdiff_t byte_off = 0;
+  while(true) {
+    int in = scanner.getc();
+    if(in == EOF)
+      return 0;
 
-      ++packed_iter;
-    }
-    else {
-      if(!packed_iter->fail_off)
+    while(in != comp_byte_seq[byte_off].byte) {
+      std::size_t fail_skip = comp_byte_seq[byte_off].fail_skip;
+
+      if(!fail_skip)
         break;
-      std::cerr << "reject: " << val << " goto " << off << "\n";
 
-      packed_iter += packed_iter->fail_off;
+      byte_off += fail_skip;
     }
+
+    ++read_bytes;
+    scanner.advancec();
+
+    if(comp_byte_seq[byte_off].accept)
+      result = read_bytes;
+
+    std::ptrdiff_t pass_skip = comp_byte_seq[byte_off].pass_skip;
+
+    if(!pass_skip)
+      break;
+
+    byte_off += pass_skip;
   }
 
-  scanner.putback();
   return result;
 }
+
+
+
+
+
+
+
 
 
 /**
@@ -666,13 +648,41 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //         << llocp->first_column << ":" << llocp->last_column << "\n";
 //     }
 
-    if(read_delimiter(scanner,parser.delimiter())) {
-      scanner.forget();
-      llocp->last_column += parser.delimiter().size();
-      return DELIMITER;
+    auto effective_delimiter = parser.effective_delimiter();
+    if(effective_delimiter) {
+      // just read the effective delimiter
+      if(read_delimiter(scanner,effective_delimiter->begin(),
+        effective_delimiter->end()))
+      {
+        scanner.forget();
+        llocp->last_column += effective_delimiter->size();
+        lvalp->char_buf_ptr = effective_delimiter;
+        return DELIMITER;
+      }
+      else
+        scanner.putback();
     }
     else {
+      std::size_t search_len = search_delimiter(scanner,
+        parser.compiled_delimiter_vec());
       scanner.putback();
+
+      if(search_len) {
+        std::shared_ptr<detail::parser::byte_vec_type> parsed_delimiter(
+          new detail::parser::byte_vec_type());
+        parsed_delimiter->reserve(search_len);
+
+        for(std::size_t i=search_len; i != 0; --i)
+          parsed_delimiter->push_back(scanner.advancec());
+
+        llocp->last_column += search_len;
+        lvalp->char_buf_ptr = parsed_delimiter;
+
+        if(parser.delimiter_parse_exclusive())
+          parser.effective_delimiter(parsed_delimiter);
+
+        return DELIMITER;
+      }
     }
 
     if(cur == 0x0A) {//LF
@@ -692,7 +702,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
         ++(llocp->last_line);
         llocp->last_column = 1;
-        lvalp->char_buf_ptr =lf_buf;
+        lvalp->char_buf_ptr = lf_buf;
         return NL;
       }
 
@@ -777,10 +787,21 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     // straight textdata
     lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
 
-    // scan for anything that could terminate the ASCII field. Don't eat
+    // scan for anything that could terminate the field. Don't eat
     // until we know it is not a terminating byte
     while((cur = scanner.getc()) != EOF) {
-      bool lookahead_delimiter = read_delimiter(scanner,parser.delimiter());
+      bool lookahead_delimiter = false;
+
+      if(parser.effective_delimiter()) {
+        lookahead_delimiter = read_delimiter(scanner,
+          parser.effective_delimiter()->begin(),
+          parser.effective_delimiter()->end());
+      }
+      else {
+        lookahead_delimiter = search_delimiter(scanner,
+          parser.compiled_delimiter_vec());
+      }
+
       scanner.putback();
 
       if(lookahead_delimiter

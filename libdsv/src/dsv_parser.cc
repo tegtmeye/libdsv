@@ -57,8 +57,6 @@ int dsv_parser_create(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_permissive);
     parser->field_columns(0);
-    parser->delimiter(
-      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -81,8 +79,6 @@ int dsv_parser_create_RFC4180_strict(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_RFC4180_strict);
     parser->field_columns(0);
-    parser->delimiter(
-      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -105,8 +101,6 @@ int dsv_parser_create_RFC4180_permissive(dsv_parser_t *_parser)
 
     parser->newline_behavior(dsv_newline_permissive);
     parser->field_columns(0);
-    parser->delimiter(
-      std::vector<unsigned char>(1,static_cast<unsigned char>(',')));
 
     _parser->p = parser.release();
   }
@@ -206,16 +200,14 @@ int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
   int err = 0;
 
   try {
-    unsigned char *delim_arr[1] = {&delim};
-    size_t *delimsize_arr[1] = {1};
-    size_t *delimrepeat_arr[1] = {1};
-    err = dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
-      delimrepeat_arr,1,1);
+    const unsigned char *delim_arr[1] = {&delim};
+    size_t delimsize_arr[1] = {1};
+    int delimrepeat_arr[1] = {0};
+    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,delimsize_arr,
+      delimrepeat_arr,1,0,1);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -232,16 +224,14 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
   int err = 0;
 
   try {
-    unsigned char *delim_arr[1] = {&delim};
-    size_t *delimsize_arr[1] = {size};
-    size_t *delimrepeat_arr[1] = {repeatflag};
-    err = dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
-      delimrepeat_arr,1,1);
+    const unsigned char *delim_arr[1] = {delim};
+    size_t delimsize_arr[1] = {size};
+    int delimrepeat_arr[1] = {0};
+    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,delimsize_arr,
+      delimrepeat_arr,1,repeatflag,0);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -254,19 +244,29 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
 }
 
 // todo, cause the exclusive to carry over and have reset API
-int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
+int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t _parser,
   const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
-  size_t size, int repeatflag, int exclusiveflag);
+  size_t size, int repeatflag, int exclusiveflag)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  int err = 0;
+  int err = !size;
 
   try {
-    parser.set_equiv_delimiters(delim,delimsize,delim_repeat,size,
-      repeatflag,exclusiveflag);
+    if(!err) {
+      // check validity before setting anything
+      for(std::size_t i=0; i<size; ++i) {
+        if(!delimsize[i])
+          err = EINVAL;
+      }
+    }
+
+    if(!err) {
+      parser.set_equiv_delimiters(delim,delimsize,delim_repeat,size,
+        repeatflag,exclusiveflag);
+    }
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -278,11 +278,7 @@ int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
   return err;
 }
 
-
-
-
-size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, unsigned char *buf,
-  size_t bufsize)
+size_t dsv_parser_num_field_delimiters(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -291,15 +287,77 @@ size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, unsigned char *buf,
   size_t result = 0;
 
   try {
-    if(bufsize == 0)
-      result = parser.delimiter().size();
-    else {
-      const std::vector<unsigned char> &delimiter = parser.delimiter();
+    result = parser.field_delimiters().size();
+  }
+  catch(...) {
+    abort();
+  }
 
-      while(result < delimiter.size() && result < bufsize) {
-        buf[result] = delimiter[result];
-        ++result;
+  return result;
+}
+
+int dsv_parser_get_field_delimiters_repeatflag(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = -1;
+
+  try {
+    result = parser.delimiter_repeatflag();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = -1;
+
+  try {
+    result = parser.delimiter_parse_exclusive();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, size_t n,
+  unsigned char *buf, size_t bufsize, int *repeatflag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t result = 0;
+
+  try {
+    if(n >= parser.field_delimiters().size())
+      result = 0;
+    else {
+      const detail::parser::delim_desc &delim = parser.field_delimiters().at(n);
+
+      if(bufsize == 0)
+        result = delim.delim_bytes.size();
+      else {
+        while(result < delim.delim_bytes.size() && result < bufsize) {
+          buf[result] = delim.delim_bytes[result];
+          ++result;
+        }
       }
+
+      if(repeatflag)
+        *repeatflag = delim.repeat;
     }
   }
   catch(...) {
