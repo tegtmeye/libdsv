@@ -224,8 +224,8 @@ extern "C" {
 
 
   /**
-   *  \brief Set a single byte field delimiter to be used for future parsing
-   *   with \c parser
+   *  \brief Set a single, nonrepeating byte field delimiter to be used for
+   *  future parsing with \c parser
    *
    *  This is a convenience function and is equivalent to:
    *    dsv_parser_t parser; // assume exists
@@ -250,18 +250,18 @@ extern "C" {
   int dsv_parser_set_field_delimiter(dsv_parser_t parser, unsigned char delim);
 
   /**
-   *  \brief Set the multibyte field delimiter to be used for future parsing
-   *  with \c parser
+   *  \brief Set a nonrepeating multibyte field delimiter to be used for future
+   *  parsing with \c parser
    *
    *  This is a convenience function and is equivalent to:
    *    dsv_parser_t parser; // assume exists
    *    unsigned char delim[] ; // assume exists
    *    size_t delimsize; // assume exists and equals length of delim
-   *    unsigned char *delim_arr[1] = {&delim};
-   *    size_t *delimsize_arr[1] = {delimsize};
-   *    size_t *delimrepeat_arr[1] = {0};
-   *    dsv_parser_set_field_wdelimiter_equiv(parser,delim_arr,delimsize_arr,
-   *      delimrepeat_arr,repeatflag,1);
+   *    const unsigned char *delim_arr[1] = {delim};
+   *    size_t delimsize_arr[1] = {size};
+   *    int delimrepeat_arr[1] = {0};
+   *    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,
+   *      delimsize_arr,delimrepeat_arr,1,0,1);
    *
    *  The default is the ASCII comma ','
    *
@@ -274,11 +274,12 @@ extern "C" {
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \param[in] delim A sequence of bytes to be used as a field delimiter
+   *  \param[in] size The size of the delimiter sequence \c delim
    *  \retval 0 success
    *  \retval ENOMEM Could not allocate memory
    */
   int dsv_parser_set_field_wdelimiter(dsv_parser_t parser,
-    const unsigned char *delim, size_t size, int repeatflag);
+    const unsigned char *delim, size_t size);
 
 
   /**

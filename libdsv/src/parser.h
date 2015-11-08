@@ -133,8 +133,9 @@ class parser {
     /* exposed behaviors */
 
     // set_equiv_delimiters causes a recompilation of the delimiters
-    void set_equiv_delimiters(const unsigned char *delim[], size_t delimsize[],
-      int delim_repeat[], size_t size, bool repeatflag, bool exclusiveflag);
+    void set_equiv_delimiters(const unsigned char *delim[],
+      const size_t delimsize[], const int delim_repeat[], size_t size,
+      bool repeatflag, bool exclusiveflag);
 
     const std::vector<delim_desc> & field_delimiters(void) const;
 
@@ -198,11 +199,18 @@ class parser {
 };
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none),_delim_repeat(false), _delim_exclusive(false),
-  _effective_delimiter(new std::vector<unsigned char>(1,',')),
-  _field_columns(0), _escaped_binary_fields(false), _escaped_field(false),
-  _effective_field_columns(0), _effective_field_columns_set(false)
+  _log_level(dsv_log_none),_field_columns(0), _escaped_binary_fields(false),
+  _escaped_field(false),_effective_field_columns(0),
+  _effective_field_columns_set(false)
 {
+  static const unsigned char default_delim = ',';
+  static const unsigned char *default_equiv_delim[1] = {&default_delim};
+  static const size_t default_delim_size[1] = {1};
+  static const int default_delim_repeat[1] = {0};
+
+  set_equiv_delimiters(default_equiv_delim,default_delim_size,
+    default_delim_repeat,1,0,1);
+
   newline_behavior(dsv_newline_permissive);
 }
 
@@ -260,8 +268,8 @@ inline void parser::append_log(dsv_log_level level, const log_description &desc)
 }
 
 inline void parser::set_equiv_delimiters(const unsigned char *delim[],
-  size_t delimsize[], int delim_repeat[], size_t size, bool repeatflag,
-  bool exclusiveflag)
+  const size_t delimsize[], const int delim_repeat[], size_t size,
+  bool repeatflag, bool exclusiveflag)
 {
   _delimiter_vec.clear();
   _delimiter_vec.reserve(size);

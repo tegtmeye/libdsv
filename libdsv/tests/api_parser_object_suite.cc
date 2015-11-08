@@ -143,6 +143,14 @@ BOOST_AUTO_TEST_CASE( parser_single_delimiter_getting_and_setting )
     "dsv_parser_get_field_delimiter did not return a buffer length of 1 for a "
     "single byte delimiter but instead returned: " << size);
 
+  BOOST_REQUIRE_MESSAGE(dsv_parser_get_field_delimiters_repeatflag(parser)==0,
+    "dsv_parser_get_field_delimiters_repeatflag indicates repeat for a "
+    "call to dsv_parser_set_field_delimiter");
+
+  BOOST_REQUIRE_MESSAGE(
+    dsv_parser_get_field_delimiters_exclusiveflag(parser)==1,
+    "dsv_parser_get_field_delimiters_repeatflag does not indicate "
+    "exclusivity for a call to dsv_parser_set_field_delimiter");
 
   // check for get with exact buffer size
   int repeatflag = -1;
@@ -201,7 +209,7 @@ BOOST_AUTO_TEST_CASE( parser_multibyte_delimiter_getting_and_setting )
 
   // CHECK dsv_parser_set_field_wdelimiter FUNCTION
   int err = dsv_parser_set_field_wdelimiter(parser,multibyte_delimiter.data(),
-    multibyte_delimiter.size(),false);
+    multibyte_delimiter.size());
   BOOST_REQUIRE_MESSAGE(err == 0,
     "dsv_parser_set_field_wdelimiter failed with code: " << err
     << " for multibyte delimiter");
@@ -218,6 +226,15 @@ BOOST_AUTO_TEST_CASE( parser_multibyte_delimiter_getting_and_setting )
     "dsv_parser_get_field_delimiter did not return a buffer length of "
     << multibyte_delimiter.size() << " for a "
     "single byte delimiter but instead returned: " << size);
+
+  BOOST_REQUIRE_MESSAGE(dsv_parser_get_field_delimiters_repeatflag(parser)==0,
+    "dsv_parser_get_field_delimiters_repeatflag indicates repeat for a "
+    "call to dsv_parser_set_field_wdelimiter");
+
+  BOOST_REQUIRE_MESSAGE(
+    dsv_parser_get_field_delimiters_exclusiveflag(parser)==1,
+    "dsv_parser_get_field_delimiters_repeatflag does not indicate "
+    "exclusivity for a call to dsv_parser_set_field_wdelimiter");
 
   // check for get with exact buffer size
   int repeatflag = -1;
@@ -256,9 +273,6 @@ BOOST_AUTO_TEST_CASE( parser_multibyte_delimiter_getting_and_setting )
 }
 
 
-
-
-#if 0
 /** \test Check for default settings
  */
 BOOST_AUTO_TEST_CASE( parser_default_object_settings )
@@ -278,14 +292,43 @@ BOOST_AUTO_TEST_CASE( parser_default_object_settings )
     << "'");
 
   std::vector<unsigned char> buf(2,'*');
-  std::size_t len = dsv_parser_get_field_delimiter(parser,buf.data(),
-    buf.size());
+
+  // CHECK dsv_parser_num_field_delimiters FUNCTION
+  size_t size = dsv_parser_num_field_delimiters(parser);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_num_field_delimiters did not return 1 for the "
+    "default delimiter but instead returned: " << size);
+
+  // CHECK dsv_parser_get_field_delimiter FUNCTION
+  size = dsv_parser_get_field_delimiter(parser,0,0,0,0);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a buffer length of 1 for "
+    "the default delimiter but instead returned: " << size);
+
+  BOOST_REQUIRE_MESSAGE(dsv_parser_get_field_delimiters_repeatflag(parser)==0,
+    "dsv_parser_get_field_delimiters_repeatflag indicates repeat for the "
+    "default delimiter");
+
+  BOOST_REQUIRE_MESSAGE(
+    dsv_parser_get_field_delimiters_exclusiveflag(parser)==1,
+    "dsv_parser_get_field_delimiters_repeatflag does not indicate "
+    "exclusivity for the default delimiter");
+
+  // check for get with exact buffer size
+  int repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),1,&repeatflag);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a byte length of 1 when "
+    "retrieving the default delimiter but instead returned: " << size);
 
   BOOST_REQUIRE_MESSAGE(buf[0] == ',' && buf[1] == '*',
-    "Default parser delimiter was not ',' but instead the first " << len <<
-    " bytes of '" << buf[0] << "','" << buf[1] << "'");
+    "dsv_parser_get_field_delimiter did not copy the default buffer of ',' "
+    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
+
+  BOOST_REQUIRE_MESSAGE(repeatflag == 0,
+    "dsv_parser_get_field_delimiter did not return a nonrepeating flag for "
+    "the default delimiter but instead returned '" << repeatflag << "'");
 }
-#endif
 
 
 BOOST_AUTO_TEST_SUITE_END()

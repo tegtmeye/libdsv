@@ -220,7 +220,7 @@ int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
 }
 
 int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
-  const unsigned char *delim, size_t size, int repeatflag)
+  const unsigned char *delim, size_t size)
 {
   assert(_parser.p);
 
@@ -231,7 +231,7 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
     size_t delimsize_arr[1] = {size};
     int delimrepeat_arr[1] = {0};
     err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,delimsize_arr,
-      delimrepeat_arr,1,repeatflag,0);
+      delimrepeat_arr,1,0,1);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
