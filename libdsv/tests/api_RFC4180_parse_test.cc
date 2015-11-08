@@ -43,22 +43,64 @@ BOOST_AUTO_TEST_CASE( parser_default_RFC4180_object_settings )
 
   dsv_newline_behavior nl_behavior = dsv_parser_get_newline_behavior(parser);
   BOOST_REQUIRE_MESSAGE(nl_behavior == dsv_newline_RFC4180_strict,
-    "Default parser newline behavior was not dsv_newline_permissive. Expected "
-    << dsv_newline_permissive << " received " << nl_behavior);
+    "Default parser newline behavior was not dsv_newline_strict. Expected "
+    << dsv_newline_RFC4180_strict << " received " << nl_behavior);
 
   ssize_t field_cols = dsv_parser_get_field_columns(parser);
   BOOST_REQUIRE_MESSAGE(field_cols == 0,
     "Default parser field columns was not '0' but rather '" << field_cols
       << "'");
+}
+
+/** \test Check for default settings
+ */
+BOOST_AUTO_TEST_CASE( parser_default_RFC4180_delimiter_settings )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   std::vector<unsigned char> buf(2,'*');
-  std::size_t len = dsv_parser_get_field_delimiter(parser,buf.data(),
-    buf.size());
+
+  // CHECK dsv_parser_num_field_delimiters FUNCTION
+  size_t size = dsv_parser_num_field_delimiters(parser);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_num_field_delimiters did not return 1 for the "
+    "default delimiter but instead returned: " << size);
+
+  // CHECK dsv_parser_get_field_delimiter FUNCTION
+  size = dsv_parser_get_field_delimiter(parser,0,0,0,0);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a buffer length of 1 for "
+    "the default delimiter but instead returned: " << size);
+
+  BOOST_REQUIRE_MESSAGE(dsv_parser_get_field_delimiters_repeatflag(parser)==0,
+    "dsv_parser_get_field_delimiters_repeatflag indicates repeat for the "
+    "default delimiter");
+
+  BOOST_REQUIRE_MESSAGE(
+    dsv_parser_get_field_delimiters_exclusiveflag(parser)==1,
+    "dsv_parser_get_field_delimiters_repeatflag does not indicate "
+    "exclusivity for the default delimiter");
+
+  // check for get with exact buffer size
+  int repeatflag = -1;
+  size = dsv_parser_get_field_delimiter(parser,0,buf.data(),1,&repeatflag);
+  BOOST_REQUIRE_MESSAGE(size == 1,
+    "dsv_parser_get_field_delimiter did not return a byte length of 1 when "
+    "retrieving the default delimiter but instead returned: " << size);
 
   BOOST_REQUIRE_MESSAGE(buf[0] == ',' && buf[1] == '*',
-    "Default RFC4180 parser delimiter was not ',' but instead the first " <<
-    len << " bytes of '" << buf[0] << "','" << buf[1] << "'");
+    "dsv_parser_get_field_delimiter did not copy the default buffer of ',' "
+    "correctly. Copied: '" << buf[0] << "','" << buf[1] << "'");
+
+  BOOST_REQUIRE_MESSAGE(repeatflag == 0,
+    "dsv_parser_get_field_delimiter did not return a nonrepeating flag for "
+    "the default delimiter but instead returned '" << repeatflag << "'");
 }
+
+
+
 
 
 /** \test Attempt to parse a unnamed file with a zero stream

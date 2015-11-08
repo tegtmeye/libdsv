@@ -273,9 +273,9 @@ BOOST_AUTO_TEST_CASE( parser_multibyte_delimiter_getting_and_setting )
 }
 
 
-/** \test Check for default settings
+/** \test Check for default parser object settings
  */
-BOOST_AUTO_TEST_CASE( parser_default_object_settings )
+BOOST_AUTO_TEST_CASE( parser_default_object_object_settings )
 {
   dsv_parser_t parser;
   assert(dsv_parser_create(&parser) == 0);
@@ -289,7 +289,16 @@ BOOST_AUTO_TEST_CASE( parser_default_object_settings )
   ssize_t field_cols = dsv_parser_get_field_columns(parser);
   BOOST_REQUIRE_MESSAGE(field_cols == 0,
     "Default parser field columns was not '0' but rather '" << field_cols
-    << "'");
+      << "'");
+}
+
+/** \test Check for default settings
+ */
+BOOST_AUTO_TEST_CASE( parser_default_object_delimiter_settings )
+{
+  dsv_parser_t parser;
+  assert(dsv_parser_create(&parser) == 0);
+  boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   std::vector<unsigned char> buf(2,'*');
 
@@ -329,7 +338,6 @@ BOOST_AUTO_TEST_CASE( parser_default_object_settings )
     "dsv_parser_get_field_delimiter did not return a nonrepeating flag for "
     "the default delimiter but instead returned '" << repeatflag << "'");
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()
 
