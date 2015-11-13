@@ -75,45 +75,58 @@ static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
 // 94 characters not including newline
 static const field_storage_type rfc4180_charset = {
   ' ','!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
-  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
-  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
-  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~'
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G',
+  'H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+  '[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m',
+  'n','o','p','q','r','s','t','u','v','w','x','y','z','{','|','}','~'
 };
 
 static const field_storage_type rfc4180_quoted_charset = {
-  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
-  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
-  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
-  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~',0x0D,0x0A
+  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
+  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E',
+  'F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X',
+  'Y','Z','[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h','i','j','k',
+  'l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','{','|','}','~',
+  0x0D,0x0A
 };
 
 // same as above but embedded linefeed instead of carriage-return line-feed
 static const field_storage_type rfc4180_lf_quoted_charset = {
-  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2','3','4',
-  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H','I','J',
-  'K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']','^','_',
-  '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',
-  'v','w','x','y','z','{','|','}','~',0x0A
+  ' ','!',0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
+  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E',
+  'F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X',
+  'Y','Z','[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h','i','j','k',
+  'l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','{','|','}','~',
+  0x0A
 };
 
 // 100 characters not including newline
 static const field_storage_type rfc4180_raw_quoted_charset = {
-  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
-  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
-  'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
-  '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
-  't','u','v','w','x','y','z','{','|','}','~',0x0D,0x0A,0x22
+  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/',
+  '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B',
+  'C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U',
+  'V','W','X','Y','Z','[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h',
+  'i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','{',
+  '|','}','~',0x0D,0x0A,0x22
 };
 
 // same as above but embedded linefeed instead of carriage-return line-feed
 static const field_storage_type rfc4180_lf_raw_quoted_charset = {
-  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/','0','1','2',
-  '3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G','H',
-  'I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','[',0x5C,']',
-  '^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
-  't','u','v','w','x','y','z','{','|','}','~',0x0A,0x22
+  0x22,' ','!',0x22,0x22,'#','$','%','&',0x27,'(',')','*','+',',','-','.','/',
+  '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?','@','A','B',
+  'C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U',
+  'V','W','X','Y','Z','[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h',
+  'i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','{',
+  '|','}','~',0x0A,0x22
+};
+
+// same as rfc4180 charset but without whitespace chars, 93 characters
+static const field_storage_type sub_rfc4180_charset = {
+  '!','#','$','%','&',0x27,'(',')','*','+','-','.','/','0','1','2','3','4',
+  '5','6','7','8','9',':',';','<','=','>','?','@','A','B','C','D','E','F','G',
+  'H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+  '[',0x5C,']','^','_','`','a','b','c','d','e','f','g','h','i','j','k','l','m',
+  'n','o','p','q','r','s','t','u','v','w','x','y','z','{','|','}','~'
 };
 
 static const field_storage_type crlf = {0x0D,0x0A};
@@ -123,6 +136,27 @@ static const field_storage_type lf = {0x0A};
 static const field_storage_type comma = {0x2C};
 
 static const field_storage_type empty;
+
+static const unsigned char space = ' ';
+static const unsigned char tab = '\t';
+static const unsigned char underscore = '_';
+
+static const unsigned char *ws_delimiters[] = {&space,&tab};
+static const std::size_t ws_delimiters_sizes[] = {1,1};
+static const std::size_t num_ws_delimiters = 2;
+
+static const unsigned char *ascii_delimiters[] = {&space,&underscore};
+static const std::size_t ascii_delimiters_sizes[] = {1,1};
+static const std::size_t num_ascii_delimiters = 2;
+
+
+static const unsigned char seq1_delimiter[] = {'<','!','>'};
+static const unsigned char seq2_delimiter[] = {'/','?','\\'};
+
+static const unsigned char *seq_delimiters[] =
+  {seq1_delimiter,seq2_delimiter};
+static const std::size_t seq_delimiters_sizes[] = {3,3};
+static const std::size_t num_seq_delimiters = 2;
 
 
 inline void parser_destroy(dsv_parser_t *p)
@@ -139,12 +173,13 @@ inline const std::string & format_str(dsv_log_code msg_code)
 {
   switch(msg_code) {
     case dsv_syntax_error:
-      static const std::string parse_error("syntax error: In file $4, line $1 column $3");
+      static const std::string parse_error("syntax error: In file $4, line $1 "
+        "column $3");
       return parse_error;
 
     case dsv_inconsistant_column_count:
-      static const std::string column_count_message("inconsistant column count: "
-        "In file $4, line $1. Expected $2 fields, read $3 fields");
+      static const std::string column_count_message("inconsistant column "
+        "count: In file $4, line $1. Expected $2 fields, read $3 fields");
 
       return column_count_message;
 
@@ -264,12 +299,15 @@ bool check_logs(const std::vector<log_msg> &required,
       continue;
 
     if(req_msg.param_vec.size() != rec_msg.param_vec.size())
-      BOOST_FAIL("UNIT TEST ERROR: msg parameter list must either be empty or match that"
-        "of the given code: " << to_string(req_msg.code));
+      BOOST_FAIL("UNIT TEST ERROR: msg parameter list must either be empty or "
+        "match that of the given code: " << to_string(req_msg.code));
 
     for(std::size_t j=0; j<req_msg.param_vec.size(); ++j) {
-      if(!req_msg.param_vec[j].empty() && req_msg.param_vec[j] != rec_msg.param_vec[j])
+      if(!req_msg.param_vec[j].empty()
+        && req_msg.param_vec[j] != rec_msg.param_vec[j])
+      {
         return false;
+      }
     }
   }
 

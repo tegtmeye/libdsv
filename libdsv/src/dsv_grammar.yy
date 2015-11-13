@@ -40,6 +40,8 @@
   #include <string>
   #include <vector>
 
+  #include <iostream>
+
   // Change me with bison version > 3
   struct YYSTYPE {
     // use vectors of unsigned characters instead of std::string so that we
@@ -99,7 +101,8 @@
     const detail::scanner_state &scanner, detail::parser &parser,
     std::size_t rec_cols, dsv_log_level level)
   {
-    std::cerr << "LOG LEVEL: " << parser.log_level() << "\n";
+//     std::cerr << "Generating column_count_message: LOG LEVEL: "
+//       << parser.log_level() << "\n";
 
     bool result = !(level & dsv_log_error);
 
@@ -519,8 +522,34 @@ record:
 
 %%
 
+std::ostream & operator<<(std::ostream &out,
+  const std::vector<unsigned char> &seq)
+{
+  std::vector<unsigned char>::const_iterator cur = seq.begin();
 
+  while(cur != seq.end()) {
+    if(*cur < 32 || *cur > 126)
+      out << int(*cur);
+    else
+      out << char(*cur);
 
+    ++cur;
+  }
+
+  return out;
+}
+
+std::string ascii(int c)
+{
+  std::stringstream out;
+
+  if(c >= 32 && c <= 126)
+    out << char(c);
+  else
+    out << c;
+
+  return out.str();
+}
 
 /**
     Convenience function for parser_lex
@@ -548,8 +577,6 @@ bool read_delimiter(detail::scanner_state &scanner,
 
     Forget any existing putback buffer and search for a valid delimiter as
     represented by the compiled byte sequence \c comp_byte_seq
-
-    todo, optimize for single delimiter case
  */
 std::size_t search_delimiter(detail::scanner_state &scanner,
   const std::vector<detail::byte_chunk> &comp_byte_seq)
@@ -562,37 +589,32 @@ std::size_t search_delimiter(detail::scanner_state &scanner,
 
   std::size_t read_bytes = 0;
   std::ptrdiff_t byte_off = 0;
-  while(true) {
-    int in = scanner.getc();
-    if(in == EOF)
-      return 0;
+  for(int in = scanner.getc(); in != EOF; /* empty */) {
+    const detail::byte_chunk &chunk = comp_byte_seq[byte_off];
 
-    while(in != comp_byte_seq[byte_off].byte) {
-      std::size_t fail_skip = comp_byte_seq[byte_off].fail_skip;
-
-      if(!fail_skip)
+    if(in != chunk.byte) {
+      if(!chunk.fail_skip)
         break;
 
-      byte_off += fail_skip;
+      byte_off += chunk.fail_skip;
     }
+    else {
+      ++read_bytes;
+      scanner.advancec();
+      in = scanner.getc();
 
-    ++read_bytes;
-    scanner.advancec();
+      if(chunk.accept)
+        result = read_bytes;
 
-    if(comp_byte_seq[byte_off].accept)
-      result = read_bytes;
+      if(!chunk.pass_skip)
+        break;
 
-    std::ptrdiff_t pass_skip = comp_byte_seq[byte_off].pass_skip;
-
-    if(!pass_skip)
-      break;
-
-    byte_off += pass_skip;
+      byte_off += chunk.pass_skip;
+    }
   }
 
   return result;
 }
-
 
 
 
@@ -656,6 +678,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       if(read_delimiter(scanner,effective_delimiter->begin(),
         effective_delimiter->end()))
       {
+//         std::cerr << "GOT EFFECTIVE: '" << *effective_delimiter << "'\n";
         scanner.forget();
         llocp->last_column += effective_delimiter->size();
         lvalp->char_buf_ptr = effective_delimiter;
@@ -669,6 +692,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
         parser.compiled_delimiter_vec());
       scanner.putback();
 
+//       std::cerr << "SEARCHED LEN: " << search_len << "\n";
+
       if(search_len) {
         std::shared_ptr<detail::parser::byte_vec_type> parsed_delimiter(
           new detail::parser::byte_vec_type());
@@ -677,11 +702,17 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
         for(std::size_t i=search_len; i != 0; --i)
           parsed_delimiter->push_back(scanner.advancec());
 
+//         std::cerr << "SEARCHED: '" << *parsed_delimiter << "'\n";
+
         llocp->last_column += search_len;
         lvalp->char_buf_ptr = parsed_delimiter;
 
-        if(parser.delimiter_parse_exclusive())
+        if(parser.delimiter_parse_exclusive()) {
+//           std::cerr << "Setting effective\n";
           parser.effective_delimiter(parsed_delimiter);
+        }
+
+        scanner.forget();
 
         return DELIMITER;
       }
@@ -787,19 +818,27 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
     // fallthrough
     // straight textdata
-    lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
+//     std::cerr << "Adding TEXTDATA: '" << ascii(cur) << "'\n";
+
+    lvalp->char_buf_ptr.reset(
+      new YYSTYPE::char_buff_type(1,scanner.fadvancec()));
+    ++(llocp->last_column);
 
     // scan for anything that could terminate the field. Don't eat
     // until we know it is not a terminating byte
     while((cur = scanner.getc()) != EOF) {
+// std::cerr << "Processing: '" << ascii(cur) << "'\n";
+
       bool lookahead_delimiter = false;
 
       if(parser.effective_delimiter()) {
+//         std::cerr << "has effective. reading delimiter\n";
         lookahead_delimiter = read_delimiter(scanner,
           parser.effective_delimiter()->begin(),
           parser.effective_delimiter()->end());
       }
       else {
+//         std::cerr << "no effective. searching for delimiter\n";
         lookahead_delimiter = search_delimiter(scanner,
           parser.compiled_delimiter_vec());
       }
@@ -812,6 +851,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
         || cur == 0x22 // DQUOTE
         || cur < 32 || cur > 126) // non-ASCII
       {
+//         std::cerr << "saw delimiter. returning TEXTDATA\n";
         return TEXTDATA;
       }
 
@@ -821,6 +861,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //           << llocp->first_column << ":" << llocp->last_column << "\n";
 //       }
 
+//       std::cerr << "no delimiter. adding '" << ascii(cur) << "'\n";
       ++(llocp->last_column);
       scanner.fadvancec();
       lvalp->char_buf_ptr->push_back(cur);

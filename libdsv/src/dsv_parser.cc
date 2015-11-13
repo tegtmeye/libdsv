@@ -245,8 +245,8 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
 
 // todo, cause the exclusive to carry over and have reset API
 int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t _parser,
-  const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
-  size_t size, int repeatflag, int exclusiveflag)
+  const unsigned char *delim[], const size_t delimsize[],
+  const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag)
 {
   assert(_parser.p);
 

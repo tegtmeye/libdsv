@@ -43,6 +43,26 @@
 
 namespace detail {
 
+// delete me
+inline void print_packed(const std::vector<detail::byte_chunk> &packed_vec)
+{
+  for(std::size_t i=0; i<packed_vec.size(); ++i) {
+    std::cerr << "Data @ " << i << ":\n"
+      << "  Byte: " << char(packed_vec[i].byte)
+      << "  Accept: " << int(packed_vec[i].accept)
+      << "  Pass off: " << packed_vec[i].pass_skip
+        << " (" << i+packed_vec[i].pass_skip << ")"
+      << "  Fail off: " << packed_vec[i].fail_skip
+        << " (";
+    if(packed_vec[i].fail_skip==0)
+      std::cerr << "reject";
+    else
+      std::cerr << i+packed_vec[i].fail_skip;
+    std::cerr << ")\n\n";
+  }
+}
+
+
 class log_description {
   private:
     typedef std::list<std::string> param_list_type;
@@ -296,6 +316,8 @@ inline void parser::set_equiv_delimiters(const unsigned char *delim[],
       delim_desc.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
 
     _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
+
+//     print_packed(_compiled_delimiter_vec);
   }
 }
 

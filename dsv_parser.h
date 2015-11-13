@@ -287,7 +287,28 @@ extern "C" {
    *  parse-exclusive multibyte field delimiters to be used for future parsing
    *  with \c parser.
    *
-   *  Equivalent delimiters are single or multibyte sequences such that if any sequence is seen, it is considered an acceptable delimiter. For example, in an RFC 4180-strict parser, a single non-repeating ASCII comma is the only acceptable delimiter. However, in other formats, any single or repeating sequence of white spaces are considered in whole as an acceptable delimiter. For example, repeating ASCII space or tab characters. Said another way, given some sequence representing a delimiter \c DELIM, it is equivalent to the regular expression DELIM*. It is possible to set the delimiter as repeating on a per-delimiter sequence basis. For example, given several sequences representing equivalent delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the entire equivalent delimiter set to repeat. That is, for some delimiter sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to repeat only along with the entire equivalent delimiter set is equivalent to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*. Setting a single delimiter sequence to repeat is equivalent to setting the entire delimiter set consisting of a single delimiter to repeat is equivalent but the parser achieves the same result in different ways. That is \c (DELIM*) achieves the same result as \c (DELIM)*. It is also possible to enable parse-level exclusivity. That is, once one of the given delimiters is parsed, it becomes the only valid delimiter for the remainder of the parse operation.
+   *  Equivalent delimiters are single or multibyte sequences such that if any
+   *  sequence is seen, it is considered an acceptable delimiter. For example,
+   *  in an RFC 4180-strict parser, a single non-repeating ASCII comma is the
+   *  only acceptable delimiter. However, in other formats, any single or
+   *  repeating sequence of white spaces are considered in whole as an
+   *  acceptable delimiter. For example, repeating ASCII space or tab
+   *  characters. Said another way, given some sequence representing a delimiter
+   *  \c DELIM, it is equivalent to the regular expression DELIM*. It is
+   *  possible to set the delimiter as repeating on a per-delimiter sequence
+   *  basis. For example, given several sequences representing equivalent
+   *  delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular
+   *  expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the
+   *  entire equivalent delimiter set to repeat. That is, for some delimiter
+   *  sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular
+   *  expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be
+   *  mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to
+   *  repeat only along with the entire equivalent delimiter set is equivalent
+   *  to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*.
+   *
+   *  Parse exclusivity means that the first equivalent byte sequence parsed as a delimiter becomes the only acceptable delimiter for the remainder of the parsing.
+
+   Setting a single delimiter sequence to repeat is equivalent to setting the entire delimiter set consisting of a single delimiter to repeat but the parser achieves the same result in different ways. That is \c (DELIM*) achieves the same result as \c (DELIM)*. It is also possible to enable parse-level exclusivity. That is, once one of the given delimiters is parsed, it becomes the only valid delimiter for the remainder of the parse operation.
    *
    *  \note If unlimited repeating delimiter sequences is enabled, it becomes
    *  impossible to represent an empty field based solely on repeating the
@@ -346,8 +367,8 @@ extern "C" {
    *  \retval EINVAL Either \c size or an element of delimsize is zero
    */
   int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
-    const unsigned char *delim[], size_t delimsize[], int delim_repeat[],
-    size_t size, int repeatflag, int exclusiveflag);
+    const unsigned char *delim[], const size_t delimsize[],
+    const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag);
 
 
 

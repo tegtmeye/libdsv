@@ -667,8 +667,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_quoted_charset_crlf )
   };
 
   std::vector<d::field_storage_type> file_contents{
-    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf,
-    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,
+      d::crlf,
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_raw_quoted_charset,
+      d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
@@ -692,8 +694,10 @@ BOOST_AUTO_TEST_CASE( parse_rfc4180_mixed_charset_crlf )
   };
 
   std::vector<d::field_storage_type> file_contents{
-    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf,
-    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,d::rfc4180_raw_quoted_charset,d::crlf
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,
+      d::rfc4180_raw_quoted_charset,d::crlf,
+    d::rfc4180_raw_quoted_charset,d::comma,d::rfc4180_charset,d::comma,
+      d::rfc4180_raw_quoted_charset,d::crlf
   };
 
   d::check_compliance(parser,headers,records,{},file_contents,
