@@ -204,8 +204,8 @@ int dsv_parser_set_field_delimiter(dsv_parser_t _parser, unsigned char delim)
 
   try {
     const unsigned char *delim_arr[1] = {&delim};
-    size_t delimsize_arr[1] = {1};
-    int delimrepeat_arr[1] = {0};
+    const size_t delimsize_arr[1] = {1};
+    const int delimrepeat_arr[1] = {0};
     err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,delimsize_arr,
       delimrepeat_arr,1,0,1);
   }
@@ -228,8 +228,8 @@ int dsv_parser_set_field_wdelimiter(dsv_parser_t _parser,
 
   try {
     const unsigned char *delim_arr[1] = {delim};
-    size_t delimsize_arr[1] = {size};
-    int delimrepeat_arr[1] = {0};
+    const size_t delimsize_arr[1] = {size};
+    const int delimrepeat_arr[1] = {0};
     err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,delimsize_arr,
       delimrepeat_arr,1,0,1);
   }

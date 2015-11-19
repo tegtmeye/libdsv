@@ -159,6 +159,13 @@ static const std::size_t seq_delimiters_sizes[] = {3,3};
 static const std::size_t num_seq_delimiters = 2;
 
 
+static const unsigned char pal_delimiter[] = {'!','*','!'};
+
+static const unsigned char *pal_delimiters[] = {pal_delimiter};
+static const std::size_t pal_delimiters_sizes[] = {3};
+static const std::size_t num_pal_delimiters = 1;
+
+
 inline void parser_destroy(dsv_parser_t *p)
 {
   dsv_parser_destroy(*p);

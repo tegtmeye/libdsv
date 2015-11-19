@@ -305,6 +305,14 @@ inline void parser::set_equiv_delimiters(const unsigned char *delim[],
     _delim_exclusive = !_delim_repeat;
     _effective_delimiter.reset(
       new byte_vec_type(delim[0],delim[0]+delimsize[0]));
+
+    std::cerr << "Delim: '";
+    for(std::size_t i=0; i<delimsize[0]; ++i)
+      std::cerr << delim[0][i];
+    std::cerr << "'\n";
+
+    std::cerr << "_delim_repeat: " << _delim_repeat << "\n";
+    std::cerr << "_delim_exclusive: " << _delim_exclusive << "\n";
   }
   else {
     _delim_repeat = repeatflag;
@@ -317,7 +325,7 @@ inline void parser::set_equiv_delimiters(const unsigned char *delim[],
 
     _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
 
-//     print_packed(_compiled_delimiter_vec);
+     print_packed(_compiled_delimiter_vec);
   }
 }
 

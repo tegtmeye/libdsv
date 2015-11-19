@@ -560,15 +560,54 @@ std::string ascii(int c)
     scanner input if possible. The read characters remain in the putback buffer.
  */
 template<typename ForwardIterator>
-bool read_delimiter(detail::scanner_state &scanner,
+inline std::size_t read_delimiter(detail::scanner_state &scanner,
   ForwardIterator first, ForwardIterator last)
 {
   scanner.forget();
   while(first != last && scanner.advancec() == static_cast<int>(*first))
     ++first;
 
-  return first == last;
+  if(first == last) {
+    scanner.forget();
+    return last-first;
+  }
+
+  scanner.putback();
+  return 0;
 }
+
+
+template<typename ForwardIterator>
+inline std::size_t read_delimiter_repeat(detail::scanner_state &scanner,
+  ForwardIterator first, ForwardIterator last)
+{
+
+  std::size_t loops = 0;
+  while(true) {
+    scanner.forget();
+
+  std::cerr << "Start read... Next is '"
+    << ascii(scanner.getc()) << "'\n";;
+
+    ForwardIterator cur = first;
+    while(cur != last && scanner.advancec() == static_cast<int>(*cur)) {
+      std::cerr << "\tmatched '" << ascii(*cur) << "'\n";
+      ++cur;
+    }
+
+    if(cur != last)
+      break;
+
+    ++loops;
+  };
+
+  scanner.putback();
+
+  std::cerr << "End read... " << (last-first)*loops << " bytes. Next is '"
+    << ascii(scanner.getc()) << "'\n";;
+  return (last-first)*loops;
+}
+
 
 /**
     Convenience function for parser_lex
@@ -675,17 +714,20 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     auto effective_delimiter = parser.effective_delimiter();
     if(effective_delimiter) {
       // just read the effective delimiter
-      if(read_delimiter(scanner,effective_delimiter->begin(),
-        effective_delimiter->end()))
-      {
+      std::size_t read_bytes;
+      if(parser.delimiter_repeatflag())
+        read_bytes = read_delimiter_repeat(scanner,effective_delimiter->begin(),
+          effective_delimiter->end());
+      else
+        read_bytes = read_delimiter(scanner,effective_delimiter->begin(),
+          effective_delimiter->end());
+
+      if(read_bytes) {
 //         std::cerr << "GOT EFFECTIVE: '" << *effective_delimiter << "'\n";
-        scanner.forget();
-        llocp->last_column += effective_delimiter->size();
-        lvalp->char_buf_ptr = effective_delimiter;
+        llocp->last_column += read_bytes;
+        lvalp->char_buf_ptr = effective_delimiter; // todo, remove
         return DELIMITER;
       }
-      else
-        scanner.putback();
     }
     else {
       std::size_t search_len = search_delimiter(scanner,
@@ -841,6 +883,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //         std::cerr << "no effective. searching for delimiter\n";
         lookahead_delimiter = search_delimiter(scanner,
           parser.compiled_delimiter_vec());
+
+//           HERE, need to putback at this location but read fn eats if found!
       }
 
       scanner.putback();
