@@ -11,6 +11,8 @@
 #include <memory>
 #include <cstdio>
 
+#include <iostream>
+
 /** \file
  *  \brief Unit tests the scanner
  */
@@ -46,6 +48,17 @@ inline fs::path gen_testfile(const std::vector<unsigned char> &contents,
   return filepath;
 }
 
+inline std::string ascii(int c)
+{
+  std::stringstream out;
+
+  if(c >= 32 && c <= 126)
+    out << char(c);
+  else
+    out << c;
+
+  return out.str();
+}
 
 
 BOOST_AUTO_TEST_SUITE( scanner_test_suite )
@@ -66,6 +79,7 @@ BOOST_AUTO_TEST_CASE( scanner_basic_create_filename_test )
 
   fs::remove(filepath);
 }
+
 
 /**
     \test Check for proper handling of empty file by stream with filename
@@ -124,49 +138,24 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_test )
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "getc: scanner did not return EOF for empty file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == EOF,
-    "advancec: scanner did not return EOF for empty file");
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == EOF,
+    "fgetc: scanner did not return EOF for empty file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.fadvancec() == EOF,
-    "fadvancec: scanner did not return EOF for empty file");
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == EOF,
+    "fgetc: scanner did not return repeated EOF for empty file");
 
-  fs::remove(filepath);
-}
-
-/**
-    \test Check for read of file with single char with getc/advance
- */
-BOOST_AUTO_TEST_CASE( scanner_single_getc_advancec_test )
-{
-  std::vector<unsigned char> contents{
-    'a'
-  };
-
-  fs::path filepath = gen_testfile(contents,
-    "scanner_single_getc_advancec_test");
-
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
-    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
-
-  d::scanner_state scanner(0,in.get());
-
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
-    "getc: scanner did not return 'a' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == 'a',
-    "advancec: scanner did not return EOF for single char file");
+  scanner.forget();
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
-    "follow-on getc: scanner did not subsequently return EOF for single char "
-      "file");
+    "getc: scanner did not return EOF after force forget and empty file");
 
   fs::remove(filepath);
 }
 
 /**
-    \test Check for read of file with single char with fadvance
+    \test Check for read of file with single char with getc
  */
-BOOST_AUTO_TEST_CASE( scanner_single_getc_fadvancec_test )
+BOOST_AUTO_TEST_CASE( scanner_single_getc_test )
 {
   std::vector<unsigned char> contents{
     'a'
@@ -183,9 +172,6 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_fadvancec_test )
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for single char file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.fadvancec() == 'a',
-    "fadvancec: scanner did not return EOF for single char file");
-
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for single char "
       "file");
@@ -194,16 +180,104 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_fadvancec_test )
 }
 
 /**
-    \test Check for read of file with two chars with getc/advancec
+    \test Check for read of file with single char with fgetc
  */
-BOOST_AUTO_TEST_CASE( scanner_minimal_getc_advancec_test )
+BOOST_AUTO_TEST_CASE( scanner_single_fgetc_test )
+{
+  std::vector<unsigned char> contents{
+    'a'
+  };
+
+  fs::path filepath = gen_testfile(contents,
+    "scanner_single_fgetc_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  d::scanner_state scanner(0,in.get());
+
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == 'a',
+    "fgetc: scanner did not return 'a' for single char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == EOF,
+    "follow-on fgetc: scanner did not subsequently return EOF for single char "
+      "file");
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for read of file with two chars with getc
+ */
+BOOST_AUTO_TEST_CASE( scanner_minimal_getc_test )
 {
   std::vector<unsigned char> contents{
     'a','b'
   };
 
   fs::path filepath = gen_testfile(contents,
-    "scanner_minimal_getc_advancec_test");
+    "scanner_minimal_getc_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  d::scanner_state scanner(0,in.get());
+
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
+    "getc: scanner did not return 'a' for two char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
+    "getc: scanner did not return 'b' for two char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
+    "follow-on getc: scanner did not subsequently return EOF for two char "
+      "file");
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for read of file with two chars with fgetc
+ */
+BOOST_AUTO_TEST_CASE( scanner_minimal_fgetc_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b'
+  };
+
+  fs::path filepath = gen_testfile(contents,
+    "scanner_minimal_fgetc_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  d::scanner_state scanner(0,in.get());
+
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == 'a',
+    "fgetc: scanner did not return 'a' for two char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.fgetc() == 'b',
+    "fgetc: scanner did not return 'b' for two char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
+    "follow-on fgetc: scanner did not subsequently return EOF for two char "
+      "file");
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for read of file with single char with getc and putback
+    handling
+ */
+BOOST_AUTO_TEST_CASE( scanner_single_getc_putback_test )
+{
+  std::vector<unsigned char> contents{
+    'a'
+  };
+
+  fs::path filepath = gen_testfile(contents,
+    "scanner_single_getc_putback_test");
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
@@ -213,50 +287,15 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_getc_advancec_test )
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for single char file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == 'a',
-    "advancec: scanner did not return 'a' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
-    "getc: scanner did not return 'b' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == 'b',
-    "advancec: scanner did not return 'b' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
-    "follow-on getc: scanner did not subsequently return EOF for single char "
-      "file");
-
-  fs::remove(filepath);
-}
-
-/**
-    \test Check for read of file with two chars with getc/advancec
- */
-BOOST_AUTO_TEST_CASE( scanner_minimal_getc_fadvancec_test )
-{
-  std::vector<unsigned char> contents{
-    'a','b'
-  };
-
-  fs::path filepath = gen_testfile(contents,
-    "scanner_minimal_getc_fadvancec_test");
-
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
-    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
-
-  d::scanner_state scanner(0,in.get());
+  scanner.putback();
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
-    "getc: scanner did not return 'a' for single char file");
+    "getc: scanner did not return a putback 'a' for single char file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.fadvancec() == 'a',
-    "fadvancec: scanner did not return 'a' for single char file");
+  scanner.putback();
 
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
-    "getc: scanner did not return 'b' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.fadvancec() == 'b',
-    "fadvancec: scanner did not return 'b' for single char file");
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
+    "getc: scanner did not return a putback 'a' for single char file");
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for single char "
@@ -269,17 +308,17 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_getc_fadvancec_test )
 /* CHECK FOR BUFFER REFILL HANDLING */
 
 /**
-    \test Check for read of file with two chars with getc/advancec. The initial
+    \test Check for read of file with two chars with getc. The initial
     buffer only has room for 1 char before refilling
  */
-BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_advancec_test )
+BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_test )
 {
   std::vector<unsigned char> contents{
     'a','b'
   };
 
   fs::path filepath = gen_testfile(contents,
-    "scanner_minimal_refill_getc_advancec_test");
+    "scanner_minimal_refill_getc_test");
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
@@ -287,31 +326,27 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_advancec_test )
   d::scanner_state scanner(0,in.get(),1);
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
-    "getc: scanner did not return 'a' for single char file");
+    "getc: scanner did not return 'a' for multi char file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == 'a',
-    "advancec: scanner did not return 'a' for single char file");
-
-  scanner.forget(); // putback buffer should be empty now
+  // must forget the putback buffer because otherwise the character in the
+  // putback buffer will keep the single buffer full and nothing will be read.
+  scanner.forget();
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
-    "getc: scanner did not return 'b' for single char file");
-
-  BOOST_REQUIRE_MESSAGE(scanner.advancec() == 'b',
-    "advancec: scanner did not return 'b' for single char file");
+    "getc: scanner did not return 'b' for multi char file");
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
-    "follow-on getc: scanner did not subsequently return EOF for single char "
+    "follow-on getc: scanner did not subsequently return EOF for multi char "
       "file");
 
   fs::remove(filepath);
 }
 
 /**
-    \test Check for read of file with two chars with getc/fadvancec. The initial
+    \test Check for read of file with two chars with fgetc. The initial
     buffer only has room for 1 char before refilling
  */
-BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_fadvancec_test )
+BOOST_AUTO_TEST_CASE( scanner_minimal_refill_fgetc_test )
 {
   std::vector<unsigned char> contents{
     'a','b'
@@ -327,20 +362,17 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_fadvancec_test )
 
   int val;
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == 'a',
-    "getc: unexpected '" << val << "', expected 'a'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "getc: unexpected '" << ascii(val) << "', expected 'a'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'a',
-    "fadvancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "getc: unexpected '" << ascii(val) << "', expected 'b'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == 'b',
-    "getc: unexpected '" << val << "', expected 'b'");
-
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'b',
-    "advancec: unexpected '" << val << "', expected 'b'");
-
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == EOF,
-    "getc: unexpected '" << val << "', expected 'EOF'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "getc: unexpected '" << ascii(val) << "', expected 'EOF'");
 
   fs::remove(filepath);
 }
@@ -368,73 +400,78 @@ BOOST_AUTO_TEST_CASE( scanner_putback_test )
 
   int val;
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'a',
-    "advancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "advancec: unexpected '" << ascii(val) << "', expected 'a'");
 
   scanner.putback();
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == 'a',
-    "getc: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "getc: unexpected '" << ascii(val) << "', expected 'a'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'a',
-    "advancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "getc: unexpected '" << ascii(val) << "', expected 'b'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'b',
-    "advancec: unexpected '" << val << "', expected 'b'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "getc: unexpected '" << ascii(val) << "', expected 'c'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'c',
-    "advancec: unexpected '" << val << "', expected 'c'");
-
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'd',
-    "advancec: unexpected '" << val << "', expected 'd'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "getc: unexpected '" << ascii(val) << "', expected 'd'");
 
   // putback entire buffer, did not trigger EOF
   scanner.putback();
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == 'a',
-    "getc: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "getc: unexpected '" << ascii(val) << "', expected 'a'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'a',
-    "advancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "getc: unexpected '" << ascii(val) << "', expected 'b'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'b',
-    "advancec: unexpected '" << val << "', expected 'b'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "getc: unexpected '" << ascii(val) << "', expected 'c'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'c',
-    "advancec: unexpected '" << val << "', expected 'c'");
-
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'd',
-    "advancec: unexpected '" << val << "', expected 'd'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "getc: unexpected '" << ascii(val) << "', expected 'd'");
 
   // trigger EOF
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == EOF,
-    "getc: unexpected '" << val << "', expected 'EOF'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "getc: unexpected '" << ascii(val) << "', expected 'EOF'");
 
   // putback entire buffer, no longer EOF
   scanner.putback();
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == 'a',
-    "getc: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "getc: unexpected '" << ascii(val) << "', expected 'a'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'a',
-    "advancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "getc: unexpected '" << ascii(val) << "', expected 'b'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'b',
-    "advancec: unexpected '" << val << "', expected 'b'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "getc: unexpected '" << ascii(val) << "', expected 'c'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'c',
-    "advancec: unexpected '" << val << "', expected 'c'");
-
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'd',
-    "advancec: unexpected '" << val << "', expected 'd'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "getc: unexpected '" << ascii(val) << "', expected 'd'");
 
   // trigger EOF again
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == EOF,
-    "getc: unexpected '" << val << "', expected 'EOF'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "getc: unexpected '" << ascii(val) << "', expected 'EOF'");
 
   fs::remove(filepath);
 }
-
 
 
 /**
@@ -457,82 +494,414 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
 
   int val;
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'a',
-    "fadvancec: unexpected '" << val << "', expected 'a'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'a'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'b',
-    "fadvancec: unexpected '" << val << "', expected 'b'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'b'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'c',
-    "fadvancec: unexpected '" << val << "', expected 'c'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'c'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'd',
-    "fadvancec: unexpected '" << val << "', expected 'd'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'd'");
 
   // start accumulating putback buffer. This leaves a hole in the front of
   // the read buffer
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'e',
-    "advancec: unexpected '" << val << "', expected 'e'");
+  scanner.forget();
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'f',
-    "advancec: unexpected '" << val << "', expected 'f'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "getc: unexpected '" << ascii(val) << "', expected 'e'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'g',
-    "advancec: unexpected '" << val << "', expected 'g'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "getc: unexpected '" << ascii(val) << "', expected 'f'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'h',
-    "advancec: unexpected '" << val << "', expected 'h'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "getc: unexpected '" << ascii(val) << "', expected 'g'");
 
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "getc: unexpected '" << ascii(val) << "', expected 'h'");
 
   // trigger refill
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'i',
-    "advancec: unexpected '" << val << "', expected 'i'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "getc: unexpected '" << ascii(val) << "', expected 'i'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'j',
-    "advancec: unexpected '" << val << "', expected 'j'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "getc: unexpected '" << ascii(val) << "', expected 'j'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'k',
-    "advancec: unexpected '" << val << "', expected 'k'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "getc: unexpected '" << ascii(val) << "', expected 'k'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.advancec()) == 'l',
-    "advancec: unexpected '" << val << "', expected 'l'");
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "getc: unexpected '" << ascii(val) << "', expected 'l'");
 
 
   // putback the entire buffer
   scanner.putback();
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'e',
-    "fadvancec: unexpected '" << val << "', expected 'e'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'e'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'f',
-    "fadvancec: unexpected '" << val << "', expected 'f'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'f'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'g',
-    "fadvancec: unexpected '" << val << "', expected 'g'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'g'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'h',
-    "fadvancec: unexpected '" << val << "', expected 'h'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'h'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'i',
-    "fadvancec: unexpected '" << val << "', expected 'i'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'i'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'j',
-    "fadvancec: unexpected '" << val << "', expected 'j'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'j'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'k',
-    "fadvancec: unexpected '" << val << "', expected 'k'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'k'");
 
-  BOOST_REQUIRE_MESSAGE((val=scanner.fadvancec()) == 'l',
-    "fadvancec: unexpected '" << val << "', expected 'l'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'l'");
 
   // trigger EOF
-  BOOST_REQUIRE_MESSAGE((val=scanner.getc()) == EOF,
-    "getc: unexpected '" << val << "', expected 'EOF'");
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "fgetc: unexpected '" << ascii(val) << "', expected 'EOF'");
+
+  // Should do nothing
+  scanner.putback();
+
+  // check to make sure still at EOF
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "fgetc: unexpected '" << ascii(val) << "', expected 'EOF'");
+
 
   fs::remove(filepath);
 }
 
 
+
+
+// CHECK FOR MARK HANDLING
+
+
+/**
+    \test Check for putback and mark setting
+ */
+BOOST_AUTO_TEST_CASE( scanner_putmarkback_setting_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b','c','d','e','f','g','h','i','j','k','l'
+  };
+
+  fs::path filepath = gen_testfile(contents,
+    "scanner_putmarkback_refill_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  d::scanner_state scanner(0,in.get(),8);
+
+  int val;
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'a'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'b'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'c'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'd'");
+
+  // start accumulating putback buffer. This leaves a hole in the front of
+  // the read buffer
+  scanner.forget();
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "getc: unexpected '" << ascii(val) << "', expected 'e'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "getc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "getc: unexpected '" << ascii(val) << "', expected 'g'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "getc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  scanner.setmark();
+
+  // trigger refill
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "getc: unexpected '" << ascii(val) << "', expected 'i'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "getc: unexpected '" << ascii(val) << "', expected 'j'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "getc: unexpected '" << ascii(val) << "', expected 'k'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "getc: unexpected '" << ascii(val) << "', expected 'l'");
+
+  // putback entire buffer. This should invalidate the mark buffer
+  scanner.putback();
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "getc: unexpected '" << ascii(val) << "', expected 'e'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "getc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "getc: unexpected '" << ascii(val) << "', expected 'g'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "getc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  // putback to mark, which now the front of the putback buffer
+  scanner.putbackmark();
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'e'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  // Should just putback to 'f'
+  scanner.putbackmark();
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'g'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  // Should putback to 'h' since previous are forgotten
+  scanner.putback();
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'i'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'j'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'k'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'l'");
+
+
+  // check to make sure still at EOF
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "fgetc: unexpected '" << ascii(val) << "', expected 'EOF'");
+
+
+  fs::remove(filepath);
+}
+
+/**
+    \test
+ */
+BOOST_AUTO_TEST_CASE( scanner_putmarkback_refill_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b','c','d','e','f','g','h','i','j','k','l'
+  };
+
+  fs::path filepath = gen_testfile(contents,
+    "scanner_putmarkback_refill_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  d::scanner_state scanner(0,in.get(),8);
+
+  int val;
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'a'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'b'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'c'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'd'");
+
+  // start accumulating putback buffer. This leaves a hole in the front of
+  // the read buffer
+  scanner.forget();
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "getc: unexpected '" << ascii(val) << "', expected 'e'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "getc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "getc: unexpected '" << ascii(val) << "', expected 'g'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "getc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  scanner.setmark();
+
+  // trigger refill
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "getc: unexpected '" << ascii(val) << "', expected 'i'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "getc: unexpected '" << ascii(val) << "', expected 'j'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "getc: unexpected '" << ascii(val) << "', expected 'k'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "getc: unexpected '" << ascii(val) << "', expected 'l'");
+
+
+  // putback the mark buffer
+  scanner.putbackmark();
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'i'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'j'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'k'");
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'l'");
+
+  scanner.putback();
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'e'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'f'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'g'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'h'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'i',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'i'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'j',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'j'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'k',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'k'");
+
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == 'l',
+    "fgetc: unexpected '" << ascii(val) << "', expected 'l'");
+
+  // trigger EOF
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "fgetc: unexpected '" << ascii(val) << "', expected 'EOF'");
+
+  // Should do nothing
+  scanner.putback();
+
+  // check to make sure still at EOF
+  val=scanner.fgetc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "fgetc: unexpected '" << ascii(val) << "', expected 'EOF'");
+
+
+  fs::remove(filepath);
+}
 
 
 

@@ -10,7 +10,8 @@ libdsv_la_SOURCES= \
 	bytesequence_compiler.h \
 	parse_operations.h \
 	parser.h \
-	dsv_parser.cc
+	dsv_parser_low.cc \
+	dsv_parser_high.cc
 
 libdsv_la_CPPFLAGS=-pedantic -ansi -Wall -std=c++11 -I$(top_srcdir) \
 	$(BOOST_CPPFLAGS)

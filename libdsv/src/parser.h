@@ -31,10 +31,10 @@
 #ifndef LIBDSV_PARSER_H
 #define LIBDSV_PARSER_H
 
-#include "dsv_parser.h"
-#include "bytesequence_compiler.h"
 
-#include <string>
+#include "dsv_parser.h"
+#include "equiv_bytesequence.h"
+
 #include <list>
 #include <vector>
 #include <memory>
@@ -117,19 +117,13 @@ class parser {
     typedef std::list<std::pair<dsv_log_level,log_description> > log_list_type;
 
   public:
-    typedef std::vector<unsigned char> byte_vec_type;
+    typedef basic_equiv_bytesequence<unsigned char> equiv_bytesequence_type;
+    typedef equiv_bytesequence_type::byte_type byte_type;
+    typedef equiv_bytesequence_type::byte_vec_type byte_vec_type;
 
-    struct delim_desc {
-      byte_vec_type delim_bytes;
-      bool repeat;
-
-      delim_desc(const std::vector<unsigned char> &delim, bool rep)
-        :delim_bytes(delim), repeat(rep) {}
-
-      template<typename ForwardIterator>
-      delim_desc(ForwardIterator first, ForwardIterator last, bool rep)
-        :delim_bytes(first,last), repeat(rep) {}
-    };
+    typedef std::pair<equiv_bytesequence_type,equiv_bytesequence_type>
+      equiv_bytesequence_pair;
+    typedef std::vector<equiv_bytesequence_pair> equiv_bytesequence_pair_seq;
 
     typedef log_list_type::const_iterator const_log_iterator;
 
@@ -152,40 +146,142 @@ class parser {
 
     /* exposed behaviors */
 
-    // set_equiv_delimiters causes a recompilation of the delimiters
-    void set_equiv_delimiters(const unsigned char *delim[],
-      const size_t delimsize[], const int delim_repeat[], size_t size,
-      bool repeatflag, bool exclusiveflag);
+    /* RECORD COMPLETION DELIMITER */
+    void record_delimiters(const equiv_bytesequence_type &byte_seq);
+    const equiv_bytesequence_type & record_delimiters(void) const;
+    void set_effective_record_delimiter(
+      const std::shared_ptr<parser::byte_vec_type> &seq);
 
-    const std::vector<delim_desc> & field_delimiters(void) const;
+    /* FIELD COMPLETION DELIMITER */
+    void field_delimiters(const equiv_bytesequence_type &byte_seq);
+    const equiv_bytesequence_type & field_delimiters(void) const;
+    void set_effective_field_delimiters(
+      const std::shared_ptr<parser::byte_vec_type> &seq);
 
-    bool delimiter_repeatflag(void) const;
-    bool delimiter_parse_exclusive(void) const;
+    /*
+      FIELD ESCAPE  --- the sequence used to open and close an escaped field
+
+      Possibilities include:
+        - any to any
+        - any to one
+        - one to any
+        - one to one
+
+      Where 'any' means multiple equivalent sequences and 'one' means a single
+      byte sequence. For each of these possibilities, multiple pairings can
+      exist. For example, suppose we have an opening set A that if scanned must
+      be closed by a sequence in closing set B or (A -> B). We can also have
+      another pairing from opening set C that must be closed by a sequence
+      contained in set D or (C -> D), etc. Each of these pairings are
+      contained in the field_escapes pair vector.
+
+      Remaining exclusivity is another supported possibility. That is, given
+      the mappings above, if once a sequence from opening set A is seen, then
+      a sequence from A and a sequence from the closing set B is the only valid
+      opening and closing sequence for the remainder of the file.
+
+      An even higher level of granularity is also supported.
+      Suppose that the equivalent opening escaped field set A contains
+      sequences {l,m,n,o}, then if sequence 'm' is seen, it is the only valid
+      opening sequence for the remainder of the parse. Optionally, then suppose
+      that the paired set B contains sequences {p,q,r,s}, then whichever
+      closing sequence is scanned (suppose 'q'), it becomes the only valid
+      closing sequence for the remainder of the file. That is to say;
+      'm' opens and 'q' closes for the rest of the file. Note that open and
+      close exclusivity can be independently enabled for each open and close
+      equivalent sequence set. That is, if both the mappings A -> B and C -> D
+      are set as exclusive but if the individual bytesequence for each of
+      C and D are also set, then if a bytesequence from A is scanned first, then
+      any subsequent sequence from A is the only valid open sequence and any
+      sequence from B is the only valid closing sequence for the rest of
+      of the file. However if a sequence from C, 'm', is scanned first, and
+      a corresponding closing sequence from D, 'q', is scanned, then 'm' and 'q'
+      are the only valid opening and closing sequences for the rest of the file.
+
+      \c field_escapes gets and sets a vector of pairs of equiv_bytesequences
+      where each pair corresponds to an equivalent opening and closing set.
+      That is, the A -> B example above. If one individual should be exclusive
+      for each set then set the \c exclusiveflag in each equiv_bytesequences.
+      That is, the \c m in the \c {l,m,n,o} example above.
+
+      \c effective_field_escapes_pair gets and sets the pair that currently
+      matched. For example, if given sets A -> B, and C -> D then if a
+      bytesequence from A is seen, then \c effective_field_escapes_pair
+      should be set to zero indicating that the closing bytesequence should
+      come from B.
+
+      \c field_escapes_exclusives gets and set a flag that indicates whether
+      or not the equiv_bytesequence_pair is considered exclusive for the
+      remainder of the file. If so, the individual effective_bytesequence
+      should be used to determine if it is the exclusive permanent bytesequence
+      for the rest of the file.
+
+      N.B. It is possible that an individual bytesequence for a set can be
+      exclusive for the remainder of the file without the set being
+      exclusive for the remainder of the file. That is:
+      field_escapes_exclusives(false). In this case, if \c m is seen and set
+      to exclusive but field_escapes_exclusives is set to false, then only it
+      will be considered when considering A before moving on to B.
+    */
+    void field_escapes(const std::vector<equiv_bytesequence_pair> &pair_vec);
+    const std::vector<equiv_bytesequence_pair> & field_escapes(void) const;
+
+    // an idx of -1 or SIZE_MAX indicates exclusive was not set or it was set
+    // but an open field escape was not seen yet
+    void effective_field_escapes_pair(std::size_t idx);
+    std::size_t effective_field_escapes_pair(void) const;
+
+    // sets \c seq on the field_escapes pair indicated by
+    // \c effective_field_escapes_pair
+    void set_effective_open_field_escapes(
+      const std::shared_ptr<parser::byte_vec_type> &seq);
+    void set_effective_close_field_escapes(
+      const std::shared_ptr<parser::byte_vec_type> &seq);
+
+    void field_escapes_exclusives(bool flag);
+    bool field_escapes_exclusives(void) const;
+    bool escaped_field(void) const;
+    bool escaped_field(bool val);
+
+
+
+
+    /*
+      FIELD ESCAPE ESCAPES --- how to represent the field escape sequence
+      when in the middle of an escaped field. eg if the field escape is a
+      quote and the field is 'foo' ("foo"), how do you represent a quote between
+      the two 'o's. Examples include a "\"' sequence or a double quote for
+      RFC-4180. ie "fo\"o" and "fo""o" respectively.
+    */
+    void field_escape_escapes(const equiv_bytesequence_type &byte_seq);
+    const equiv_bytesequence_type & field_escape_escapes(void) const;
+    void set_effective_field_escape_escapes(
+      const std::shared_ptr<parser::byte_vec_type> &seq);
+
+
+
+//////////////////////
+
+
+
 
     const dsv_newline_behavior & newline_behavior(void) const;
     dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
 
-    ssize_t field_columns(void) const;
-    ssize_t field_columns(ssize_t num_cols);
+    size_t field_columns(void) const;
+    size_t field_columns(size_t num_cols);
 
     bool escaped_binary_fields(void) const;
     bool escaped_binary_fields(bool flag);
 
 
-    /* non-exposed behaviors */
-    const std::vector<byte_chunk> & compiled_delimiter_vec(void) const;
 
-    std::shared_ptr<byte_vec_type> effective_delimiter(void) const;
-    void effective_delimiter(const std::shared_ptr<byte_vec_type> &delim);
 
-    dsv_newline_behavior effective_newline(void) const;
-    dsv_newline_behavior effective_newline(dsv_newline_behavior val);
 
-    bool escaped_field(void) const;
-    bool escaped_field(bool val);
 
-    ssize_t effective_field_columns(void) const;
-    ssize_t effective_field_columns(ssize_t num_cols);
+
+    size_t effective_field_columns(void) const;
+    size_t effective_field_columns(size_t num_cols);
 
     bool effective_field_columns_set(void) const;
     bool effective_field_columns_set(bool flag);
@@ -199,39 +295,41 @@ class parser {
 
     log_list_type log_list;
 
-    std::vector<delim_desc> _delimiter_vec;
-    bool _delim_repeat;
-    bool _delim_exclusive;
 
-    // internal use
-    std::vector<byte_chunk> _compiled_delimiter_vec;
+    equiv_bytesequence_type _record_delimiters;
+    equiv_bytesequence_type _field_delimiters;
 
-    std::shared_ptr<byte_vec_type> _effective_delimiter;
+    std::vector<equiv_bytesequence_pair> _field_escapes;
+    std::size_t _effective_field_escapes_pair;
+    bool _field_escapes_exclusives;
+    bool _escaped_field;
 
-    dsv_newline_behavior _newline_behavior;
-    ssize_t _field_columns;
+    equiv_bytesequence_type _field_escape_escapes;
+
+    size_t _field_columns;
     bool _escaped_binary_fields;
 
-    dsv_newline_behavior _effective_newline;
-    bool _escaped_field;
-    ssize_t _effective_field_columns;
+    size_t _effective_field_columns;
     bool _effective_field_columns_set;
+
+    static const equiv_bytesequence_type & make_default_record_delimiters(void);
+    static const equiv_bytesequence_type & make_default_field_delimiters(void);
+    static const std::vector<parser::equiv_bytesequence_pair> &
+      make_default_field_escapes(void);
+    static equiv_bytesequence_type make_default_field_escape_escapes(void);
 };
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none),_field_columns(0), _escaped_binary_fields(false),
-  _escaped_field(false),_effective_field_columns(0),
+  _log_level(dsv_log_none),
+  _record_delimiters(make_default_record_delimiters()),
+  _field_delimiters(make_default_field_delimiters()),
+  _field_escapes(make_default_field_escapes()),
+  _effective_field_escapes_pair(-1),
+  _field_escape_escapes(make_default_field_escape_escapes()),
+  _field_columns(0), _escaped_binary_fields(false),
+  _effective_field_columns(0),
   _effective_field_columns_set(false)
 {
-  static const unsigned char default_delim = ',';
-  static const unsigned char *default_equiv_delim[1] = {&default_delim};
-  static const size_t default_delim_size[1] = {1};
-  static const int default_delim_repeat[1] = {0};
-
-  set_equiv_delimiters(default_equiv_delim,default_delim_size,
-    default_delim_repeat,1,0,1);
-
-  newline_behavior(dsv_newline_permissive);
 }
 
 inline log_callback_t parser::log_callback(void) const
@@ -287,85 +385,124 @@ inline void parser::append_log(dsv_log_level level, const log_description &desc)
   log_list.push_back(std::make_pair(level,desc));
 }
 
-inline void parser::set_equiv_delimiters(const unsigned char *delim[],
-  const size_t delimsize[], const int delim_repeat[], size_t size,
-  bool repeatflag, bool exclusiveflag)
+
+
+
+inline void
+parser::record_delimiters(const equiv_bytesequence_type &byte_seq)
 {
-  _delimiter_vec.clear();
-  _delimiter_vec.reserve(size);
+  _record_delimiters = byte_seq;
+}
 
-  _effective_delimiter.reset();
+inline const parser::equiv_bytesequence_type &
+parser::record_delimiters(void) const
+{
+  return _record_delimiters;
+}
 
-  for(std::size_t i=0; i<size; ++i)
-    _delimiter_vec.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
-
-  if(size == 1) {
-    // optimize for single delimiter case
-    _delim_repeat = repeatflag || delim_repeat[0];
-    _delim_exclusive = !_delim_repeat;
-    _effective_delimiter.reset(
-      new byte_vec_type(delim[0],delim[0]+delimsize[0]));
-
-    std::cerr << "Delim: '";
-    for(std::size_t i=0; i<delimsize[0]; ++i)
-      std::cerr << delim[0][i];
-    std::cerr << "'\n";
-
-    std::cerr << "_delim_repeat: " << _delim_repeat << "\n";
-    std::cerr << "_delim_exclusive: " << _delim_exclusive << "\n";
-  }
-  else {
-    _delim_repeat = repeatflag;
-    _delim_exclusive = exclusiveflag;
-
-    // set up delimiter description and compile
-    std::vector<bytesequence_desc> delim_desc;
-    for(std::size_t i=0; i<size; ++i)
-      delim_desc.emplace_back(delim[i],delim[i]+delimsize[i],delim_repeat[i]);
-
-    _compiled_delimiter_vec = compile_seq(delim_desc.begin(),delim_desc.end());
-
-     print_packed(_compiled_delimiter_vec);
-  }
+inline void parser::set_effective_record_delimiter(
+  const std::shared_ptr<parser::byte_vec_type> &seq)
+{
+  _record_delimiters.effective_byteseq(seq);
 }
 
 
-inline const std::vector<parser::delim_desc> &
+inline void
+parser::field_delimiters(const equiv_bytesequence_type &byte_seq)
+{
+  _field_delimiters = byte_seq;
+}
+
+inline const parser::equiv_bytesequence_type &
 parser::field_delimiters(void) const
 {
-  return _delimiter_vec;
+  return _field_delimiters;
 }
 
-inline bool parser::delimiter_repeatflag(void) const
+inline void parser::set_effective_field_delimiters(
+  const std::shared_ptr<parser::byte_vec_type> &seq)
 {
-  return _delim_repeat;
+  _field_delimiters.effective_byteseq(seq);
 }
 
-inline bool parser::delimiter_parse_exclusive(void) const
+
+
+
+
+
+inline void
+parser::field_escapes(const std::vector<equiv_bytesequence_pair> &pair_vec)
 {
-  return _delim_exclusive;
+  _field_escapes = pair_vec;
 }
 
-inline const dsv_newline_behavior & parser::newline_behavior(void) const
+inline const std::vector<parser::equiv_bytesequence_pair> &
+parser::field_escapes(void) const
 {
-  return _newline_behavior;
+  return _field_escapes;
 }
 
-inline dsv_newline_behavior
-parser::newline_behavior(dsv_newline_behavior behavior)
+inline void parser::effective_field_escapes_pair(std::size_t idx)
 {
-  std::swap(behavior,_newline_behavior);
-  _effective_newline = _newline_behavior;
-
-  return behavior;
+  _effective_field_escapes_pair = idx;
 }
 
-inline ssize_t parser::field_columns(void) const
+inline std::size_t parser::effective_field_escapes_pair(void) const
+{
+  return _effective_field_escapes_pair;
+}
+
+inline void parser::field_escapes_exclusives(bool flag)
+{
+  _field_escapes_exclusives = flag;
+}
+
+inline bool parser::field_escapes_exclusives(void) const
+{
+  return _field_escapes_exclusives;
+}
+
+
+inline void
+parser::field_escape_escapes(const equiv_bytesequence_type &byte_seq)
+{
+  _field_escape_escapes = byte_seq;
+}
+
+inline const parser::equiv_bytesequence_type &
+parser::field_escape_escapes(void) const
+{
+  return _field_escape_escapes;
+}
+
+inline void parser::set_effective_field_escape_escapes(
+  const std::shared_ptr<parser::byte_vec_type> &seq)
+{
+  _field_escape_escapes.effective_byteseq(seq);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+inline size_t parser::field_columns(void) const
 {
   return _field_columns;
 }
 
-inline ssize_t parser::field_columns(ssize_t cols)
+inline size_t parser::field_columns(size_t cols)
 {
   std::swap(cols,_field_columns);
   _effective_field_columns = _field_columns;
@@ -385,37 +522,22 @@ inline bool parser::escaped_binary_fields(bool flag)
   return flag;
 }
 
-
-inline const std::vector<byte_chunk> &
-parser::compiled_delimiter_vec(void) const
-{
-  return _compiled_delimiter_vec;
-}
-
-inline std::shared_ptr<parser::byte_vec_type>
-parser::effective_delimiter(void) const
-{
-  return _effective_delimiter;
-}
-
-inline void
-parser::effective_delimiter(
-  const std::shared_ptr<parser::byte_vec_type> &edelim)
-{
-  _effective_delimiter = edelim;
-}
+// nonexposed
 
 
-inline dsv_newline_behavior parser::effective_newline(void) const
-{
-  return _effective_newline;
-}
 
-inline dsv_newline_behavior parser::effective_newline(dsv_newline_behavior val)
-{
-  std::swap(val,_effective_newline);
-  return val;
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 inline bool parser::escaped_field(void) const
 {
@@ -428,12 +550,12 @@ inline bool parser::escaped_field(bool val)
   return val;
 }
 
-inline ssize_t parser::effective_field_columns(void) const
+inline size_t parser::effective_field_columns(void) const
 {
   return _effective_field_columns;
 }
 
-inline ssize_t parser::effective_field_columns(ssize_t cols)
+inline size_t parser::effective_field_columns(size_t cols)
 {
   std::swap(cols,_effective_field_columns);
   return cols;
@@ -450,14 +572,77 @@ inline bool parser::effective_field_columns_set(bool flag)
   return flag;
 }
 
-
+// todo fix me
 inline void parser::reset(void)
 {
   log_list.clear();
-  _effective_newline = _newline_behavior;
   _escaped_field = false;
   _effective_field_columns = _field_columns;
   _effective_field_columns_set = (_field_columns > 0);
+}
+
+inline const parser::equiv_bytesequence_type &
+parser::make_default_record_delimiters(void)
+{
+  // default is CRLF
+  static const byte_type default_seq[] = {0x0D,0x0A};
+  static const byte_type *default_equiv_seqs[1] = {default_seq};
+  static const size_t default_equiv_seqs_size[1] = {2};
+  static const int default_equiv_seqs_repeat[1] = {0};
+
+  static const equiv_bytesequence_type equiv_sequence(default_equiv_seqs,
+    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
+
+  return equiv_sequence;
+}
+
+inline const parser::equiv_bytesequence_type &
+parser::make_default_field_delimiters(void)
+{
+  // default is comma
+  static const byte_type default_seq[] = {','};
+  static const byte_type *default_equiv_seqs[1] = {default_seq};
+  static const size_t default_equiv_seqs_size[1] = {1};
+  static const int default_equiv_seqs_repeat[1] = {0};
+
+  static const equiv_bytesequence_type equiv_sequence(default_equiv_seqs,
+    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
+
+  return equiv_sequence;
+}
+
+inline const std::vector<parser::equiv_bytesequence_pair> &
+parser::make_default_field_escapes(void)
+{
+  // default is double quote ie "
+  static const byte_type default_seq[] = {'"'};
+  static const byte_type *default_equiv_seqs[1] = {default_seq};
+  static const size_t default_equiv_seqs_size[1] = {1};
+  static const int default_equiv_seqs_repeat[1] = {0};
+
+  static const equiv_bytesequence_pair bytesequence_pair(
+    equiv_bytesequence_type(default_equiv_seqs,
+      default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1),
+    equiv_bytesequence_type(default_equiv_seqs,
+      default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1));
+
+  static const std::vector<parser::equiv_bytesequence_pair> equiv_vec =
+    {bytesequence_pair};
+
+  return equiv_vec;
+}
+
+inline parser::equiv_bytesequence_type
+parser::make_default_field_escape_escapes(void)
+{
+  // default is two double quotes ie ""
+  static const byte_type default_seq[] = {'"','"'};
+  static const byte_type *default_equiv_seqs[1] = {default_seq};
+  static const size_t default_equiv_seqs_size[1] = {2};
+  static const int default_equiv_seqs_repeat[1] = {0};
+
+  return equiv_bytesequence_type(default_equiv_seqs,
+    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
 }
 
 

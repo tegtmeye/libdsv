@@ -371,6 +371,17 @@ std::string compare_logs(const std::vector<log_msg> &required,
   return out.str();
 }
 
+std::string ascii(int c)
+{
+  std::stringstream out;
+
+  if(c >= 32 && c <= 126)
+    out << char(c);
+  else
+    out << c;
+
+  return out.str();
+}
 
 
 struct file_context {

@@ -25,7 +25,7 @@ additional_test_ldflags=\
 
 check_PROGRAMS= \
 	scanner_test \
-	compile_bytesequence_test \
+	equiv_bytesequence_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
@@ -39,11 +39,11 @@ scanner_test_CPPFLAGS=$(additional_test_cppflags)
 scanner_test_LDADD=$(additional_test_libs)
 scanner_test_LDFLAGS=$(additional_test_ldflags)
 
-compile_bytesequence_test_SOURCES=$(master_suite) \
-        compile_bytesequence_test.cc
-compile_bytesequence_test_CPPFLAGS=$(additional_test_cppflags)
-compile_bytesequence_test_LDADD=$(additional_test_libs)
-compile_bytesequence_test_LDFLAGS=$(additional_test_ldflags)
+equiv_bytesequence_test_SOURCES=$(master_suite) \
+        equiv_bytesequence_test.cc
+equiv_bytesequence_test_CPPFLAGS=$(additional_test_cppflags)
+equiv_bytesequence_test_LDADD=$(additional_test_libs)
+equiv_bytesequence_test_LDFLAGS=$(additional_test_ldflags)
 
 api_parser_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -101,7 +101,7 @@ api_alt_delimiter_test_LDFLAGS=\
 
 TESTS=\
 	scanner_test \
-	compile_bytesequence_test \
+	equiv_bytesequence_test \
 	api_parser_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
@@ -112,8 +112,8 @@ TESTS=\
 CLEANFILES=\
 	scanner_test.log \
 	scanner_test.trs \
-	compile_bytesequence_test.log \
-	compile_bytesequence_test.trs \
+	equiv_bytesequence_test.log \
+	equiv_bytesequence_test.trs \
 	api_parser_object_suite.log \
 	api_parser_object_suite.trs \
 	api_operations_object_suite.log \

@@ -41,6 +41,8 @@
 
 #include <cerrno>
 
+#include <iostream>
+
 namespace detail {
 
   /**
@@ -52,52 +54,84 @@ namespace detail {
    */
   class scanner_state {
     public:
-      scanner_state(const char *str, FILE *in=0, std::size_t buff_size=256);
+      scanner_state(const char *str, FILE *in=0, std::size_t min_buff_size=256);
 
       const char * filename(void) const;
 
       /*
-          Get the current character from the input. Unlike C and POSIX, do not
-          advance the read location. That is, getc can be called multiple
-          consecutive times with the same return value.
+          get character and advance the read location
+
+          Get the current character from the input and advance the read
+          location but do not advance the putback buffer. That is, calling
+          advancec multiple consecutive times will not return the same value
+          until the end of stream is reached and then EOF is returned.
        */
       int getc(void);
 
       /*
-          Get the current character from the input and advance the read
-          location. That is, calling advancec multiple consecutive times will
-          not return the same value until the end of stream is reached and then
-          EOF is returned.
+          forget any mark and putback buffers, get character, and advance the
+          read location
 
-          Do not adjust the putback buffer
+          Forget any putback buffer, get the current character from the input,
+          advance the read location, set the mark location to the read location.
+          That is, calling fgetc multiple consecutive times will not return the
+          same value until the end of stream is reached and then EOF is returned
+          regardless if the the (f)getc was interlaced with a call to \c putback
+          or \c putbackmark
        */
-      int advancec(void);
+      int fgetc(void);
 
       /*
-          Forget any putback buffer, get the current character from the input,
-          and advance the read location. That is, calling fadvancec multiple
-          consecutive times will not return the same value until the end of
-          stream is reached and then EOF is returned.
+          Set the putback marker to the current read position. That is, in a
+          call sequence of:
+            setmark();
+            a = getc();
+            putback();
+            b = getc();
+
+            'a' and 'b' will have the same value
        */
-      int fadvancec(void);
+      void setmark(void);
+
+      /*
+          Putback any bytes from the putback buffer up to the mark location to
+          be read again then set the current read location to the mark location.
+      */
+      void putbackmark(void);
+
 
       /*
           Putback any bytes from the putback buffer to be read again. If the
-          putback buffer is empty, this has no effect.
+          putback buffer is empty, this has no effect. This also sets the
+          putbackmark to the current read location.
       */
       void putback(void);
 
       /*
-          Forget the putback buffer if any exists
+          Forget the putback buffer and mark if any exists. That is, set the
+          putback location and mark location to the read location.
       */
       void forget(void);
+
+      /*
+          Return the number of bytes in the putback buffer
+      */
+      std::size_t putback_len(void) const;
+
+      /*
+          Return nonzero if the input has reached EOF. That is, any additional
+          calls to [f]getc() will return EOF.
+      */
+      bool eof(void) const;
 
     private:
       std::string fname;
       std::shared_ptr<FILE> stream;
 
+      std::size_t min_buf_sz;
       std::vector<unsigned char> buff;
       std::size_t begin_off;
+      std::size_t mark_off;
       std::size_t cur_off;
       std::size_t end_off;
 
@@ -105,8 +139,8 @@ namespace detail {
   };
 
   inline scanner_state::scanner_state(const char *str, FILE *in,
-    std::size_t buff_size) :buff(buff_size), begin_off(0), cur_off(0),
-    end_off(0)
+    std::size_t min_buff_size) :min_buf_sz(min_buff_size),
+    buff(min_buff_size,0), begin_off(0), mark_off(0), cur_off(0), end_off(0)
   {
     if(str)
       fname = str;
@@ -132,39 +166,47 @@ namespace detail {
     if(cur_off == end_off && !refill())
       return EOF;
 
-    return buff.at(cur_off);
+    return buff[cur_off++];
   }
 
-  inline int scanner_state::advancec(void)
+  inline int scanner_state::fgetc(void)
   {
-    int result = getc();
+    forget();
 
-    if(result != EOF)
-      ++cur_off;
-
-    return result;
+    return getc();
   }
 
-  inline int scanner_state::fadvancec(void)
+  inline void scanner_state::setmark(void)
   {
-    int result = getc();
+    mark_off = cur_off;
+  }
 
-    if(result != EOF)
-      begin_off = ++cur_off;
-
-    return result;
+  inline void scanner_state::putbackmark(void)
+  {
+    cur_off = mark_off;
   }
 
   inline void scanner_state::putback(void)
   {
     cur_off = begin_off;
+    mark_off = begin_off;
   }
 
   inline void scanner_state::forget(void)
   {
     begin_off = cur_off;
+    mark_off = cur_off;
   }
 
+  inline std::size_t scanner_state::putback_len(void) const
+  {
+    return (cur_off - begin_off);
+  }
+
+  inline bool scanner_state::eof(void) const
+  {
+    return std::feof(stream.get());
+  }
 
   /**
       IMPORTANT! Buff MUST be bigger than twice the minimum putback size
@@ -172,6 +214,7 @@ namespace detail {
    */
   inline bool scanner_state::refill(void)
   {
+// std::cerr << "REFILL\n";
 //     std::cerr << "(Pre) begin_off (" << begin_off << "); cur_off ("
 //       << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
 //     for(std::size_t i=begin_off; i<cur_off; ++i) {
@@ -187,6 +230,8 @@ namespace detail {
     //todo investigate how much we really refill with a nonempty putback buffer
     if(begin_off != 0) {
       std::size_t putback_len = (cur_off - begin_off);
+      // reset mark_off to distance from beginning
+      mark_off = (mark_off - begin_off);
       std::move(buff.begin()+begin_off,buff.begin()+cur_off,buff.begin());
       begin_off = 0;
       cur_off = end_off = putback_len;
@@ -205,6 +250,13 @@ namespace detail {
     errno=0;
     std::size_t len;
     std::size_t buf_len = buff.size()-cur_off;
+
+    // ensure we are not left with a buffer smaller than the min buffer
+    if(buf_len < min_buf_sz) {
+      buff.resize(cur_off+min_buf_sz,0);
+      buf_len = min_buf_sz;
+    }
+
     while ((len = std::fread(buff.data()+cur_off,1,buf_len,stream.get()))==0
       && std::ferror(stream.get()))
     {

@@ -28,6 +28,8 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if 0
+
 #include "dsv_parser.h"
 #include "parser.h"
 #include "parse_operations.h"
@@ -287,7 +289,7 @@ size_t dsv_parser_num_field_delimiters(dsv_parser_t _parser)
   size_t result = 0;
 
   try {
-    result = parser.field_delimiters().size();
+    result = parser.delimiters_descs().size();
   }
   catch(...) {
     abort();
@@ -342,16 +344,17 @@ size_t dsv_parser_get_field_delimiter(dsv_parser_t _parser, size_t n,
   size_t result = 0;
 
   try {
-    if(n >= parser.field_delimiters().size())
+    if(n >= parser.delimiters_descs().size())
       result = 0;
     else {
-      const detail::parser::delim_desc &delim = parser.field_delimiters().at(n);
+      const detail::parser::byteseq_desc &delim =
+        parser.delimiters_descs().at(n);
 
       if(bufsize == 0)
-        result = delim.delim_bytes.size();
+        result = delim.seq_bytes.size();
       else {
-        while(result < delim.delim_bytes.size() && result < bufsize) {
-          buf[result] = delim.delim_bytes[result];
+        while(result < delim.seq_bytes.size() && result < bufsize) {
+          buf[result] = delim.seq_bytes[result];
           ++result;
         }
       }
@@ -705,4 +708,113 @@ dsv_log_level dsv_get_log_level(dsv_parser_t _parser)
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+#if 0
+todo
+
+  /**
+   *  \brief Enable or disable binary in double quoted fields for future parsing
+   *  with \c parser
+   *
+   *  The default setting is 0 (false)
+   *
+   *  Under RFC-4180, the file shall only contain ASCII printable characters.
+   *  When enabled, this turns off most character translation in double quoted
+   *  fields. Double quotes are still recognized as well as double quote
+   *  preceded by another double quote.
+   *
+   *  Enabling is useful if the fields contain non-printing but otherwise useful
+   *  ASCII characters as well as allowing for non-ASCII encoding such as UTF-8.
+   *  The library makes no attempt to translate any such characters.
+   *
+   *  The downside is that newline interpretation is also turned off. Therefore
+   *  only newlines outside of the double quoted fields are counted for location
+   *  tracking. This means that if syntax errors are encountered, it can make
+   *  locating them difficult.
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] flag nonzero to enable, zero to disable
+   */
+  void dsv_parser_allow_escaped_binary_fields(dsv_parser_t parser, int flag);
+
+  /**
+   *  \brief Query the whether binary is recognized in double quoted fields for
+   *  future parsing with \c parser
+   *
+   *  Under RFC-4180, the file shall only contain ASCII printable characters.
+   *  When enabled, this turns off character translation in double quoted fields
+   *  (double quotes are till recognized obviously--this includes double quote
+   *  preceded by another double quote.)
+   *
+   *  Enabling is useful if the fields contain non-printing but otherwise useful
+   *  ASCII characters as well as allowing for non-ASCII encoding such as UTF-8.
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *  \param[in] flag nonzero to enable, zero to disable
+   */
+  int dsv_parser_escaped_binary_fields_allowed(dsv_parser_t parser);
+
+
+
+
+void dsv_parser_allow_escaped_binary_fields(dsv_parser_t _parser, int flag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  try {
+    parser.escaped_binary_fields(flag);
+  }
+  catch(...) {
+    abort();
+  }
 }
+
+int dsv_parser_escaped_binary_fields_allowed(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result;
+
+  try {
+    result = parser.escaped_binary_fields();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+}
+
+#endif

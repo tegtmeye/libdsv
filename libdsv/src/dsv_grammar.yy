@@ -2,8 +2,8 @@
  Copyright (c) 2014, Mike Tegtmeyer
  All rights reserved.
 
- Redistribution and use in source and binary forms, with or without modification,
- are permitted provided that the following conditions are met:
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
 
  1. Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
@@ -215,8 +215,9 @@
       }
       else if(parser.effective_field_columns() != columns) {
 //         std::cerr << "effective_field_columns_set set && cols not equal\n";
-        if(parser.field_columns() < 0) {
-          return column_count_message(llocp,scanner,parser,columns,dsv_log_warning);
+        if(parser.field_columns() == -1) {
+          return column_count_message(llocp,scanner,parser,columns,
+            dsv_log_warning);
         }
         else {
           column_count_message(llocp,scanner,parser,columns,dsv_log_error);
@@ -316,15 +317,12 @@
 %parse-param {const std::unique_ptr<detail::scanner_state> &context}
 
 %token END 0 "end-of-file"
-%token <char_buf_ptr> DELIMITER "delimiter"
-//%token HEADER_DELIMITER "header delimiter"
-%token <char_buf_ptr> LF "linefeed"
-%token <char_buf_ptr> CR "carriage-return"
-%token <char_buf_ptr> NL "newline"
-%token DQUOTE "\""
-%token <char_buf_ptr> D2QUOTE "\"\""
-%token <char_buf_ptr> TEXTDATA
-%token BINARYDATA "binary data"
+%token <char_buf_ptr> FIELD_DELIMITER "field delimiter"
+%token <char_buf_ptr> RECORD_DELIMITER "record delimiter"
+%token <char_buf_ptr> OPEN_FIELD_ESCAPE "open field escape"
+%token <char_buf_ptr> CLOSE_FIELD_ESCAPE "close field escape"
+%token <char_buf_ptr> ESCAPED_ESCAPE "escaped escape"
+%token <char_buf_ptr> FIELDDATA
 
 
 // file
@@ -344,13 +342,13 @@ file:
   | empty_header
   | empty_header record_block
   | header_block
-  | header_block NL
-  | header_block NL record_block
+  | header_block RECORD_DELIMITER
+  | header_block RECORD_DELIMITER record_block
   ;
 
 empty_header:
-    NL {
-      // NL means no header. Check to see if empty records are allowed
+    RECORD_DELIMITER {
+      // RECORD_DELIMITER means no header. Check to see if empty records are allowed
 //       std::cerr << "HERE!!!!!!!!!!!!!!\n";
       if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec)) {
 //         std::cerr << "ABORTING!!!!!!!!!!!!!!\n";
@@ -382,23 +380,23 @@ field_list:
       $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->push_back($1);
     }
-  | DELIMITER {
+  | FIELD_DELIMITER {
       $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->push_back(detail::empty_buf);
       $$->push_back(detail::empty_buf);
     }
-  | DELIMITER field {
+  | FIELD_DELIMITER field {
       $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->push_back(detail::empty_buf);
       $$->push_back($2);
     }
-  | field_list DELIMITER {
+  | field_list FIELD_DELIMITER {
       $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back(detail::empty_buf);
     }
-  | field_list DELIMITER field {
+  | field_list FIELD_DELIMITER field {
       $$.reset(new YYSTYPE::char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
@@ -412,22 +410,8 @@ field:
   ;
 
 escaped_field:
-    open_quote escaped_textdata_list close_quote {
+    OPEN_FIELD_ESCAPE escaped_textdata_list CLOSE_FIELD_ESCAPE {
       $$ = $2;
-    }
-  ;
-
-open_quote:
-    DQUOTE {
-//       std::cerr << "TURNING ON ESCAPED FIELD\n";
-      parser.escaped_field(true);
-    }
-  ;
-
-close_quote:
-    DQUOTE {
-//       std::cerr << "TURNING OFF ESCAPED FIELD\n";
-      parser.escaped_field(false);
     }
   ;
 
@@ -443,35 +427,16 @@ escaped_textdata_list:
   ;
 
 escaped_textdata:
-    TEXTDATA { $$ = $1; }
-  | DELIMITER { $$ = $1; }
-  | NL { $$ = $1; } // NL are always accepted
-  | LF {
-      // LF is returned if it wasn't already considered an NL
-      if(!parser.escaped_binary_fields()) {
-        unexpected_binary(@1,scanner,parser,*$1,dsv_log_error);
-        YYABORT;
-      }
-
-    }
-  | CR {
-      // CR is returned if it wasn't already considered an NL, ie CRLF
-      if(!parser.escaped_binary_fields()) {
-        unexpected_binary(@1,scanner,parser,*$1,dsv_log_error);
-        YYABORT;
-      }
-
-      $$ = $1;
-    }
-  | D2QUOTE { $$ = $1; }
+    FIELDDATA { $$ = $1; }
+  | ESCAPED_ESCAPE { $$ = $1; }
   ;
 
 non_escaped_field:
-    TEXTDATA { $$ = $1; }
+    FIELDDATA { $$ = $1; }
   ;
 
 record_block:
-    NL {  // A single NL means an empty record block
+    RECORD_DELIMITER {  // A single RECORD_DELIMITER means an empty record block
       // check to see if empty records are allowed
       if(!detail::check_or_update_column_count(@1,scanner,parser,
         detail::empty_vec))
@@ -491,9 +456,9 @@ record_block:
   ;
 
 record_list:
-    record NL
-  | record_list NL {
-      // Single NL means empty record
+    record RECORD_DELIMITER
+  | record_list RECORD_DELIMITER {
+      // Single RECORD_DELIMITER means empty record
       if(!detail::check_or_update_column_count(@2,scanner,parser,
         detail::empty_vec))
       {
@@ -507,7 +472,7 @@ record_list:
         YYABORT;
       }
     }
-  | record_list record NL
+  | record_list record RECORD_DELIMITER
   ;
 
 record:
@@ -551,106 +516,138 @@ std::string ascii(int c)
   return out.str();
 }
 
+
+
+
+/**
+    delim_repeat: potentially repeat the delimiter as many times as possible. If
+    exclusiveflag is set, the first occurrence of the parsed delimiter
+    (including the repeats) is set as the exclusive delimiter.
+
+    repeatflag: repeat any of the equivalent delimiters as many times as
+    possible. If the excluiveflag is set, repeat this only this delimiter as
+    many times as possible.
+
+    Special cases of the above if only one delimiter:
+      - If exclusiveflag is NOT set, setting delim_repeat and repeatflag have an
+      equivalent effect. Internally the effective delimiter is set with
+      delim_repeat set to false and repeatflag is set to true.
+
+      - If exclusiveflag is set, normal multi-delim behavior takes place.
+      Internally, the effective delimiter is set on the first occurrence as
+      usual.
+
+    Possible cases:
+
+      - Single defined delimiter stored in effective delimiter, if delim_repeat
+      is set, try to repeat when reading
+
+      - Multi-delimiter no repeat, no exclusive: compile to bytesequence.
+
+      - Multi-delimiter repeat, no exclusive: compile to bytesequence. Try and
+      repeat as necessary.
+
+      - Multi-delimiter no repeat, exclusive: compile to bytesequence, found
+      sequence is copied to effective delimiter for future parsing.
+
+      - Multi-delimiter repeat, exclusive: compile to bytesequence, found
+      sequence is copied to effective delimiter for future parsing.
+ */
+
+
+
+
+
 /**
     Convenience function for parser_lex
 
-    We don't copy into the actual delimiter representation here for efficiency
+    Forget any existing putback buffer and try to read the byte seq from the
+    scanner input if possible. If successful, the current read position points
+    to the first byte not part of [first,last] and the read bytes remain in the
+    putback buffer. If not succesful, the read position remains unchanged.
 
-    Forget any existing putback buffer and try to read the delimiter from the
-    scanner input if possible. The read characters remain in the putback buffer.
+    Handles case 1.
  */
 template<typename ForwardIterator>
-inline std::size_t read_delimiter(detail::scanner_state &scanner,
-  ForwardIterator first, ForwardIterator last)
+inline std::size_t read_bytes(detail::scanner_state &scanner,
+  ForwardIterator first, ForwardIterator last, bool repeat)
 {
+  std::size_t result = 0;
+
   scanner.forget();
-  while(first != last && scanner.advancec() == static_cast<int>(*first))
-    ++first;
 
-  if(first == last) {
-    scanner.forget();
-    return last-first;
-  }
+  ForwardIterator cur;
+  do {
+    cur = first;
+    scanner.setmark();
 
-  scanner.putback();
-  return 0;
-}
-
-
-template<typename ForwardIterator>
-inline std::size_t read_delimiter_repeat(detail::scanner_state &scanner,
-  ForwardIterator first, ForwardIterator last)
-{
-
-  std::size_t loops = 0;
-  while(true) {
-    scanner.forget();
-
-  std::cerr << "Start read... Next is '"
-    << ascii(scanner.getc()) << "'\n";;
-
-    ForwardIterator cur = first;
-    while(cur != last && scanner.advancec() == static_cast<int>(*cur)) {
-      std::cerr << "\tmatched '" << ascii(*cur) << "'\n";
+    while(cur != last && scanner.getc() == static_cast<int>(*cur))
       ++cur;
+
+    if(cur != last) {
+      scanner.putbackmark();
+
+      break;
     }
 
-    if(cur != last)
-      break;
+    result += (last-first);
+  } while(repeat);
 
-    ++loops;
-  };
-
-  scanner.putback();
-
-  std::cerr << "End read... " << (last-first)*loops << " bytes. Next is '"
-    << ascii(scanner.getc()) << "'\n";;
-  return (last-first)*loops;
+  return result;
 }
-
 
 /**
     Convenience function for parser_lex
 
-    We don't copy into the actual delimiter representation here for efficiency
-
-    Forget any existing putback buffer and search for a valid delimiter as
-    represented by the compiled byte sequence \c comp_byte_seq
+    Forget any existing putback buffer and try to read any possible byte seq
+    contained in the compiled structure \c comp_byte_seq from the scanner input
+    if possible. If successful, the current read position points to the first
+    byte not part of the successful comp_byte_seq read and the read bytes remain
+    in the putback buffer. If not succesful, the read position remains
+    unchanged.
  */
-std::size_t search_delimiter(detail::scanner_state &scanner,
-  const std::vector<detail::byte_chunk> &comp_byte_seq)
+std::size_t read_bytes(detail::scanner_state &scanner,
+  const std::vector<detail::byte_chunk> &comp_byte_seq, bool repeat)
 {
   assert(!comp_byte_seq.empty());
 
   scanner.forget();
 
+  int in;
   std::size_t result = 0;
+  std::size_t read_bytes;
 
-  std::size_t read_bytes = 0;
-  std::ptrdiff_t byte_off = 0;
-  for(int in = scanner.getc(); in != EOF; /* empty */) {
-    const detail::byte_chunk &chunk = comp_byte_seq[byte_off];
+  do {
+    read_bytes = 0;
+    std::ptrdiff_t byte_off = 0;
+    for(in = scanner.getc(); in != EOF; /* empty */) {
+      const detail::byte_chunk &chunk = comp_byte_seq[byte_off];
 
-    if(in != chunk.byte) {
-      if(!chunk.fail_skip)
-        break;
+      if(in != chunk.byte) {
+        if(!chunk.fail_skip)
+          break;
 
-      byte_off += chunk.fail_skip;
+        byte_off += chunk.fail_skip;
+      }
+      else {
+        ++read_bytes;
+
+        if(chunk.accept) {
+          scanner.setmark();
+          result = read_bytes;
+        }
+
+        if(!chunk.pass_skip)
+          break;
+
+        in = scanner.getc();
+        byte_off += chunk.pass_skip;
+      }
     }
-    else {
-      ++read_bytes;
-      scanner.advancec();
-      in = scanner.getc();
 
-      if(chunk.accept)
-        result = read_bytes;
-
-      if(!chunk.pass_skip)
-        break;
-
-      byte_off += chunk.pass_skip;
-    }
-  }
+    // putback any partially acceptable sequences
+    scanner.putbackmark();
+  } while (repeat && read_bytes && in != EOF);
 
   return result;
 }
@@ -662,15 +659,17 @@ std::size_t search_delimiter(detail::scanner_state &scanner,
 
 
 
+
+
 /**
-    There are only a few tokens to be lexicographically generated. Many are
-    setting and contextually dependent. The only non-single character tokens are
-    field data content and the double quote (ie "");
 
  */
 int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)
 {
+  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
+  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+
   static const unsigned char crlf_il[] = {0x0D,0x0A};
   static const YYSTYPE::char_buff_ptr_type
     lf_buf(new YYSTYPE::char_buff_type(1,0x0A));
@@ -688,15 +687,14 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   // ' is 0x27
   // " is 0x22
 
-  int cur;
-  while((cur = scanner.getc()) != EOF) {
-    // precondition is the putback buffer is empty
-    // we know it isn't EOF but not sure how big the token is...
+  lvalp->char_buf_ptr.reset();
 
+  if(scanner.eof())
+    return 0;
 
-    llocp->first_line = llocp->last_line;
-    // last_column is always 1-past as is C
-    llocp->first_column = llocp->last_column;
+  llocp->first_line = llocp->last_line;
+  // last_column is always 1-past as is C
+  llocp->first_column = llocp->last_column;
 
 //     {
 //       std::cerr << "Top scanned ";
@@ -711,207 +709,352 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //         << llocp->first_column << ":" << llocp->last_column << "\n";
 //     }
 
-    auto effective_delimiter = parser.effective_delimiter();
-    if(effective_delimiter) {
-      // just read the effective delimiter
-      std::size_t read_bytes;
-      if(parser.delimiter_repeatflag())
-        read_bytes = read_delimiter_repeat(scanner,effective_delimiter->begin(),
-          effective_delimiter->end());
-      else
-        read_bytes = read_delimiter(scanner,effective_delimiter->begin(),
-          effective_delimiter->end());
 
-      if(read_bytes) {
-//         std::cerr << "GOT EFFECTIVE: '" << *effective_delimiter << "'\n";
-        llocp->last_column += read_bytes;
-        lvalp->char_buf_ptr = effective_delimiter; // todo, remove
-        return DELIMITER;
-      }
-    }
-    else {
-      std::size_t search_len = search_delimiter(scanner,
-        parser.compiled_delimiter_vec());
-      scanner.putback();
+  if(parser.escaped_field()) {
+    while(!scanner.eof()) {
+      // SEARCH FOR CLOSING FIELD ESCAPE
+      std::size_t eindex = parser.effective_field_escapes_pair();
+      assert(eindex != -1);
 
-//       std::cerr << "SEARCHED LEN: " << search_len << "\n";
+      const std::vector<equiv_bytesequence_pair> &field_escapes =
+        parser.field_escapes();
 
-      if(search_len) {
-        std::shared_ptr<detail::parser::byte_vec_type> parsed_delimiter(
-          new detail::parser::byte_vec_type());
-        parsed_delimiter->reserve(search_len);
+      const equiv_bytesequence_type &close_seq = field_escapes[eindex].second;
+      if(close_seq.effective_byteseq()) {
+        // An equivalent sequence was set, just consider it
+        std::size_t bytes =
+          read_bytes(scanner,close_seq.effective_byteseq()->begin(),
+            close_seq.effective_byteseq()->end(),
+            close_seq.repeatflag());
 
-        for(std::size_t i=search_len; i != 0; --i)
-          parsed_delimiter->push_back(scanner.advancec());
+        if(bytes) {
+          if(lvalp->char_buf_ptr) {
+            scanner.putback();
+            return FIELDDATA;
+          }
 
-//         std::cerr << "SEARCHED: '" << *parsed_delimiter << "'\n";
+          scanner.forget();
 
-        llocp->last_column += search_len;
-        lvalp->char_buf_ptr = parsed_delimiter;
+          ++(llocp->last_line);
+          llocp->last_column = 1;
+          lvalp->char_buf_ptr = close_seq.effective_byteseq();
+          parser.escaped_field(false);
 
-        if(parser.delimiter_parse_exclusive()) {
-//           std::cerr << "Setting effective\n";
-          parser.effective_delimiter(parsed_delimiter);
+          if(!parser.field_escapes_exclusives())
+            parser.effective_field_escapes_pair(-1);
+
+          return CLOSE_FIELD_ESCAPE;
         }
-
-        scanner.forget();
-
-        return DELIMITER;
-      }
-    }
-
-    if(cur == 0x0A) {//LF
-      ++(llocp->last_column);
-      scanner.fadvancec();
-
-      if(parser.effective_newline() != dsv_newline_crlf_strict) {
-        // only register the effective newline if we are not in a quoted field
-        if(parser.effective_newline() == dsv_newline_permissive
-          && !(parser.escaped_field() && parser.escaped_binary_fields()))
-        {
-          parser.effective_newline(dsv_newline_lf_strict);
-//           std::cerr << "SETTING EFFECTIVE LF\n";
-        }
-//         else
-//           std::cerr << "IGNORING SETTING EFFECTIVE LF\n";
-
-        ++(llocp->last_line);
-        llocp->last_column = 1;
-        lvalp->char_buf_ptr = lf_buf;
-        return NL;
-      }
-
-      lvalp->char_buf_ptr = lf_buf;
-      return LF;
-    }
-
-    if(cur == 0x0D) { //CR
-      ++(llocp->last_column);
-      scanner.fadvancec();
-
-      if(scanner.getc() == 0x0A // LF
-        && parser.effective_newline() != dsv_newline_lf_strict)
-      {
-        scanner.fadvancec();
-        ++(llocp->last_line);
-        llocp->last_column = 1;
-        lvalp->char_buf_ptr = crlf_buf;
-
-        // only register the effective newline if we are not in a quoted field
-        if(parser.effective_newline() == dsv_newline_permissive
-          && !(parser.escaped_field() && parser.escaped_binary_fields()))
-        {
-          parser.effective_newline(dsv_newline_crlf_strict);
-//           std::cerr << "SETTING EFFECTIVE CRLF\n";
-        }
-//         else
-//           std::cerr << "IGNORING SETTING EFFECTIVE CRLF\n";
-
-        return NL;
-      }
-
-      lvalp->char_buf_ptr = cr_buf;
-      return CR;
-    }
-
-    if(cur == 0x22) { //"
-      ++(llocp->last_column);
-      scanner.fadvancec();
-      lvalp->char_buf_ptr = quote_buf;
-
-      if(scanner.getc() == 0x22) {
-        ++(llocp->last_column);
-        scanner.fadvancec();
-
-        return D2QUOTE;
-      }
-
-      return DQUOTE;
-    }
-
-    if(parser.escaped_field() && parser.escaped_binary_fields()) {
-      // straight textdata
-      lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
-
-      // only a DQUOTE will terminate a binary enabled escaped field. Don't eat
-      // until we know it is not a terminating byte
-      while((cur = scanner.getc()) != EOF) {
-        if(cur == 0x22) { // DQUOTE
-          return TEXTDATA;
-        }
-
-// std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
-//   << llocp->first_line << ":" << llocp->last_line << " col: "
-//   << llocp->first_column << ":" << llocp->last_column << "\n";
-
-        ++(llocp->last_column);
-        lvalp->char_buf_ptr->push_back(cur);
-        scanner.fadvancec();
-      }
-
-      return TEXTDATA;
-    }
-
-    if(cur < 32 || cur > 126) { // non-ASCII
-      ++(llocp->last_column);
-      scanner.fadvancec();
-      return BINARYDATA;
-    }
-
-    // fallthrough
-    // straight textdata
-//     std::cerr << "Adding TEXTDATA: '" << ascii(cur) << "'\n";
-
-    lvalp->char_buf_ptr.reset(
-      new YYSTYPE::char_buff_type(1,scanner.fadvancec()));
-    ++(llocp->last_column);
-
-    // scan for anything that could terminate the field. Don't eat
-    // until we know it is not a terminating byte
-    while((cur = scanner.getc()) != EOF) {
-// std::cerr << "Processing: '" << ascii(cur) << "'\n";
-
-      bool lookahead_delimiter = false;
-
-      if(parser.effective_delimiter()) {
-//         std::cerr << "has effective. reading delimiter\n";
-        lookahead_delimiter = read_delimiter(scanner,
-          parser.effective_delimiter()->begin(),
-          parser.effective_delimiter()->end());
       }
       else {
-//         std::cerr << "no effective. searching for delimiter\n";
-        lookahead_delimiter = search_delimiter(scanner,
-          parser.compiled_delimiter_vec());
+        // An effective sequence was not set, search through compiled
+        std::size_t bytes =
+          read_bytes(scanner,close_seq.compiled_seq_vec(),
+            close_seq.repeatflag());
 
-//           HERE, need to putback at this location but read fn eats if found!
+        if(bytes) {
+          if(lvalp->char_buf_ptr) {
+            scanner.putback();
+            return FIELDDATA;
+          }
+
+          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+            new detail::parser::byte_vec_type());
+          parsed_seq->reserve(bytes);
+
+          for(std::size_t i=bytes; i != 0; --i)
+            parsed_seq->push_back(scanner.fgetc());
+
+          ++(llocp->last_line);
+          llocp->last_column = 1;
+          lvalp->char_buf_ptr = parsed_seq;
+          parser.escaped_field(true);
+
+          if(close_seq.exclusiveflag()) {
+            //copy over to effective seq
+            parser.set_effective_close_field_escapes(parsed_seq);
+          }
+
+          // must be set _after_ the effective setting above!!
+          if(!parser.field_escapes_exclusives())
+            parser.effective_field_escapes_pair(-1);
+
+          return CLOSE_FIELD_ESCAPE;
+        }
       }
 
-      scanner.putback();
+      // SEARCH FOR ESCAPED ESCAPE
+      const equiv_bytesequence_type &escape_escapes =
+        parser.field_escape_escapes();
+      if(escape_escapes.effective_byteseq()) {
+        // If there is an effective bytesequence then the bytesequence is a
+        // single bytesequence or it was part of an equivalent sequence set
+        // but the parse exclusive flag was set.
+        std::size_t bytes =
+          read_bytes(scanner,escape_escapes.effective_byteseq()->begin(),
+            escape_escapes.effective_byteseq()->end(),
+            escape_escapes.repeatflag());
 
-      if(lookahead_delimiter
-        || cur == 0x0A //LF
-        || cur == 0x0D //CR
-        || cur == 0x22 // DQUOTE
-        || cur < 32 || cur > 126) // non-ASCII
-      {
-//         std::cerr << "saw delimiter. returning TEXTDATA\n";
-        return TEXTDATA;
+        if(bytes) {
+          if(lvalp->char_buf_ptr) {
+            scanner.putback();
+            return FIELDDATA;
+          }
+
+          scanner.forget();
+          llocp->last_column += bytes;
+          lvalp->char_buf_ptr = escape_escapes.effective_byteseq();
+          return ESCAPED_ESCAPE;
+        }
+      }
+      else {
+        std::size_t bytes =
+          read_bytes(scanner,escape_escapes.compiled_seq_vec(),
+            escape_escapes.repeatflag());
+
+        if(bytes) {
+          if(lvalp->char_buf_ptr) {
+            scanner.putback();
+            return FIELDDATA;
+          }
+
+          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+            new detail::parser::byte_vec_type());
+          parsed_seq->reserve(bytes);
+
+          for(std::size_t i=bytes; i != 0; --i)
+            parsed_seq->push_back(scanner.fgetc());
+
+          llocp->last_column += bytes;
+          lvalp->char_buf_ptr = parsed_seq;
+
+          if(escape_escapes.exclusiveflag()) {
+            //copy over to effective seq
+            parser.set_effective_field_escape_escapes(parsed_seq);
+          }
+
+          return ESCAPED_ESCAPE;
+        }
       }
 
-//       {
-//         std::cerr << "TEXTDATA scanned '" << char(cur) << "' token now at row: "
-//           << llocp->first_line << ":" << llocp->last_line << " col: "
-//           << llocp->first_column << ":" << llocp->last_column << "\n";
-//       }
+      if(!lvalp->char_buf_ptr)
+        lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
 
-//       std::cerr << "no delimiter. adding '" << ascii(cur) << "'\n";
       ++(llocp->last_column);
-      scanner.fadvancec();
-      lvalp->char_buf_ptr->push_back(cur);
+      lvalp->char_buf_ptr->push_back(scanner.fgetc());
     }
 
-    return TEXTDATA;
+    // if here, we reached EOF
+    return FIELDDATA;
+
+  }
+  else {
+    // normal scanning
+    while(!scanner.eof()) {
+
+      // SEARCH FOR FIELD DELIMITER
+      const equiv_bytesequence_type &field_delimiters =
+        parser.field_delimiters();
+      if(field_delimiters.effective_byteseq()) {
+        // If there is an effective bytesequence then the bytesequence is a
+        // single bytesequence or it was part of an equivalent sequence set but
+        // the parse exclusive flag was set.
+        std::size_t bytes =
+          read_bytes(scanner,field_delimiters.effective_byteseq()->begin(),
+            field_delimiters.effective_byteseq()->end(),
+            field_delimiters.repeatflag());
+
+        if(bytes) {
+          scanner.forget();
+  //         std::cerr << "GOT EFFECTIVE: '" << *effective_delimiter << "'\n";
+          llocp->last_column += bytes;
+          lvalp->char_buf_ptr = field_delimiters.effective_byteseq();
+          return FIELD_DELIMITER;
+        }
+      }
+      else {
+        std::size_t bytes =
+          read_bytes(scanner,field_delimiters.compiled_seq_vec(),
+            field_delimiters.repeatflag());
+
+        if(bytes) {
+          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+            new detail::parser::byte_vec_type());
+          parsed_seq->reserve(bytes);
+
+          for(std::size_t i=bytes; i != 0; --i)
+            parsed_seq->push_back(scanner.fgetc());
+
+          llocp->last_column += bytes;
+          lvalp->char_buf_ptr = parsed_seq;
+
+          if(field_delimiters.exclusiveflag()) {
+            //copy over to effective seq
+            parser.set_effective_field_delimiters(parsed_seq);
+          }
+
+          return FIELD_DELIMITER;
+        }
+      }
+
+      // SEARCH FOR RECORD DELIMITER
+      const equiv_bytesequence_type &record_delimiters =
+        parser.record_delimiters();
+      if(record_delimiters.effective_byteseq()) {
+        std::size_t bytes =
+          read_bytes(scanner,record_delimiters.effective_byteseq()->begin(),
+            record_delimiters.effective_byteseq()->end(),
+            record_delimiters.repeatflag());
+
+        if(bytes) {
+          scanner.forget();
+
+          ++(llocp->last_line);
+          llocp->last_column = 1;
+          lvalp->char_buf_ptr = record_delimiters.effective_byteseq();
+          return RECORD_DELIMITER;
+        }
+      }
+      else {
+        std::size_t bytes =
+          read_bytes(scanner,record_delimiters.compiled_seq_vec(),
+            record_delimiters.repeatflag());
+
+        if(bytes) {
+          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+            new detail::parser::byte_vec_type());
+          parsed_seq->reserve(bytes);
+
+          for(std::size_t i=bytes; i != 0; --i)
+            parsed_seq->push_back(scanner.fgetc());
+
+          ++(llocp->last_line);
+          llocp->last_column = 1;
+          lvalp->char_buf_ptr = parsed_seq;
+
+          if(record_delimiters.exclusiveflag()) {
+            //copy over to effective seq
+            parser.set_effective_record_delimiter(parsed_seq);
+          }
+
+          return RECORD_DELIMITER;
+        }
+      }
+
+      // SEARCH FOR OPEN FIELD ESCAPE
+      const std::vector<equiv_bytesequence_pair> &field_escapes =
+        parser.field_escapes();
+
+      std::size_t eindex = parser.effective_field_escapes_pair();
+      if(eindex != -1) {
+        // exclusive has been set on a certain pair
+        const equiv_bytesequence_type &open_seq = field_escapes[eindex].first;
+
+        if(open_seq.effective_byteseq()) {
+          // An equivalent sequence was set, just consider it
+          std::size_t bytes =
+            read_bytes(scanner,open_seq.effective_byteseq()->begin(),
+              open_seq.effective_byteseq()->end(),
+              open_seq.repeatflag());
+
+          if(bytes) {
+            scanner.forget();
+
+            llocp->last_column += bytes;
+            lvalp->char_buf_ptr = open_seq.effective_byteseq();
+            parser.escaped_field(true);
+            return OPEN_FIELD_ESCAPE;
+          }
+        }
+        else {
+          // An effective sequence was not set, search through compiled
+          std::size_t bytes =
+            read_bytes(scanner,open_seq.compiled_seq_vec(),
+              open_seq.repeatflag());
+
+          if(bytes) {
+            std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+              new detail::parser::byte_vec_type());
+            parsed_seq->reserve(bytes);
+
+            for(std::size_t i=bytes; i != 0; --i)
+              parsed_seq->push_back(scanner.fgetc());
+
+            llocp->last_column += bytes;
+            lvalp->char_buf_ptr = parsed_seq;
+            parser.escaped_field(true);
+
+            if(open_seq.exclusiveflag()) {
+              //copy over to effective seq
+              parser.set_effective_open_field_escapes(parsed_seq);
+            }
+
+            return OPEN_FIELD_ESCAPE;
+          }
+        }
+      }
+      else {
+        // search through and see if we find a valid open
+        for(std::size_t i = 0; i<field_escapes.size(); ++i) {
+          const equiv_bytesequence_type &open_seq = field_escapes[i].first;
+
+          if(open_seq.effective_byteseq()) {
+            // An equivalent sequence was set, just consider it
+            std::size_t bytes =
+              read_bytes(scanner,open_seq.effective_byteseq()->begin(),
+                open_seq.effective_byteseq()->end(),
+                open_seq.repeatflag());
+
+            if(bytes) {
+              scanner.forget();
+
+              llocp->last_column += bytes;
+              lvalp->char_buf_ptr = open_seq.effective_byteseq();
+              parser.effective_field_escapes_pair(i);
+              parser.escaped_field(true);
+              return OPEN_FIELD_ESCAPE;
+            }
+          }
+          else {
+            // An effective sequence was not set, search through compiled
+            std::size_t bytes =
+              read_bytes(scanner,open_seq.compiled_seq_vec(),
+                open_seq.repeatflag());
+
+            if(bytes) {
+              std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
+                new detail::parser::byte_vec_type());
+              parsed_seq->reserve(bytes);
+
+              for(std::size_t i=bytes; i != 0; --i)
+                parsed_seq->push_back(scanner.fgetc());
+
+              llocp->last_column += bytes;
+              lvalp->char_buf_ptr = parsed_seq;
+              parser.effective_field_escapes_pair(i);
+              parser.escaped_field(true);
+
+              if(open_seq.exclusiveflag()) {
+                //copy over to effective seq
+                parser.set_effective_open_field_escapes(parsed_seq);
+              }
+
+              return OPEN_FIELD_ESCAPE;
+            }
+          }
+        }
+      }
+
+      // just textdata
+      if(!lvalp->char_buf_ptr)
+        lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
+
+      ++(llocp->last_column);
+      lvalp->char_buf_ptr->push_back(scanner.fgetc());
+    }
+
+    // if here, we reached EOF
+    return FIELDDATA;
   }
 
   return 0;
