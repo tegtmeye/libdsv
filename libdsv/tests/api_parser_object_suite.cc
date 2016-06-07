@@ -4,10 +4,7 @@
 #include "test_detail.h"
 
 
-#include <errno.h>
-#include <stdio.h>
-
-#include <string>
+#include <algorithm>
 
 /** \file
  *  \brief Unit tests for parser creation
@@ -20,12 +17,14 @@ namespace test {
 
 BOOST_AUTO_TEST_SUITE( api_parser_object_suite )
 
-/** \test Basic parser object checks
- *
- *  These unit tests are scheduled before checks of the logging functionality.
- *  That is, do not place unit tests here that require logging functionality. For
- *  checks that require valid logging, see:
- *
+/**
+    \test Basic parser object checks. Checks low API getting and setting
+    behavior only. Does not check for proper operation. For add checks of
+    proper operation, place them into the appropriate api_XXX check file.
+
+    These unit tests are scheduled before checks of the logging functionality.
+    That is, do not place unit tests here that require logging functionality.
+
  */
 
 BOOST_AUTO_TEST_CASE( parser_create )
@@ -34,10 +33,11 @@ BOOST_AUTO_TEST_CASE( parser_create )
   int result = dsv_parser_create(&parser);
 
   BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_create failed with exit code " << result);
+    "obj_parser_create failed with exit code: " << result);
 }
 
-/** \test Destroy uninitialized parser object
+/**
+    \test Destroy uninitialized parser object
  */
 BOOST_AUTO_TEST_CASE( initialized_parser_destroy )
 {
@@ -45,14 +45,129 @@ BOOST_AUTO_TEST_CASE( initialized_parser_destroy )
   int result = dsv_parser_create(&parser);
 
   BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_create failed with exit code " << result);
+    "obj_parser_create failed with exit code: " << result);
 
   dsv_parser_destroy(parser);
 
   BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_destroy failed with exit code " << result);
+    "obj_parser_destroy failed with exit code: " << result);
 }
 
+
+
+
+
+// LOW API OBJECT CHECKS
+
+BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_byte_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+
+  unsigned char bytesequence[] = {'\n'};
+  const unsigned char *equiv_byteseq[] = {bytesequence};
+  size_t byteseq_size[] = {1};
+  int byteseq_repeat[] = {0};
+  size_t size = 1;
+  int repeatflag = 0;
+  int exclusiveflag = 0;
+
+  int iresult = dsv_parser_set_equiv_record_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,1,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult);
+
+  size_t sresult = dsv_parser_num_equiv_record_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == size,
+    "number of record delimiters " << sresult << " != " << size);
+
+  iresult = dsv_parser_get_equiv_record_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
+    "record delimiters repeatflag " << iresult << " != " << repeatflag);
+
+  iresult = dsv_parser_get_equiv_record_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
+    "record delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
+
+  // get bytesequence size
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  // get bytesequence size with repeatflag
+  int flag = 42;
+
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+
+
+  // get invalid bytesequence size
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,size,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "unexpected bytesequence size " << sresult << " != " << 0);
+
+  // check for returned bytesequence of exact buff size
+  static const size_t bufsize = 5;
+  unsigned char buf[bufsize];
+  unsigned char sentry_buf[bufsize] = {'X','X','X','X','X'};
+  unsigned char check_buf[bufsize] = {bytesequence[0],'X','X','X','X'};
+
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,1,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of larger buff size
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,bufsize,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of zero buff size and valid repeatflag
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,sentry_buf));
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# if 0
 /** \test Test newline getting and setting
  */
 BOOST_AUTO_TEST_CASE( parser_newline_getting_and_setting )
@@ -338,6 +453,7 @@ BOOST_AUTO_TEST_CASE( parser_default_object_delimiter_settings )
     "dsv_parser_get_field_delimiter did not return a nonrepeating flag for "
     "the default delimiter but instead returned '" << repeatflag << "'");
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 

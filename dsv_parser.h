@@ -175,85 +175,85 @@ extern "C" {
     const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
 
   /**
-   *  \brief Obtain the number of record delimiters currently assigned to
-   *  \c parser
-   *
-   *  The returned values is the same as the \c size parameter in
-   *  \c dsv_parser_set_equiv_record_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval The number of record delimiters set for \c parser
+    \brief Obtain the number of record delimiters currently assigned to
+    \c parser
+
+    The returned values is the same as the \c size parameter in
+    \c dsv_parser_set_equiv_record_delimiters
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \retval The number of equivalent bytesequences set for \c parser
    */
   size_t dsv_parser_num_equiv_record_delimiters(dsv_parser_t parser);
 
   /**
-   *  \brief Obtain whether or not the record delimiters assigned to \parser are
-   *  allowed to repeat indefinitely
-   *
-   *  The returned values is the same as the \c repeatflag parameter in
-   *  \c dsv_parser_set_equiv_record_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval If nonzero, the currently assigned record delimiters to \c parser
-   *    are allowed to repeat indefinitely
+    \brief Obtain whether or not the record delimiters assigned to \parser are
+    allowed to repeat indefinitely
+
+    The returned values is the same as the \c repeatflag parameter in
+    \c dsv_parser_set_equiv_record_delimiters
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \retval If nonzero, the currently assigned bytesequence to \c parser
+      is allowed to repeat indefinitely
    */
   int dsv_parser_get_equiv_record_delimiters_repeatflag(dsv_parser_t parser);
 
   /**
-   *  \brief Obtain whether or not the first parsed record delimiter assigned to
-   *  \parser is the only permitted subsequent delimiter for the remainder of
-   *  parsing
-   *
-   *  The returned values is the same as the \c exclusiveflag parameter in
-   *  \c dsv_parser_set_equiv_record_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval If nonzero, the first delimiter parsed among the currently
-   *    assigned record delimiters in\c parser shall be the only permitted
-   *    delimiter for the remainder of the parsing session.
+    \brief Obtain whether or not the first parsed record delimiter assigned to
+    \parser is the only permitted subsequent delimiter for the remainder of
+    parsing
+
+    The returned values is the same as the \c exclusiveflag parameter in
+    \c dsv_parser_set_equiv_record_delimiters
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \retval If nonzero, the first bytesequence parsed among the currently
+      assigned equivalent bytesequences in\c parser shall be the only
+      permitted bytesequence for the remainder of the parsing session.
    */
   int dsv_parser_get_equiv_record_delimiters_exclusiveflag(dsv_parser_t parser);
 
   /**
-   *  \brief Copy the \c n th record delimiter to be used for future parsing
-   *  with \c parser into the buffer \c buf of size \c bufsize and set the
-   *  location pointed to by \c repeatflag as to if the delimiter was allowed to
-   *  be repeated indefinitely.
-   *
-   *  This delimiter is used to separate both headers and records depending on
-   *  the settings.
-   *
-   *  If \c bufsize is zero, return the number of bytes needed to hold the
-   *  current set delimiter. This number is suitable for allocating memory for
-   *  \c buf. If \c bufsize is nonzero, copy the bytes representing the
-   *  delimiter or \c bufsize whichever is smaller and return this value. If \c
-   *  bufsize is zero, \c buf is not referenced and may be zero for the call.
-   *
-   *  If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
-   *  the repeat value of the \c n th delimiter regardless of the value of \c
-   *  buf and \c buffsize
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in] n The record delimiter number to return.
-   *  \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
-   *    size \bufsize to which the current record delimiter will be copied into.
-   *    N.B. since the sequence of bytes contained in \c buf may not represent a
-   *    string, no null terminator will be added to the end of the bytes.
-   *  \param [in] bufsize The size of the unsigned char buffer pointed to
-   *    by \c buf.
-   *  \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
-   *    pointed to by \c repeatflag to a value if nonzero indicates that the
-   *    \c th delimiter can be repeated indefinitely.
-   *  \retval If \c bufsize is zero, return the number of bytes needed to hold
-   *    the current delimiter. If \c bufsize is nonzero, return the number of
-   *    bytes copied to \c buf which is not necessarily the same size as \c
-   *    bufsize.
-   * \retval 0 \c n is greater than the number of field delimiters currently set
-   *    for \c parser
+    \brief Copy the \c n th record delimiter to be used for future parsing
+    with \c parser into the buffer \c buf of size \c bufsize and set the
+    location pointed to by \c repeatflag as to if the delimiter was allowed to
+    be repeated indefinitely.
+
+    This delimiter is used to separate both headers and records depending on
+    the settings.
+
+    If \c bufsize is zero, return the number of bytes needed to hold the
+    current set delimiter. This number is suitable for allocating memory for
+    \c buf. If \c bufsize is nonzero, copy the bytes representing the
+    delimiter or \c bufsize whichever is smaller and return this value. If \c
+    bufsize is zero, \c buf is not referenced and may be zero for the call.
+
+    If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
+    the repeat value of the \c n th delimiter regardless of the value of \c
+    buf and \c buffsize
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \param[in] n The bytesequence number to return.
+    \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
+      size \bufsize to which the current bytesequence will be copied into.
+      N.B. since the sequence of bytes contained in \c buf may not represent a
+      string, no null terminator will be added to the end of the bytes.
+    \param [in] bufsize The size of the unsigned char buffer pointed to
+      by \c buf.
+    \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
+      pointed to by \c repeatflag to a value if nonzero indicates that the
+      \c nth bytesequence can be repeated indefinitely.
+    \retval If \c bufsize is zero, return the number of bytes needed to hold
+      the current bytesequence. If \c bufsize is nonzero, return the number of
+      bytes copied to \c buf which is not necessarily the same size as \c
+      bufsize.
+    \retval 0 \c n is greater than the number of equivalent bytesequences
+      currently set for \c parser
    */
   size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t parser, size_t n,
     unsigned char *buf, size_t bufsize, int *repeatflag);
