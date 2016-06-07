@@ -77,9 +77,9 @@ void dsv_parser_destroy(dsv_parser_t parser)
 }
 
 // todo, cause the exclusive to carry over and have reset API
-int dsv_parser_set_record_wdelimiter_equiv(dsv_parser_t _parser,
-  const unsigned char *delim[], const size_t delimsize[],
-  const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag)
+int dsv_parser_set_equiv_record_delimiters(dsv_parser_t _parser,
+  const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
+  const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag)
 {
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
 
@@ -93,14 +93,14 @@ int dsv_parser_set_record_wdelimiter_equiv(dsv_parser_t _parser,
     if(!err) {
       // check validity before setting anything
       for(std::size_t i=0; i<size; ++i) {
-        if(!delimsize[i])
+        if(!byteseq_size[i])
           err = EINVAL;
       }
     }
 
     if(!err) {
-      parser.record_delimiters(equiv_bytesequence_type(delim,delimsize,
-        delim_repeat,size,repeatflag,exclusiveflag));
+      parser.record_delimiters(equiv_bytesequence_type(equiv_byteseq,
+        byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
     }
   }
   catch(std::bad_alloc &) {
@@ -113,7 +113,7 @@ int dsv_parser_set_record_wdelimiter_equiv(dsv_parser_t _parser,
   return err;
 }
 
-size_t dsv_parser_num_record_delimiters(dsv_parser_t _parser)
+size_t dsv_parser_num_equiv_record_delimiters(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -131,7 +131,7 @@ size_t dsv_parser_num_record_delimiters(dsv_parser_t _parser)
   return result;
 }
 
-int dsv_parser_get_record_delimiters_repeatflag(dsv_parser_t _parser)
+int dsv_parser_get_equiv_record_delimiters_repeatflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -149,7 +149,7 @@ int dsv_parser_get_record_delimiters_repeatflag(dsv_parser_t _parser)
   return result;
 }
 
-int dsv_parser_get_record_delimiters_exclusiveflag(dsv_parser_t _parser)
+int dsv_parser_get_equiv_record_delimiters_exclusiveflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -167,7 +167,7 @@ int dsv_parser_get_record_delimiters_exclusiveflag(dsv_parser_t _parser)
   return result;
 }
 
-size_t dsv_parser_get_record_delimiters(dsv_parser_t _parser, size_t n,
+size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t _parser, size_t n,
   unsigned char *buf, size_t bufsize, int *repeatflag)
 {
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
@@ -255,9 +255,9 @@ ssize_t dsv_parser_get_field_columns(dsv_parser_t _parser)
 
 
 // todo, cause the exclusive to carry over and have reset API
-int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t _parser,
-  const unsigned char *delim[], const size_t delimsize[],
-  const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag)
+int dsv_parser_set_equiv_field_delimiters(dsv_parser_t _parser,
+  const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
+  const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag)
 {
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
 
@@ -271,14 +271,14 @@ int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t _parser,
     if(!err) {
       // check validity before setting anything
       for(std::size_t i=0; i<size; ++i) {
-        if(!delimsize[i])
+        if(!byteseq_size[i])
           err = EINVAL;
       }
     }
 
     if(!err) {
-      parser.field_delimiters(equiv_bytesequence_type(delim,delimsize,
-        delim_repeat,size,repeatflag,exclusiveflag));
+      parser.field_delimiters(equiv_bytesequence_type(equiv_byteseq,
+        byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
     }
   }
   catch(std::bad_alloc &) {
@@ -291,7 +291,7 @@ int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t _parser,
   return err;
 }
 
-size_t dsv_parser_num_field_delimiters(dsv_parser_t _parser)
+size_t dsv_parser_num_equiv_field_delimiters(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -309,7 +309,7 @@ size_t dsv_parser_num_field_delimiters(dsv_parser_t _parser)
   return result;
 }
 
-int dsv_parser_get_field_delimiters_repeatflag(dsv_parser_t _parser)
+int dsv_parser_get_equiv_field_delimiters_repeatflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -327,7 +327,7 @@ int dsv_parser_get_field_delimiters_repeatflag(dsv_parser_t _parser)
   return result;
 }
 
-int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t _parser)
+int dsv_parser_get_equiv_field_delimiters_exclusiveflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -345,7 +345,7 @@ int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t _parser)
   return result;
 }
 
-size_t dsv_parser_get_field_delimiters(dsv_parser_t _parser, size_t n,
+size_t dsv_parser_get_equiv_field_delimiter(dsv_parser_t _parser, size_t n,
   unsigned char *buf, size_t bufsize, int *repeatflag)
 {
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;

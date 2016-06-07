@@ -87,126 +87,119 @@ extern "C" {
 
 
   /**
-   *  \brief Set equivalent, potentially repeating, and optionally
-   *  parse-exclusive multibyte record delimiters to be used for future parsing
-   *  with \c parser.
-   *
-   *  Equivalent delimiters are single or multibyte sequences such that if any
-   *  sequence is seen, it is considered an acceptable delimiter. For example,
-   *  in an RFC 4180-strict parser, a single non-repeating ASCII CRLF is the
-   *  only acceptable record delimiter. However, in other formats, a single LF
-   *  is an acceptable delimiter. Said another way, given some sequence
-   *  representing a delimiter \c DELIM, it is equivalent to the regular
-   *  expression DELIM. It is possible to set the delimiter as repeating on a
-   *  per-delimiter sequence basis. For example, given several sequences
-   *  representing equivalent delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is
-   *  equivalent to the regular expression (DELIM1*|DELIM2*|DELIM3*|...). It is
-   *  also possible to allow the entire equivalent delimiter set to repeat. That
-   *  is, for some delimiter sequence set \c {DELIM1,DELIM2,DELIM3,...} it is
-   *  equivalent to the regular expression \c (DELIM1|DELIM2|DELIM3|...)*. These
-   *  repeating flag can be mixed in arbitrary ways. For example, setting \c
-   *  DELIM1 and DELIM3 to repeat only along with the entire equivalent
-   *  delimiter set is equivalent to the regular expression
-   *  \c (DELIM1*|DELIM2|DELIM3*|...)*.
-   *
-   *  Parse exclusivity means that the first equivalent byte sequence parsed as
-   *  a delimiter becomes the only acceptable delimiter for the remainder of the
-   *  parsing.
-   *
-   *  Setting a single delimiter sequence to repeat is equivalent to setting the
-   *  entire delimiter set consisting of a single delimiter to repeat but the
-   *  parser achieves the same result in different ways. That is \c (DELIM*)
-   *  achieves the same result as \c (DELIM)*. It is also possible to enable
-   *  parse-level exclusivity. That is, once one of the given delimiters is
-   *  parsed, it becomes the only valid delimiter for the remainder of the parse
-   *  operation.
-   *
-   *  \note If unlimited repeating delimiter sequences is enabled, it becomes
-   *  impossible to represent an empty record based solely on repeating the
-   *  delimiter. For example, given the default delimiter of an ASCII CRLF,
-   *  two consecutive CRLF would represent an empty record. That is:
-   *
-   *    fooCRLF
-   *    CRLF
-   *    CRLF
-   *    barCRLF
-   *
-   *  would have four records; one named 'foo', two empty records, and one named
-   *  'bar'. If, for example. repeating CRLF is set as the delimiter, the
-   *  previous input would have two records; 'foo' and 'bar'.
-   *
-   *  The default delimiter is the single, non-repeating ASCII sequence
-   *  carriage-return (CR) immediately followed by a linefeed (LF).
-   *
-   *  Multibyte sequences can be used to support other character encodings such
-   *  as UTF-8
-   *
-   *  This delimiter is used to separate both headers and records depending on
-   *  the settings
-   *
-   *  \note There must always be a record delimiter. That is, setting \c size to
-   *  zero is invalid.
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in] delim \parablock
-   *    An array of length  \c size such that the ith element is a pointer to a
-   *    sequence of bytes of size \c delimsize[i] to be used as a record
-   *    delimiter.
-   *  \endparblock
-   *  \param[in] delimsize \parablock
-   *    An array of length \c size such that the ith element is the size of the
-   *    ith sequence of bytes pointed to by \c delim[i].
-   *  \endparblock
-   *  \param[in] delim_repeat \parablock
-   *    An array of length \c size such that if the ith element is nonzero, the
-   *    ith delimiter in \c delim may be repeated indefinitely.
-   *  \endparblock
-   *  \param[in] size The size of each arrays \c delim, \c delimsize,
-   *    \c repeatflag. If \c size is zero, this call has no effect on the
-   *    previous delimiter state.
-   *  \param[in] repeatflag If nonzero, any delimiter chosen from \c delim my be
-   *    repeated an indefinite number of times.
-   *  \param[in] exclusiveflag \parblock
-   *    If nonzero, then the first delimiter sequence represented by \c delim
-   *    according to the repeat rules set in \c repeat is encountered, it
-   *    becomes the only valid delimiter sequence for the remainder of the
-   *    parser operation. This is reset when a new parse operation begins.
-   *  \endparblock
-   *  \retval 0 success
-   *  \retval ENOMEM Could not allocate memory
-   *  \retval EINVAL Either \c size or an element of delimsize is zero
+    \brief Set equivalent, potentially repeating, and optionally
+    parse-exclusive multibyte record delimiters to be used for future parsing
+    with \c parser.
+
+    Equivalent delimiters are single or multibyte sequences such that if any
+    sequence is seen, it is considered an acceptable delimiter. For example,
+    in an RFC 4180-strict parser, a single non-repeating ASCII CRLF is the
+    only acceptable record delimiter. However, in other formats, a single LF
+    is an acceptable delimiter. Said another way, given some sequence
+    representing a delimiter \c DELIM, it is equivalent to the regular
+    expression DELIM. It is possible to set the delimiter as repeating on a
+    per-delimiter sequence basis. For example, given several sequences
+    representing equivalent delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is
+    equivalent to the regular expression (DELIM1*|DELIM2*|DELIM3*|...). It is
+    also possible to allow the entire equivalent delimiter set to repeat. That
+    is, for some delimiter sequence set \c {DELIM1,DELIM2,DELIM3,...} it is
+    equivalent to the regular expression \c (DELIM1|DELIM2|DELIM3|...)*. These
+    repeating flag can be mixed in arbitrary ways. For example, setting \c
+    DELIM1 and DELIM3 to repeat only along with the entire equivalent
+    delimiter set is equivalent to the regular expression
+    \c (DELIM1*|DELIM2|DELIM3*|...)*.
+
+    Parse exclusivity means that the first equivalent byte sequence parsed as
+    a delimiter becomes the only acceptable delimiter for the remainder of the
+    parsing.
+
+    Setting a single delimiter sequence to repeat is equivalent to setting the
+    entire delimiter set consisting of a single delimiter to repeat but the
+    parser achieves the same result in different ways. That is \c (DELIM*)
+    achieves the same result as \c (DELIM)*. It is also possible to enable
+    parse-level exclusivity. That is, once one of the given delimiters is
+    parsed, it becomes the only valid delimiter for the remainder of the parse
+    operation.
+
+    \note If unlimited repeating delimiter sequences is enabled, it becomes
+    impossible to represent an empty record based solely on repeating the
+    delimiter. For example, given the default delimiter of an ASCII CRLF,
+    two consecutive CRLF would represent an empty record. That is:
+
+    fooCRLF
+    CRLF
+    CRLF
+    barCRLF
+
+    would have four records; one named 'foo', two empty records, and one named
+    'bar'. If, for example. repeating CRLF is set as the delimiter, the
+    previous input would have two records; 'foo' and 'bar'.
+
+    The default delimiter is the single, non-repeating ASCII sequence
+    carriage-return (CR) immediately followed by a linefeed (LF).
+
+    Multibyte sequences can be used to support other character encodings such
+    as UTF-8
+
+    This delimiter is used to separate both headers and records depending on
+    the settings
+
+    \note There must always be a record delimiter. That is, setting \c size to
+    zero is invalid.
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \param[in] equiv_byteseq An array of length \c size such that the ith
+      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
+    \param[in] byteseq_size An array of length \c size such that the ith element
+      is the size of the ith sequence of bytes pointed to by
+      \c equiv_byteseq[i].
+    \param[in] byteseq_repeat An array of length \c size such that if the ith
+      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
+      repeated indefinitely.
+    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
+      \c byteseq_repeat. If \c size is zero, this call has no effect on the
+      previous parsing state.
+    \param[in] repeatflag If nonzero, any bytesequence chosen from
+      \c equiv_byteseq my be repeated an indefinite number of times.
+    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
+      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
+      is encountered, it becomes the only valid bytesequence for the remainder
+      of the parser operation.
+    \retval 0 success
+    \retval ENOMEM Could not allocate memory
+    \retval EINVAL Either \c size or an element of byteseq_size is zero
    */
-  int dsv_parser_set_record_wdelimiter_equiv(dsv_parser_t parser,
-    const unsigned char *delim[], const size_t delimsize[],
-    const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag);
+  int dsv_parser_set_equiv_record_delimiters(dsv_parser_t parser,
+    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
+    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
 
   /**
    *  \brief Obtain the number of record delimiters currently assigned to
    *  \c parser
    *
    *  The returned values is the same as the \c size parameter in
-   *  \c dsv_parser_set_record_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_record_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \retval The number of record delimiters set for \c parser
    */
-  size_t dsv_parser_num_record_delimiters(dsv_parser_t parser);
+  size_t dsv_parser_num_equiv_record_delimiters(dsv_parser_t parser);
 
   /**
    *  \brief Obtain whether or not the record delimiters assigned to \parser are
    *  allowed to repeat indefinitely
    *
    *  The returned values is the same as the \c repeatflag parameter in
-   *  \c dsv_parser_set_record_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_record_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \retval If nonzero, the currently assigned record delimiters to \c parser
    *    are allowed to repeat indefinitely
    */
-  int dsv_parser_get_record_delimiters_repeatflag(dsv_parser_t parser);
+  int dsv_parser_get_equiv_record_delimiters_repeatflag(dsv_parser_t parser);
 
   /**
    *  \brief Obtain whether or not the first parsed record delimiter assigned to
@@ -214,7 +207,7 @@ extern "C" {
    *  parsing
    *
    *  The returned values is the same as the \c exclusiveflag parameter in
-   *  \c dsv_parser_set_record_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_record_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
@@ -222,7 +215,7 @@ extern "C" {
    *    assigned record delimiters in\c parser shall be the only permitted
    *    delimiter for the remainder of the parsing session.
    */
-  int dsv_parser_get_record_delimiters_exclusiveflag(dsv_parser_t parser);
+  int dsv_parser_get_equiv_record_delimiters_exclusiveflag(dsv_parser_t parser);
 
   /**
    *  \brief Copy the \c n th record delimiter to be used for future parsing
@@ -262,7 +255,7 @@ extern "C" {
    * \retval 0 \c n is greater than the number of field delimiters currently set
    *    for \c parser
    */
-  size_t dsv_parser_get_record_delimiters(dsv_parser_t parser, size_t n,
+  size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t parser, size_t n,
     unsigned char *buf, size_t bufsize, int *repeatflag);
 
 
@@ -272,6 +265,8 @@ extern "C" {
    *  \brief Set the required number of fields for future parsing with \c parser
    *  or allow a non-uniform number.
    *
+      \\todo remove ssize_t
+
    *  If the behavior specified by \c dsv_parser_fixed_field_columns is
    *  violated, dsv_parse will immediately return a nonzero value and an error
    *  message will be logged with the code: \c dsv_column_count_error.
@@ -317,127 +312,120 @@ extern "C" {
 
 
   /**
-   *  \brief Set equivalent, potentially repeating, and optionally
-   *  parse-exclusive multibyte field delimiters to be used for future parsing
-   *  with \c parser.
-   *
-   *  Equivalent delimiters are single or multibyte sequences such that if any
-   *  sequence is seen, it is considered an acceptable delimiter. For example,
-   *  in an RFC 4180-strict parser, a single non-repeating ASCII comma is the
-   *  only acceptable delimiter. However, in other formats, any single or
-   *  repeating sequence of white spaces are considered in whole as an
-   *  acceptable delimiter. For example, repeating ASCII space or tab
-   *  characters. Said another way, given some sequence representing a delimiter
-   *  \c DELIM, it is equivalent to the regular expression DELIM*. It is
-   *  possible to set the delimiter as repeating on a per-delimiter sequence
-   *  basis. For example, given several sequences representing equivalent
-   *  delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular
-   *  expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the
-   *  entire equivalent delimiter set to repeat. That is, for some delimiter
-   *  sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular
-   *  expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be
-   *  mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to
-   *  repeat only along with the entire equivalent delimiter set is equivalent
-   *  to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*.
-   *
-   *  Parse exclusivity means that the first equivalent byte sequence parsed as
-   *  a delimiter becomes the only acceptable delimiter for the remainder of the
-   *  parsing.
-   *
-   *  Setting a single delimiter sequence to repeat is equivalent to setting the
-   *  entire delimiter set consisting of a single delimiter to repeat but the
-   *  parser achieves the same result in different ways. That is \c (DELIM*)
-   *  achieves the same result as \c (DELIM)*. It is also possible to enable
-   *  parse-level exclusivity. That is, once one of the given delimiters is
-   *  parsed, it becomes the only valid delimiter for the remainder of the parse
-   *  operation.
-   *
-   *  \note If unlimited repeating delimiter sequences is enabled, it becomes
-   *  impossible to represent an empty field based solely on repeating the
-   *  delimiter. For example, given the default delimiter of an ASCII comma ',',
-   *  two consecutive commas would represent an empty field. That is:
-   *
-   *    "foo",,"bar"
-   *
-   *  would have three fields, "foo", [[empty]], and "bar". If, for example.
-   *  repeating whitespace is set as the delimiter, the input "foo" and "bar"
-   *  separated by two spaces:
-   *
-   *    "foo"  "bar"
-   *
-   *  represents two fields "foo" and "bar"
-   *
-   *  The default delimiter is a single, non-repeating ASCII comma ','
-   *
-   *  Multibyte sequences can be used to support other character encodings such
-   *  as UTF-8
-   *
-   *  This delimiter is used to separate both headers and fields depending on
-   *  the settings
-   *
-   *  \note There must always be a field delimiter. That is, setting \c size to
-   *  zero is invalid.
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in] delim \parablock
-   *    An array of length  \c size such that the ith element is a pointer to a
-   *    sequence of bytes of size \c delimsize[i] to be used as a field
-   *    delimiter.
-   *  \endparblock
-   *  \param[in] delimsize \parablock
-   *    An array of length \c size such that the ith element is the size of the
-   *    ith sequence of bytes pointed to by \c delim[i].
-   *  \endparblock
-   *  \param[in] delim_repeat \parablock
-   *    An array of length \c size such that if the ith element is nonzero, the
-   *    ith delimiter in \c delim may be repeated indefinitely.
-   *  \endparblock
-   *  \param[in] size The size of each arrays \c delim, \c delimsize,
-   *    \c repeatflag. If \c size is zero, this call has no effect on the
-   *    previous delimiter state.
-   *  \param[in] repeatflag If nonzero, any delimiter chosen from \c delim my be
-   *    repeated an indefinite number of times.
-   *  \param[in] exclusiveflag \parblock
-   *    If nonzero, then the first delimiter sequence represented by \c delim
-   *    according to the repeat rules set in \c repeat is encountered, it
-   *    becomes the only valid delimiter sequence for the remainder of the
-   *    parser operation. This is reset when a new parse operation begins.
-   *  \endparblock
-   *  \retval 0 success
-   *  \retval ENOMEM Could not allocate memory
-   *  \retval EINVAL Either \c size or an element of delimsize is zero
+    \brief Set equivalent, potentially repeating, and optionally
+    parse-exclusive multibyte field delimiters to be used for future parsing
+    with \c parser.
+
+    Equivalent delimiters are single or multibyte sequences such that if any
+    sequence is seen, it is considered an acceptable delimiter. For example,
+    in an RFC 4180-strict parser, a single non-repeating ASCII comma is the
+    only acceptable delimiter. However, in other formats, any single or
+    repeating sequence of white spaces are considered in whole as an
+    acceptable delimiter. For example, repeating ASCII space or tab
+    characters. Said another way, given some sequence representing a delimiter
+    \c DELIM, it is equivalent to the regular expression DELIM*. It is
+    possible to set the delimiter as repeating on a per-delimiter sequence
+    basis. For example, given several sequences representing equivalent
+    delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular
+    expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the
+    entire equivalent delimiter set to repeat. That is, for some delimiter
+    sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular
+    expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be
+    mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to
+    repeat only along with the entire equivalent delimiter set is equivalent
+    to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*.
+
+    Parse exclusivity means that the first equivalent byte sequence parsed as
+    a delimiter becomes the only acceptable delimiter for the remainder of the
+    parsing.
+
+    Setting a single delimiter sequence to repeat is equivalent to setting the
+    entire delimiter set consisting of a single delimiter to repeat but the
+    parser achieves the same result in different ways. That is \c (DELIM*)
+    achieves the same result as \c (DELIM)*. It is also possible to enable
+    parse-level exclusivity. That is, once one of the given delimiters is
+    parsed, it becomes the only valid delimiter for the remainder of the parse
+    operation.
+
+    \note If unlimited repeating delimiter sequences is enabled, it becomes
+    impossible to represent an empty field based solely on repeating the
+    delimiter. For example, given the default delimiter of an ASCII comma ',',
+    two consecutive commas would represent an empty field. That is:
+
+      "foo",,"bar"
+
+    would have three fields, "foo", [[empty]], and "bar". If, for example.
+    repeating whitespace is set as the delimiter, the input "foo" and "bar"
+    separated by two spaces:
+
+      "foo"  "bar"
+
+    represents two fields "foo" and "bar"
+
+    The default delimiter is a single, non-repeating ASCII comma ','
+
+    Multibyte sequences can be used to support other character encodings such
+    as UTF-8
+
+    This delimiter is used to separate both headers and fields depending on
+    the settings
+
+    \note There must always be a field delimiter. That is, setting \c size to
+    zero is invalid.
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \param[in] equiv_byteseq An array of length \c size such that the ith
+      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
+    \param[in] byteseq_size An array of length \c size such that the ith element
+      is the size of the ith sequence of bytes pointed to by
+      \c equiv_byteseq[i].
+    \param[in] byteseq_repeat An array of length \c size such that if the ith
+      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
+      repeated indefinitely.
+    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
+      \c byteseq_repeat. If \c size is zero, this call has no effect on the
+      previous parsing state.
+    \param[in] repeatflag If nonzero, any bytesequence chosen from
+      \c equiv_byteseq my be repeated an indefinite number of times.
+    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
+      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
+      is encountered, it becomes the only valid bytesequence for the remainder
+      of the parser operation.
+    \retval 0 success
+    \retval ENOMEM Could not allocate memory
+    \retval EINVAL Either \c size or an element of byteseq_size is zero
    */
-  int dsv_parser_set_field_wdelimiter_equiv(dsv_parser_t parser,
-    const unsigned char *delim[], const size_t delimsize[],
-    const int delim_repeat[], size_t size, int repeatflag, int exclusiveflag);
+  int dsv_parser_set_equiv_field_delimiters(dsv_parser_t parser,
+    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
+    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
 
   /**
    *  \brief Obtain the number of field delimiters currently assigned to
    *  \c parser
    *
    *  The returned values is the same as the \c size parameter in
-   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_field_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \retval The number of field delimiters set for \c parser
    */
-  size_t dsv_parser_num_field_delimiters(dsv_parser_t parser);
+  size_t dsv_parser_num_equiv_field_delimiters(dsv_parser_t parser);
 
   /**
    *  \brief Obtain whether or not the field delimiters assigned to \parser are
    *  allowed to repeat indefinitely
    *
    *  The returned values is the same as the \c repeatflag parameter in
-   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_field_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
    *  \retval If nonzero, the currently assigned field delimiters to \c parser
    *    are allowed to repeat indefinitely
    */
-  int dsv_parser_get_field_delimiters_repeatflag(dsv_parser_t parser);
+  int dsv_parser_get_equiv_field_delimiters_repeatflag(dsv_parser_t parser);
 
   /**
    *  \brief Obtain whether or not the first parsed field delimiter assigned to
@@ -445,7 +433,7 @@ extern "C" {
    *  parsing
    *
    *  The returned values is the same as the \c exclusiveflag parameter in
-   *  \c dsv_parser_set_field_wdelimiter_equiv
+   *  \c dsv_parser_set_equiv_field_delimiters
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
@@ -453,7 +441,7 @@ extern "C" {
    *    assigned field delimiters in\c parser shall be the only permitted
    *    delimiter for the remainder of the parsing session.
    */
-  int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t parser);
+  int dsv_parser_get_equiv_field_delimiters_exclusiveflag(dsv_parser_t parser);
 
   /**
    *  \brief Copy the \c n th field delimiter to be used for future parsing with
@@ -492,7 +480,7 @@ extern "C" {
    * \retval 0 \c n is greater than the number of field delimiters currently set
    *    for \c parser
    */
-  size_t dsv_parser_get_field_delimiters(dsv_parser_t parser, size_t n,
+  size_t dsv_parser_get_equiv_field_delimiter(dsv_parser_t parser, size_t n,
     unsigned char *buf, size_t bufsize, int *repeatflag);
 
 
@@ -933,6 +921,216 @@ extern "C" {
       parsing.
   */
   void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t parser, int flag);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//replace 'w' with equiv. no equiv means single seq in high API
+
+
+  /**
+    \brief Set equivalent, potentially repeating, and optionally
+    parse-exclusive multibyte escaped field escapes to be used for
+    future parsing with \c parser.
+
+    An escaped field escape is a bytesequence used inside of an escaped
+    field to indicate that the sequence is part of the field
+    bytesequence rather than the field closing escape sequence.
+    Equivalent escaped escapes are single or multibyte sequences such
+    that if any sequence is seen, it is considered an acceptable escape
+    escape.
+
+    For example, in an RFC 4180-strict parser, a single non-repeating
+    ASCII double quote \c " is the only valid field escape sequence and
+    a twice repeating double quote \c "" is the only valid field escaped
+    escape sequence. For example the field \c "foo bar" contains seven
+    characters, \c 'foo' and 'bar' separated by a space character. If
+    one wanted the field to actually contain the quotes, the field would
+    contain """foo bar""", which has nine characters: the first \c "
+    opens the field (not part of the nine), the two repeating \c "" is a
+    field escaped escape sequence which is replaced in the actual field
+    by a single \c ", the words \c 'foo' and \c 'bar' separated by a
+    space, two more repeating \c "" which is replaced in the actual
+    field by a single \c ", and the final \c " to close the field (also
+    not part of the nine).
+
+    Like other equivalent bytesequences in this library, it is possible
+    to specify multiple, equivalent bytesequences to mean the same
+    thing. For example, suppose some fictional format allows the use of
+    either two double quotes \c "" OR the hex representation of the
+    single double quote---ie \c 0x22. To which a valid version of the
+    previous example would be \c """foo bar0x22". Specifying each of
+    these as valid sequences is possible along with optionally
+    functionality to repeat the sequence or enable parse
+    exclusivity---that is, the first valid bytesequence of an equivalent
+    bytesequence set becomes the only valid bytesequence for the rest of
+    the file.
+
+    \note There must always be a escaped field escapes. That is, setting
+    \c size to zero is invalid.
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \param[in] equiv_byteseq An array of length \c size such that the ith
+      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
+    \param[in] byteseq_size An array of length \c size such that the ith element
+      is the size of the ith sequence of bytes pointed to by
+      \c equiv_byteseq[i].
+    \param[in] byteseq_repeat An array of length \c size such that if the ith
+      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
+      repeated indefinitely.
+    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
+      \c byteseq_repeat. If \c size is zero, this call has no effect on the
+      previous parsing state.
+    \param[in] repeatflag If nonzero, any bytesequence chosen from
+      \c equiv_byteseq my be repeated an indefinite number of times.
+    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
+      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
+      is encountered, it becomes the only valid bytesequence for the remainder
+      of the parser operation.
+    \retval 0 success
+    \retval ENOMEM Could not allocate memory
+    \retval EINVAL Either \c size or an element of byteseq_size is zero
+  */
+  int dsv_parser_set_equiv_field_escaped_escapes(dsv_parser_t parser,
+    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
+    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
+
+  /**
+    \brief Obtain the number of equivalent field escaped escapes
+    currently assigned to \c parser
+
+    The returned values is the same as the \c size parameter in \c
+    dsv_parser_set_equiv_field_escaped_escapes
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \retval The number of equivalent field escaped escapes set for \c parser
+  */
+  size_t dsv_parser_num_equiv_field_escaped_escapes(dsv_parser_t parser);
+
+  /**
+    \brief Obtain whether or not the equivalent field escaped escapes
+    assigned to \parser are allowed to repeat indefinitely
+
+    The returned values is the same as the \c repeatflag parameter in \c
+    dsv_parser_set_equiv_field_escaped_escapes
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+    \retval If nonzero, the currently assigned
+      dsv_parser_set_equiv_field_escaped_escapes to \c parser are allowed
+      to repeat indefinitely
+   */
+  int dsv_parser_get_equiv_field_escaped_escapes_repeatflag(
+    dsv_parser_t parser);
+
+  /**
+    \brief Obtain whether or not the first parsed equivalent field escaped
+    escapes assigned to \parser is the only permitted subsequent field escaped
+    escape bytesequence for the remainder of parsing
+
+    The returned values is the same as the \c exclusiveflag parameter in
+    \c dsv_parser_set_equiv_field_escaped_escapes
+
+    \param[in] parser A pointer to a dsv_parser_t object previously initialized
+      with one of the \c dsv_parser_create* functions
+    \retval If nonzero, the first field escaped escape bytesequence parsed
+      among the currently assigned field equivalent field escaped escapes in
+      \c parser shall be the only permitted field escaped escape bytesequence
+      for the remainder of the parsing session.
+   */
+  int dsv_parser_get_equiv_field_escaped_escapes_exclusiveflag(
+    dsv_parser_t parser);
+
+  /**
+    \brief Copy the \c nth field escaped escape bytesequence to be used for
+    future parsing with \c parser into the buffer \c buf of size \c bufsize and
+    set the location pointed to by \c repeatflag as to if the bytesequence is
+    allowed to be repeated indefinitely.
+
+    If \c bufsize is zero, return the number of bytes needed to hold the
+    currently assigned bytesequence for this location. This number is suitable
+    for allocating memory for \c buf. If \c bufsize is nonzero, copy the bytes
+    representing the bytesequence or \c bufsize whichever is smaller and return
+    this value. If \c bufsize is zero, \c buf is not referenced and may be zero
+    for the call.
+
+    If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
+    the repeat value of the \c nth bytesequence regardless of the value of \c
+    buf and \c buffsize
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+    \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of size
+      \bufsize to which the nth bytesequence will be copied into. N.B. since the
+      sequence of bytes contained in \c buf may not represent a string, no null
+      terminator will be added to the end of the bytes.
+    \param [in] bufsize The size of the unsigned char buffer pointed to by
+      \c buf.
+    \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
+      pointed to by \c repeatflag to a value if nonzero indicates that the
+      \nth bytesequence can be repeated indefinitely.
+    \retval If \c bufsize is zero, return the number of bytes needed to hold the
+      \c nth bytesequence. If \c bufsize is nonzero, return the number of bytes
+      copied to \c buf which is not necessarily the same size as \c bufsize.
+    \retval 0 \c n is greater than the number of equivalent bytesequences
+      currently set for \c parser
+   */
+  size_t dsv_parser_get_equiv_field_escaped_escapes(dsv_parser_t parser,
+    size_t n, unsigned char *buf, size_t bufsize, int *repeatflag);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1510,7 +1708,7 @@ extern "C" {
    *  \param behavior One of the possible \c dsv_newline_behavior enumerations
    *
    *  This is a convenience function for \c
-   *  dsv_parser_set_record_wdelimiter_equiv with the appropriate newline
+   *  dsv_parser_set_equiv_record_delimiters with the appropriate newline
    *  sequence
    *
    *  \retval 0 Success
@@ -1531,7 +1729,7 @@ extern "C" {
    *    const unsigned char *delim_arr[1] = {&delim};
    *    size_t delimsize_arr[1] = {1};
    *    int delimrepeat_arr[1] = {0};
-   *    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,
+   *    err = dsv_parser_set_equiv_field_delimiters(_parser,delim_arr,
    *      delimsize_arr,delimrepeat_arr,1,0,1);
    *
    *  The default is the ASCII comma ','
@@ -1558,7 +1756,7 @@ extern "C" {
    *    const unsigned char *delim_arr[1] = {delim};
    *    size_t delimsize_arr[1] = {size};
    *    int delimrepeat_arr[1] = {0};
-   *    err = dsv_parser_set_field_wdelimiter_equiv(_parser,delim_arr,
+   *    err = dsv_parser_set_equiv_field_delimiters(_parser,delim_arr,
    *      delimsize_arr,delimrepeat_arr,1,0,1);
    *
    *  The default is the ASCII comma ','
