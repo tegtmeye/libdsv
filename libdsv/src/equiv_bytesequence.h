@@ -35,6 +35,7 @@
 #include <memory>
 
 #include <cassert>
+#include <iostream>
 
 namespace detail {
 
@@ -301,6 +302,8 @@ class basic_equiv_bytesequence {
     typedef std::vector<byteseq_desc> byteseq_desc_vec_type;
     typedef std::vector<byte_chunk> byte_chunk_vec_type;
 
+    // may throw std::length_error if size or seq_repeat[i] is zero or greater
+    // than vector.max_size();
     basic_equiv_bytesequence(const byte_type *bytes[],
       const size_t bytelen[], const int seq_repeat[], size_t size,
       bool repeatflag, bool exclusiveflag);
@@ -347,10 +350,21 @@ inline basic_equiv_bytesequence<T>::
   basic_equiv_bytesequence(const byte_type *bytes[], const size_t bytelen[],
   const int seq_repeat[], size_t size, bool repeatflag, bool exclusiveflag)
 {
+  if(size == 0)
+    throw std::length_error("basic_equiv_bytesequence<T>::"
+      "basic_equiv_bytesequence(bytes,bytelen,seq_repeat,size,repeatflag,"
+      "exclusiveflag)");
+
   _byteseq_desc_vec.reserve(size);
 
-  for(std::size_t i=0; i<size; ++i)
+  for(std::size_t i=0; i<size; ++i) {
+    if(bytelen[i] == 0)
+      throw std::length_error("basic_equiv_bytesequence<T>::"
+        "basic_equiv_bytesequence(bytes,bytelen,seq_repeat,size,repeatflag,"
+        "exclusiveflag)");
+
     _byteseq_desc_vec.emplace_back(bytes[i],bytes[i]+bytelen[i],seq_repeat[i]);
+  }
 
   if(size == 1 && !exclusiveflag) {
     // optimize for single delimiter case

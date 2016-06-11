@@ -168,7 +168,8 @@ extern "C" {
       of the parser operation.
     \retval 0 success
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero
+    \retval EINVAL Either \c size or an element of byteseq_size is zero or
+      greater than available storage
    */
   int dsv_parser_set_equiv_record_delimiters(dsv_parser_t parser,
     const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
@@ -394,7 +395,8 @@ extern "C" {
       of the parser operation.
     \retval 0 success
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero
+    \retval EINVAL Either \c size or an element of byteseq_size is zero or
+      greater than available storage
    */
   int dsv_parser_set_equiv_field_delimiters(dsv_parser_t parser,
     const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
@@ -1007,7 +1009,8 @@ extern "C" {
       of the parser operation.
     \retval 0 success
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero
+    \retval EINVAL Either \c size or an element of byteseq_size is zero or
+      greater than available storage
   */
   int dsv_parser_set_equiv_field_escaped_escapes(dsv_parser_t parser,
     const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
