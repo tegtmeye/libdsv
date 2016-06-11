@@ -263,34 +263,32 @@ extern "C" {
 
 
   /**
-   *  \brief Set the required number of fields for future parsing with \c parser
-   *  or allow a non-uniform number.
-   *
-      \\todo remove ssize_t
+     \brief Set the required number of fields for future parsing with \c parser
+     or allow a non-uniform number.
 
-   *  If the behavior specified by \c dsv_parser_fixed_field_columns is
-   *  violated, dsv_parse will immediately return a nonzero value and an error
-   *  message will be logged with the code: \c dsv_column_count_error.
-   *
-   *  The default value is 0. This value is also appropriate for RFC4180-strict
-   *  processing
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in] num_cols \parblock
-   *    If > 0, the number of columns expected during future
-   *    parsing. If during parsing, a row with less than \c num_cols is
-   *    encountered, dsv_parse will immediately return with a nonzero value. If
-   *    \c num_cols == 0, the parser will set the required number of columns
-   *     based on the first row encountered. For example, if the first header
-   *    row contains 5 columns, all subsequent rows must contain 5 columns
-   *    otherwise the dsv_parse will immediately return a nonzero value. If
-   *    \c num_cols == -1, no restriction will be placed on the number of
-   *    columns. This also means that rows with zero columns are acceptable. In
-   *    this case, any registered callback will still be called.
-   *  \endparblock
+     If the behavior specified by \c dsv_parser_fixed_field_columns is
+     violated, dsv_parse will immediately return a nonzero value and an error
+     message will be logged with the code: \c dsv_column_count_error.
+
+     The default value is 0. This value is also appropriate for RFC4180-strict
+     processing
+
+     \param[in] parser A pointer to a dsv_parser_t object previously
+       initialized with one of the \c dsv_parser_create* functions
+     \param[in] num_cols \parblock
+       If > 0, the number of columns expected during future
+       parsing. If during parsing, a row with less than \c num_cols is
+       encountered, dsv_parse will immediately return with a nonzero value. If
+       \c num_cols == 0, the parser will set the required number of columns
+        based on the first row encountered. For example, if the first header
+       row contains 5 columns, all subsequent rows must contain 5 columns
+       otherwise the dsv_parse will immediately return a nonzero value. If
+       \c num_cols == (size_t)-1, no restriction will be placed on the number of
+       columns. This also means that rows with zero columns are acceptable. In
+       this case, any registered callback will still be called.
+     \endparblock
    */
-  void dsv_parser_set_field_columns(dsv_parser_t parser, ssize_t num_cols);
+  void dsv_parser_set_field_columns(dsv_parser_t parser, size_t num_cols);
 
   /**
    *  \brief Get the required number of fields associated with future parsing
@@ -305,7 +303,7 @@ extern "C" {
    *  \retval num_cols The number of columns required for future parsing of \c
    *    parser
    */
-  ssize_t dsv_parser_get_field_columns(dsv_parser_t parser);
+  size_t dsv_parser_get_field_columns(dsv_parser_t parser);
 
 
 

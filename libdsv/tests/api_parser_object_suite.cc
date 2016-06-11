@@ -204,9 +204,6 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
     "unexpected exit code: " << iresult
       << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
 
-
-
-#if 0
   iresult = dsv_parser_set_equiv_record_delimiters(parser,
     equiv_byteseq,byteseq_size,byteseq_repeat,1,0,0);
 
@@ -291,7 +288,6 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
 
   BOOST_REQUIRE_MESSAGE(flag == repeatflag,
     "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
-#endif
 }
 
 

@@ -217,7 +217,7 @@ size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t _parser, size_t n,
 
 
 
-void dsv_parser_set_field_columns(dsv_parser_t _parser, ssize_t num_cols)
+void dsv_parser_set_field_columns(dsv_parser_t _parser, size_t num_cols)
 {
   assert(_parser.p);
 
@@ -231,13 +231,13 @@ void dsv_parser_set_field_columns(dsv_parser_t _parser, ssize_t num_cols)
   }
 }
 
-ssize_t dsv_parser_get_field_columns(dsv_parser_t _parser)
+size_t dsv_parser_get_field_columns(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  ssize_t result;
+  size_t result;
 
   try {
     result = parser.field_columns();
