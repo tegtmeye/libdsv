@@ -28,19 +28,10 @@ BOOST_AUTO_TEST_SUITE( api_parser_object_suite )
 
  */
 
-BOOST_AUTO_TEST_CASE( parser_create )
-{
-  dsv_parser_t parser;
-  int result = dsv_parser_create(&parser);
-
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_create failed with exit code: " << result);
-}
-
 /**
-    \test Destroy uninitialized parser object
+    \test Create and destroy uninitialized parser object
  */
-BOOST_AUTO_TEST_CASE( initialized_parser_destroy )
+BOOST_AUTO_TEST_CASE( parser_create_and_destroy )
 {
   dsv_parser_t parser;
   int result = dsv_parser_create(&parser);
@@ -60,10 +51,13 @@ BOOST_AUTO_TEST_CASE( initialized_parser_destroy )
 
 // LOW API OBJECT CHECKS
 
+
+// RECORD DELIMITER PARAMETER CHECKS
 BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_byte_check )
 {
   dsv_parser_t parser;
   BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   unsigned char bytesequence[] = {'\n'};
   const unsigned char *equiv_byteseq[] = {bytesequence};
@@ -158,8 +152,14 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_byte_check )
 
 BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
 {
+  // these are declared here for convenience of adding/removing new tests
+  // without worrying about the variable declaration
+  int iresult;
+  size_t sresult;
+
   dsv_parser_t parser;
   BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   unsigned char bytesequence[] = {'\n',0xFF,'h','e','l','l','o'};
   const unsigned char *equiv_byteseq[] = {bytesequence};
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
   int exclusiveflag = 0;
 
   // check for pathological equiv_bytesequence size
-  int iresult = dsv_parser_set_equiv_record_delimiters(parser,
+  iresult = dsv_parser_set_equiv_record_delimiters(parser,
     equiv_byteseq,byteseq_size,byteseq_repeat,
       std::numeric_limits<size_t>::max(),0,0);
 
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
   BOOST_REQUIRE_MESSAGE(iresult == 0,
     "unexpected exit code: " << iresult);
 
-  size_t sresult = dsv_parser_num_equiv_record_delimiters(parser);
+  sresult = dsv_parser_num_equiv_record_delimiters(parser);
 
   BOOST_REQUIRE_MESSAGE(sresult == size,
     "number of record delimiters " << sresult << " != " << size);
@@ -289,6 +289,107 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
   BOOST_REQUIRE_MESSAGE(flag == repeatflag,
     "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
 }
+
+// schedule this after the getting/setting tests
+BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_default_check )
+{
+  int iresult;
+  size_t sresult;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // check for default record delimiter (CRLF)
+  sresult = dsv_parser_num_equiv_record_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 1,
+    "default number of record delimiters " << sresult << " != 1");
+
+  iresult = dsv_parser_get_equiv_record_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "default record delimiters repeatflag " << iresult << " != 0");
+
+  iresult = dsv_parser_get_equiv_record_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 1,
+    "default record delimiters exclusiveflag " << iresult << " != 1");
+
+  // get bytesequence size
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 2,
+    "default bytesequence size " << sresult << " != 2");
+
+  static const size_t default_byteseq_size = 2;
+  unsigned char buf[default_byteseq_size];
+  unsigned char default_bytesequence[default_byteseq_size] = {0x0D,0x0A};
+  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,
+    default_byteseq_size,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_byteseq_size,
+    "unexpected default bytesequence size " << sresult << " != "
+      << default_byteseq_size);
+
+  BOOST_REQUIRE(std::equal(buf,buf+default_byteseq_size,default_bytesequence));
+}
+
+
+// FIELD COLUMNS PARAMETER CHECKS
+
+
+BOOST_AUTO_TEST_CASE( set_field_columns_check )
+{
+  size_t result;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // check default value
+  size_t default_value = 0;
+  result = dsv_parser_get_field_columns(parser);
+
+  BOOST_REQUIRE_MESSAGE(result == default_value,
+    "unexpected default field column: " << result << " != " << default_value);
+
+  // set to a non-default value
+  size_t test_value = 42;
+  dsv_parser_set_field_columns(parser,test_value);
+
+  result = dsv_parser_get_field_columns(parser);
+
+  BOOST_REQUIRE_MESSAGE(result == test_value,
+    "unexpected field column return: " << result << " != " << test_value);
+
+  // set to zero
+  test_value = 0;
+  dsv_parser_set_field_columns(parser,test_value);
+
+  result = dsv_parser_get_field_columns(parser);
+
+  BOOST_REQUIRE_MESSAGE(result == test_value,
+    "unexpected field column return: " << result << " != " << test_value);
+
+  // set to -1 or the maximum value for size_t
+  test_value = -1;
+  dsv_parser_set_field_columns(parser,test_value);
+
+  result = dsv_parser_get_field_columns(parser);
+
+  BOOST_REQUIRE_MESSAGE(result == test_value,
+    "unexpected field column return: " << result << " != " << test_value);
+}
+
+
+
+
+
+
+
+
+
 
 
 

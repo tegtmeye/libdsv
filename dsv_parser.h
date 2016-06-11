@@ -135,8 +135,8 @@ extern "C" {
     'bar'. If, for example. repeating CRLF is set as the delimiter, the
     previous input would have two records; 'foo' and 'bar'.
 
-    The default delimiter is the single, non-repeating ASCII sequence
-    carriage-return (CR) immediately followed by a linefeed (LF).
+    The default delimiter is the single, non-repeating, and exclusive ASCII
+    sequence: carriage-return (CR) immediately followed by a linefeed (LF).
 
     Multibyte sequences can be used to support other character encodings such
     as UTF-8
@@ -266,7 +266,7 @@ extern "C" {
      \brief Set the required number of fields for future parsing with \c parser
      or allow a non-uniform number.
 
-     If the behavior specified by \c dsv_parser_fixed_field_columns is
+     If the behavior specified by \c dsv_parser_set_field_columns is
      violated, dsv_parse will immediately return a nonzero value and an error
      message will be logged with the code: \c dsv_column_count_error.
 
