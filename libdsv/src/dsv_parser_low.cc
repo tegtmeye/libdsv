@@ -271,24 +271,30 @@ int dsv_parser_set_equiv_field_delimiters(dsv_parser_t _parser,
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  int err = !size;
+  if(!size)
+    return EINVAL;
+
+  int err = 0;
 
   try {
-    if(!err) {
-      // check validity before setting anything
-      for(std::size_t i=0; i<size; ++i) {
-        if(!byteseq_size[i])
-          err = EINVAL;
-      }
-    }
-
-    if(!err) {
-      parser.field_delimiters(equiv_bytesequence_type(equiv_byteseq,
-        byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
-    }
+    parser.field_delimiters(equiv_bytesequence_type(equiv_byteseq,
+      byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
   }
   catch(std::bad_alloc &) {
-    err = ENOMEM;
+    // todo, bug
+    // apparantly calling reserve with an argument of
+    // numeric_limits<size_t>::max() (which is arguably > vector.max_size())
+    // produces a bad_alloc instead of length_error for at least the LLVM
+    // implementation of vector. The allocate method of vector seems to throw
+    // length_error but since what we actually get is a bad_alloc, something
+    // else is going on. For now, just return EINVAL as a correctly implemented
+    // version of libdsv should only produce an EINVAL for incorrect arguments
+    // as of 6/16.
+    // err = ENOMEM;
+    err = EINVAL;
+  }
+  catch(std::length_error &) {
+    err = EINVAL;
   }
   catch(...) {
     abort();

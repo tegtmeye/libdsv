@@ -335,9 +335,154 @@ BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_default_check )
   BOOST_REQUIRE(std::equal(buf,buf+default_byteseq_size,default_bytesequence));
 }
 
+BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multi_multibyte_check )
+{
+  // these are declared here for convenience of adding/removing new tests
+  // without worrying about the variable declaration
+  int iresult;
+  size_t sresult;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  unsigned char bytesequence1[] = {'\n',0xFF,'h','e','l','l','o'};
+  unsigned char bytesequence2[] = {0x0D};
+  unsigned char bytesequence3[] = {'w','o','r','l','d',0x0A};
+  const unsigned char *equiv_byteseq[] = {bytesequence1,bytesequence2,
+    bytesequence3};
+  size_t byteseq_size[] = {7,1,6};
+  int byteseq_repeat[] = {0,1,0};
+  size_t size = 3;
+  int repeatflag = 0;
+  int exclusiveflag = 0;
+
+  // check for pathological individual bytesequece size
+  size_t path_byteseq_size[] = {7,std::numeric_limits<size_t>::max(),6};
+  iresult = dsv_parser_set_equiv_record_delimiters(parser,
+    equiv_byteseq,path_byteseq_size,byteseq_repeat,3,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check for 0 individual bytesequece size
+  size_t zero_byteseq_size[] = {7,1,0};
+  iresult = dsv_parser_set_equiv_record_delimiters(parser,
+    equiv_byteseq,zero_byteseq_size,byteseq_repeat,3,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  iresult = dsv_parser_set_equiv_record_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,size,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult);
+
+  sresult = dsv_parser_num_equiv_record_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == size,
+    "number of record delimiters " << sresult << " != " << size);
+
+  iresult = dsv_parser_get_equiv_record_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
+    "record delimiters repeatflag " << iresult << " != " << repeatflag);
+
+  iresult = dsv_parser_get_equiv_record_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
+    "record delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
+
+  for(std::size_t i=0; i<size; ++i) {
+    // check bytesequence size
+    sresult = dsv_parser_get_equiv_record_delimiter(parser,i,0,0,0);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    // check bytesequence size with repeatflag
+    int flag = 42;
+    sresult = dsv_parser_get_equiv_record_delimiter(parser,i,0,0,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    std::size_t padsize = 5;
+    std::size_t buffsize = byteseq_size[i]+(2*padsize);
+    std::unique_ptr<unsigned char[]> buf(new unsigned char[buffsize]);
+    std::unique_ptr<unsigned char[]> check_buf(new unsigned char[buffsize]);
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+    std::fill(check_buf.get(),check_buf.get()+buffsize,0xFF);
+    std::copy(equiv_byteseq[i],equiv_byteseq[i]+byteseq_size[i],
+      check_buf.get()+padsize);
+
+    // check for returned bytesequence of exact buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_record_delimiter(parser,i,buf.get()+padsize,
+      byteseq_size[i],&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "unexpected bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    //reset buffer
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+
+    // check for returned bytesequence of larger buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_record_delimiter(parser,i,buf.get()+padsize,
+      byteseq_size[i]+padsize,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "unexpected bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    //reset buffer
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+    //adjust check buffer
+    std::size_t undersize = std::max((byteseq_size[i]/2),1ul);
+    std::fill(check_buf.get(),check_buf.get()+buffsize,0xFF);
+    std::copy(equiv_byteseq[i],equiv_byteseq[i]+undersize,
+      check_buf.get()+padsize);
+
+    // check for returned bytesequence of undersized buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_record_delimiter(parser,i,buf.get()+padsize,
+      undersize,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == undersize,
+      "unexpected bytesequence size " << sresult << " != " << undersize);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+  }
+}
+
 
 // FIELD COLUMNS PARAMETER CHECKS
-
 
 BOOST_AUTO_TEST_CASE( set_field_columns_check )
 {
@@ -381,6 +526,486 @@ BOOST_AUTO_TEST_CASE( set_field_columns_check )
   BOOST_REQUIRE_MESSAGE(result == test_value,
     "unexpected field column return: " << result << " != " << test_value);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// FIELD DELIMITER PARAMETER CHECKS
+BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_byte_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  unsigned char bytesequence[] = {'\n'};
+  const unsigned char *equiv_byteseq[] = {bytesequence};
+  size_t byteseq_size[] = {1};
+  int byteseq_repeat[] = {0};
+  size_t size = 1;
+  int repeatflag = 0;
+  int exclusiveflag = 0;
+
+  int iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,1,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  size_t sresult = dsv_parser_num_equiv_field_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == size,
+    "number of field delimiters " << sresult << " != " << size);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
+    "field delimiters repeatflag " << iresult << " != " << repeatflag);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
+    "field delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
+
+  // get bytesequence size
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  // get bytesequence size with repeatflag
+  int flag = 42;
+
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+
+
+  // get invalid bytesequence size
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,size,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "unexpected bytesequence size " << sresult << " != " << 0);
+
+  static const size_t bufsize = 5;
+  unsigned char buf[bufsize];
+  unsigned char sentry_buf[bufsize] = {'X','X','X','X','X'};
+  unsigned char check_buf[bufsize] = {bytesequence[0],'X','X','X','X'};
+
+  // check for returned bytesequence of exact buff size
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,1,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of larger buff size
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,bufsize,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of zero buff size and valid repeatflag
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,sentry_buf));
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+}
+
+
+BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_multibyte_check )
+{
+  // these are declared here for convenience of adding/removing new tests
+  // without worrying about the variable declaration
+  int iresult;
+  size_t sresult;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  unsigned char bytesequence[] = {'\n',0xFF,'h','e','l','l','o'};
+  const unsigned char *equiv_byteseq[] = {bytesequence};
+  size_t byteseq_size[] = {7};
+  int byteseq_repeat[] = {0};
+  size_t size = 1;
+  int repeatflag = 0;
+  int exclusiveflag = 0;
+
+  // check for pathological equiv_bytesequence size
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,
+      std::numeric_limits<size_t>::max(),0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check for 0 equiv_bytesequence size
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check for pathological individual bytesequece size
+  size_t path_byteseq_size[] = {std::numeric_limits<size_t>::max()};
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,path_byteseq_size,byteseq_repeat,1,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check for 0 individual bytesequece size
+  size_t zero_byteseq_size[] = {0};
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,zero_byteseq_size,byteseq_repeat,1,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,1,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult);
+
+  sresult = dsv_parser_num_equiv_field_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == size,
+    "number of field delimiters " << sresult << " != " << size);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
+    "field delimiters repeatflag " << iresult << " != " << repeatflag);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
+    "field delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
+
+  // get bytesequence size
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  // get bytesequence size with repeatflag
+  int flag = 42;
+
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+
+
+  // get invalid bytesequence size
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,size,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "unexpected bytesequence size " << sresult << " != " << 0);
+
+  static const size_t bufsize = 14;
+  unsigned char buf[bufsize];
+  unsigned char sentry_buf[bufsize];
+  std::fill(sentry_buf,sentry_buf+bufsize,'X');
+
+  unsigned char check_buf[bufsize];
+  std::fill(std::copy(bytesequence,bytesequence+byteseq_size[0],
+      check_buf),check_buf+bufsize,'X');
+
+  // check for returned bytesequence of exact buff size
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,
+    byteseq_size[0],0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of larger buff size
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,bufsize,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+
+  // check for returned bytesequence of zero buff size and valid repeatflag
+  std::copy(sentry_buf,sentry_buf+bufsize,buf);
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
+    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf,buf+bufsize,sentry_buf));
+
+  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
+    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+}
+
+// schedule this after the getting/setting tests
+BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_default_check )
+{
+  int iresult;
+  size_t sresult;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // check for default field delimiter (comma)
+  sresult = dsv_parser_num_equiv_field_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 1,
+    "default number of field delimiters " << sresult << " != 1");
+
+  iresult = dsv_parser_get_equiv_field_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "default field delimiters repeatflag " << iresult << " != 0");
+
+  iresult = dsv_parser_get_equiv_field_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 1,
+    "default field delimiters exclusiveflag " << iresult << " != 1");
+
+  // get bytesequence size
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,0,0,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 1,
+    "default bytesequence size " << sresult << " != 1");
+
+  static const size_t default_byteseq_size = 1;
+  unsigned char buf[default_byteseq_size];
+  unsigned char default_bytesequence[default_byteseq_size] = {','};
+  sresult = dsv_parser_get_equiv_field_delimiter(parser,0,buf,
+    default_byteseq_size,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_byteseq_size,
+    "unexpected default bytesequence size " << sresult << " != "
+      << default_byteseq_size);
+
+  BOOST_REQUIRE(std::equal(buf,buf+default_byteseq_size,default_bytesequence));
+}
+
+BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_multi_multibyte_check )
+{
+  // these are declared here for convenience of adding/removing new tests
+  // without worrying about the variable declaration
+  int iresult;
+  size_t sresult;
+
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  unsigned char bytesequence1[] = {'\n',0xFF,'h','e','l','l','o'};
+  unsigned char bytesequence2[] = {0x0D};
+  unsigned char bytesequence3[] = {'w','o','r','l','d',0x0A};
+  const unsigned char *equiv_byteseq[] = {bytesequence1,bytesequence2,
+    bytesequence3};
+  size_t byteseq_size[] = {7,1,6};
+  int byteseq_repeat[] = {0,1,0};
+  size_t size = 3;
+  int repeatflag = 0;
+  int exclusiveflag = 0;
+
+  // check for pathological individual bytesequece size
+  size_t path_byteseq_size[] = {7,std::numeric_limits<size_t>::max(),6};
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,path_byteseq_size,byteseq_repeat,3,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check for 0 individual bytesequece size
+  size_t zero_byteseq_size[] = {7,1,0};
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,zero_byteseq_size,byteseq_repeat,3,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  iresult = dsv_parser_set_equiv_field_delimiters(parser,
+    equiv_byteseq,byteseq_size,byteseq_repeat,size,0,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult);
+
+  sresult = dsv_parser_num_equiv_field_delimiters(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == size,
+    "number of field delimiters " << sresult << " != " << size);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_repeatflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
+    "field delimiters repeatflag " << iresult << " != " << repeatflag);
+
+  iresult = dsv_parser_get_equiv_field_delimiters_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
+    "field delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
+
+  for(std::size_t i=0; i<size; ++i) {
+    // check bytesequence size
+    sresult = dsv_parser_get_equiv_field_delimiter(parser,i,0,0,0);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    // check bytesequence size with repeatflag
+    int flag = 42;
+    sresult = dsv_parser_get_equiv_field_delimiter(parser,i,0,0,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    std::size_t padsize = 5;
+    std::size_t buffsize = byteseq_size[i]+(2*padsize);
+    std::unique_ptr<unsigned char[]> buf(new unsigned char[buffsize]);
+    std::unique_ptr<unsigned char[]> check_buf(new unsigned char[buffsize]);
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+    std::fill(check_buf.get(),check_buf.get()+buffsize,0xFF);
+    std::copy(equiv_byteseq[i],equiv_byteseq[i]+byteseq_size[i],
+      check_buf.get()+padsize);
+
+    // check for returned bytesequence of exact buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_field_delimiter(parser,i,buf.get()+padsize,
+      byteseq_size[i],&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "unexpected bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    //reset buffer
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+
+    // check for returned bytesequence of larger buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_field_delimiter(parser,i,buf.get()+padsize,
+      byteseq_size[i]+padsize,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[i],
+      "unexpected bytesequence size " << sresult << " != " << byteseq_size[i]);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+
+    //reset buffer
+    std::fill(buf.get(),buf.get()+buffsize,0xFF);
+    //adjust check buffer
+    std::size_t undersize = std::max((byteseq_size[i]/2),1ul);
+    std::fill(check_buf.get(),check_buf.get()+buffsize,0xFF);
+    std::copy(equiv_byteseq[i],equiv_byteseq[i]+undersize,
+      check_buf.get()+padsize);
+
+    // check for returned bytesequence of undersized buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_equiv_field_delimiter(parser,i,buf.get()+padsize,
+      undersize,&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == undersize,
+      "unexpected bytesequence size " << sresult << " != " << undersize);
+
+    BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == byteseq_repeat[i],
+      "unexpected bytesequence repetflag " << flag << " != "
+        << byteseq_repeat[i]);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
