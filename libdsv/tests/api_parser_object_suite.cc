@@ -530,30 +530,6 @@ BOOST_AUTO_TEST_CASE( set_field_columns_check )
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // FIELD DELIMITER PARAMETER CHECKS
 BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_byte_check )
 {
@@ -986,6 +962,380 @@ BOOST_AUTO_TEST_CASE( set_equiv_field_delimiters_multi_multibyte_check )
 
 
 
+
+
+
+
+
+// FIELD ESCAPE PAIR PARAMETER CHECKS
+BOOST_AUTO_TEST_CASE( field_escape_pair_default_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  unsigned char default_bytesequence[] = {'"'};
+  const unsigned char *default_field_escape_seq[] = {default_bytesequence};
+  size_t default_escape_seq_size[] = {1};
+  int default_escape_repeat[] = {0};
+  size_t default_size = 1;
+  int default_repeatflag = 0;
+  int default_exclusiveflag = 1;
+
+  // check for defaults first since we are appending
+  size_t sresult = dsv_parser_num_field_escape_pairs(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_size,
+    "number of field delimiters " << sresult << " != " << default_size);
+
+  int iresult = dsv_parser_get_field_escape_pair_open_repeatflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == default_repeatflag,
+    "default open field escape repeat: " << sresult << " != "
+      << default_repeatflag);
+
+  // check for invalid arguments
+  iresult = dsv_parser_get_field_escape_pair_open_repeatflag(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "invalid additional open field escape repeats: " << sresult << " !< 0");
+
+
+  iresult = dsv_parser_get_field_escape_pair_close_repeatflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == default_repeatflag,
+    "default close field escape repeat[0]: " << sresult << " != "
+      << default_repeatflag);
+
+  // check for invalid arguments
+  iresult = dsv_parser_get_field_escape_pair_close_repeatflag(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "invalid additional close field escape repeats: " << sresult << " !< 0");
+
+
+  iresult = dsv_parser_get_field_escape_pair_open_exclusiveflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == default_exclusiveflag,
+    "default open exclusiveflag[0]: " << sresult << " != "
+      << default_exclusiveflag);
+
+  // check for invalid arguments
+  iresult = dsv_parser_get_field_escape_pair_open_exclusiveflag(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "invalid additional open field escape exclusiveflags: " << sresult
+      << " !< 0");
+
+
+  iresult = dsv_parser_get_field_escape_pair_close_exclusiveflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == default_exclusiveflag,
+    "default close exclusiveflag[0]: " << sresult << " != "
+      << default_exclusiveflag);
+
+  // check for invalid arguments
+  iresult = dsv_parser_get_field_escape_pair_close_exclusiveflag(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "invalid additional close field escape exclusiveflags: " << sresult
+      << " !< 0");
+
+
+  sresult = dsv_parser_num_field_escape_pair_open_sequences(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "number of open field delimiters sequences " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  // check for invalid arguments
+  sresult = dsv_parser_num_field_escape_pair_open_sequences(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "nonzero number of open field delimiters sequences for invalid pair"
+      << sresult << " != " << 0);
+
+
+
+  sresult = dsv_parser_num_field_escape_pair_close_sequences(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "number of close field delimiters sequences " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  // check for invalid arguments
+  sresult = dsv_parser_num_field_escape_pair_close_sequences(parser,1);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "nonzero number of close field delimiters sequences for invalid pair"
+      << sresult << " != " << 0);
+
+
+
+
+  // check field escape open size with repeatflag
+  int flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,
+    0,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair open sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected pair open sequence repetflag " << flag << " != "
+      << default_escape_repeat[0]);
+
+  std::size_t padsize = 5;
+  std::size_t buffsize = default_escape_seq_size[0]+(2*padsize);
+  std::unique_ptr<unsigned char[]> buf(new unsigned char[buffsize]);
+  std::unique_ptr<unsigned char[]> check_buf(new unsigned char[buffsize]);
+  std::fill(buf.get(),buf.get()+buffsize,0xFF);
+  std::fill(check_buf.get(),check_buf.get()+buffsize,0xFF);
+  std::copy(default_field_escape_seq[0],
+    default_field_escape_seq[0]+default_escape_seq_size[0],
+    check_buf.get()+padsize);
+
+  // check for returned bytesequence of exact buff size
+  // check flag again since library is actually filling the buffer
+  flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,0,0,
+    buf.get()+padsize,default_escape_seq_size[0],&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair open sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected bytesequence repeatflag " << flag << " != "
+      << default_escape_repeat[0]);
+
+  //reset buffer
+  std::fill(buf.get(),buf.get()+buffsize,0xFF);
+
+  // check for returned bytesequence of larger buff size
+  // check flag again since library is actually filling the buffer
+  flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,0,0,
+    buf.get()+padsize,default_escape_seq_size[0]+padsize,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair open sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected bytesequence repeatflag " << flag << " != "
+      << default_escape_repeat[0]);
+
+
+  iresult = dsv_parser_get_field_escape_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == default_exclusiveflag,
+    "unexpected field escape exclusiveflag " << iresult << " != "
+      << default_exclusiveflag);
+
+
+  // check field escape close size with repeatflag
+  flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,
+    0,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair close sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected pair close sequence repetflag " << flag << " != "
+      << default_escape_repeat[0]);
+
+  //reset buffer
+  std::fill(buf.get(),buf.get()+buffsize,0xFF);
+
+  // check for returned bytesequence of exact buff size
+  // check flag again since library is actually filling the buffer
+  flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,0,0,
+    buf.get()+padsize,default_escape_seq_size[0],&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair close sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected bytesequence repeatflag " << flag << " != "
+      << default_escape_repeat[0]);
+
+  //reset buffer
+  std::fill(buf.get(),buf.get()+buffsize,0xFF);
+
+  // check for returned bytesequence of larger buff size
+  // check flag again since library is actually filling the buffer
+  flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,0,0,
+    buf.get()+padsize,default_escape_seq_size[0]+padsize,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == default_escape_seq_size[0],
+    "pair close sequence size " << sresult << " != "
+      << default_escape_seq_size[0]);
+
+  BOOST_REQUIRE(std::equal(buf.get(),buf.get()+buffsize,check_buf.get()));
+
+  BOOST_REQUIRE_MESSAGE(flag == default_escape_repeat[0],
+    "unexpected bytesequence repeatflag " << flag << " != "
+      << default_escape_repeat[0]);
+}
+
+
+
+
+BOOST_AUTO_TEST_CASE( field_escape_pair_clear_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  // clear out defaults
+  dsv_parser_clear_field_escape_pairs(parser);
+
+  // check for empty
+  size_t sresult = dsv_parser_num_field_escape_pairs(parser);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "number of field delimiters " << sresult << " != " << 0);
+
+  // check for invalid arguments
+  int iresult = dsv_parser_get_field_escape_pair_open_repeatflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "default open field escape repeat: " << sresult << " !< 0");
+
+  iresult = dsv_parser_get_field_escape_pair_close_repeatflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "default close field escape repeat: " << sresult << " !< 0");
+
+
+  iresult = dsv_parser_get_field_escape_pair_open_exclusiveflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "default open exclusiveflag[0]: " << sresult << " !< 0");
+
+  iresult = dsv_parser_get_field_escape_pair_close_exclusiveflag(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(iresult < 0,
+    "default close exclusiveflag[0]: " << sresult << " !< 0");
+
+
+  sresult = dsv_parser_num_field_escape_pair_open_sequences(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "number of open field delimiters sequences " << sresult << " != 0");
+
+  sresult = dsv_parser_num_field_escape_pair_close_sequences(parser,0);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "number of close field delimiters sequences " << sresult << " != 0");
+
+
+  // check field escape open size with repeatflag
+  int flag = 42;
+  sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,
+    0,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "pair open sequence size " << sresult << " != 0");
+
+  BOOST_REQUIRE_MESSAGE(flag == 42,
+    "pair open sequence repeatflag unexpected modified provided value "
+      << flag << " != 42");
+
+  sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,
+    0,0,0,0,&flag);
+
+  BOOST_REQUIRE_MESSAGE(sresult == 0,
+    "pair close sequence size " << sresult << " != 0");
+
+  BOOST_REQUIRE_MESSAGE(flag == 42,
+    "pair close sequence repeatflag unexpected modified provided value "
+      << flag << " != 42");
+
+
+  iresult = dsv_parser_get_field_escape_exclusiveflag(parser);
+
+  int default_exclusiveflag = 1;
+  BOOST_REQUIRE_MESSAGE(iresult == default_exclusiveflag,
+    "unexpected field escape exclusiveflag " << iresult << " != "
+      << default_exclusiveflag);
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// set and check single byte opening and closing
+BOOST_AUTO_TEST_CASE( field_escape_pair_set_byte_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  int iresult;
+  size_t sresult;
+
+  unsigned char bytesequence1[] = {'O'};
+  const unsigned char *open_escape_seq[] = {bytesequence1};
+  size_t open_escape_seq_size[] = {1};
+  int open_escape_repeat[] = {1};
+  size_t open_size = 1;
+  int open_repeatflag = 1;
+  int open_exclusiveflag = 1;
+
+  unsigned char bytesequence2[] = {'C'};
+  const unsigned char *close_escape_seq[] = {bytesequence2};
+  size_t close_escape_seq_size[] = {1};
+  int close_escape_repeat[] = {1};
+  size_t close_size = 1;
+  int close_repeatflag = 1;
+  int close_exclusiveflag = 1;
+
+  iresult = dsv_parser_append_field_escape_pair(parser,
+    open_escape_seq,open_escape_seq_size,open_escape_repeat,open_size,
+      open_repeatflag,open_exclusiveflag,
+    close_escape_seq,close_escape_seq_size,close_escape_repeat,close_size,
+      close_repeatflag,close_exclusiveflag);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+
+
+
+
+
+
+
+}
 
 
 

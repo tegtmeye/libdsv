@@ -488,10 +488,10 @@ extern "C" {
 
 
   /**
-      Field Delimiters:
+      Field Escapes:
 
       Field escapes are the opening and closing "tags" used to separate the
-      contents of field from contents that may otherwise delimit or indicate
+      contents of fields from contents that may otherwise delimit or indicate
       structure. For example, given an RFC-4180 parser, the double quotes,
       or \c " serve as both opening and closing field delimiters which allow,
       for example, a comma to be part of the field and not be considered a
@@ -508,7 +508,7 @@ extern "C" {
       Suppose however that if an opening '<' is seen, the parser should only
       accept a closing '>' but if an opening '[' is seen, it should only accept
       a closing ']'. This is where multiple equivalence pairs come in. In this
-      case, there are two pairs or equivalent bytesequences, the first has the
+      case, there are two pairs of equivalent bytesequences, the first has the
       opening '<' and closing '>' and the second has the opening '[' and the
       closing ']'. The only bytesequence accepted for the closing field escape
       will be the pair associated with the escape that opened the field.
@@ -571,6 +571,9 @@ extern "C" {
       field_escapes_exclusives == false. In this case, if \c m is seen and set
       to exclusive but field_escapes_exclusives is set to false, then only it
       will be considered when considering A before moving on to B.
+
+      The default opening and closing bytesequence is the single ASCII double
+      quote or \c "
    */
 
 
@@ -842,7 +845,7 @@ extern "C" {
       pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
       bytesequence associated with the \c pairi-th pair.
   */
-  size_t dsv_parser_get_field_escape_open_pair(dsv_parser_t parser,
+  size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t parser,
     size_t pairi, size_t n, unsigned char *buf, size_t bufsize,
     int *repeatflag);
 
@@ -881,7 +884,7 @@ extern "C" {
       pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
       bytesequence associated with the \c pairi-th pair.
   */
-  size_t dsv_parser_get_field_escape_close_pair(dsv_parser_t parser,
+  size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t parser,
     size_t pairi, size_t n, unsigned char *buf, size_t bufsize,
     int *repeatflag);
 

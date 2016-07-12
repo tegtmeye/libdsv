@@ -622,7 +622,7 @@ size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t _parser,
   return result;
 }
 
-size_t dsv_parser_get_field_escape_open_pair(dsv_parser_t _parser,
+size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
   size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
 {
   typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
@@ -670,7 +670,7 @@ size_t dsv_parser_get_field_escape_open_pair(dsv_parser_t _parser,
   return result;
 }
 
-size_t dsv_parser_get_field_escape_close_pair(dsv_parser_t _parser,
+size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
   size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
 {
   typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
