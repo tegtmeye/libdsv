@@ -892,8 +892,8 @@ extern "C" {
       \brief Clear all field escape open and close pairs associated
       with \c parser.
 
-      N.B. If new pairs are not set, all future attempts to parse using \c
-      parser will cause an error.
+      N.B. If new pairs are not set, then it is impossible to have field or
+      record delimiters represented in a field
 
       \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions

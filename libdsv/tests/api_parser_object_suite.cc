@@ -1301,22 +1301,31 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_set_byte_check )
 
   int iresult;
   size_t sresult;
+  size_t pair_index;
 
-  unsigned char bytesequence1[] = {'O'};
-  const unsigned char *open_escape_seq[] = {bytesequence1};
+  size_t num_field_escape_pairs = 0;
+
+  unsigned char obytesequence1[] = {'O'};
+  const unsigned char *open_escape_seq[] = {obytesequence1};
   size_t open_escape_seq_size[] = {1};
   int open_escape_repeat[] = {1};
   size_t open_size = 1;
   int open_repeatflag = 1;
   int open_exclusiveflag = 1;
 
-  unsigned char bytesequence2[] = {'C'};
-  const unsigned char *close_escape_seq[] = {bytesequence2};
+  unsigned char cbytesequence1[] = {'C'};
+  const unsigned char *close_escape_seq[] = {cbytesequence1};
   size_t close_escape_seq_size[] = {1};
   int close_escape_repeat[] = {1};
   size_t close_size = 1;
   int close_repeatflag = 1;
   int close_exclusiveflag = 1;
+
+  std::size_t padsize = 5;
+
+
+  // clear out defaults
+  dsv_parser_clear_field_escape_pairs(parser);
 
   iresult = dsv_parser_append_field_escape_pair(parser,
     open_escape_seq,open_escape_seq_size,open_escape_repeat,open_size,
@@ -1328,19 +1337,222 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_set_byte_check )
     "unexpected exit code: " << iresult
       << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
 
+  num_field_escape_pairs = dsv_parser_num_field_escape_pairs(parser);
+
+  BOOST_REQUIRE_MESSAGE(num_field_escape_pairs == 1,
+    "number of field delimiters " << num_field_escape_pairs << " != " << 1);
+
+  pair_index = num_field_escape_pairs-1;
+
+  sresult = dsv_parser_num_field_escape_pair_open_sequences(parser,pair_index);
+
+  BOOST_REQUIRE_MESSAGE(sresult == open_size,
+    "number of open sequences " << sresult << " != " << open_size);
+
+  for(size_t i=0; i<open_size; ++i) {
+    std::size_t obuffsize = open_escape_seq_size[i]+(2*padsize);
+    std::unique_ptr<unsigned char[]> obuf(new unsigned char[obuffsize]);
+    std::unique_ptr<unsigned char[]> ocheck_buf(new unsigned char[obuffsize]);
+    std::fill(obuf.get(),obuf.get()+obuffsize,0xFF);
+    std::fill(ocheck_buf.get(),ocheck_buf.get()+obuffsize,0xFF);
+    std::copy(open_escape_seq[i],open_escape_seq[i]+open_escape_seq_size[i],
+      ocheck_buf.get()+padsize);
+
+    // check for returned bytesequence of exact buff size
+    // check flag again since library is actually filling the buffer
+    int flag = 42;
+    sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,
+      pair_index,i,obuf.get()+padsize,open_escape_seq_size[i],&flag);
+
+    BOOST_REQUIRE_MESSAGE(sresult == open_escape_seq_size[i],
+      "pair open sequence size " << sresult << " != "
+        << open_escape_seq_size[i]);
+
+    BOOST_REQUIRE(std::equal(obuf.get(),obuf.get()+obuffsize,ocheck_buf.get()));
+
+    BOOST_REQUIRE_MESSAGE(flag == open_escape_repeat[i],
+      "unexpected bytesequence repeatflag " << flag << " != "
+        << open_escape_repeat[i]);
 
 
+    std::size_t cbuffsize = close_escape_seq_size[i]+(2*padsize);
+    std::unique_ptr<unsigned char[]> cbuf(new unsigned char[cbuffsize]);
+    std::unique_ptr<unsigned char[]> ccheck_buf(new unsigned char[cbuffsize]);
+    std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+    std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+    std::copy(close_escape_seq[i],close_escape_seq[i]+close_escape_seq_size[i],
+      ccheck_buf.get()+padsize);
 
+    // check for returned bytesequence of exact buff size
+    // check flag again since library is actually filling the buffer
+    flag = 42;
+    sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,
+      pair_index,i,cbuf.get()+padsize,close_escape_seq_size[i],&flag);
 
+    BOOST_REQUIRE_MESSAGE(sresult == close_escape_seq_size[i],
+      "pair close sequence size " << sresult << " != "
+        << close_escape_seq_size[i]);
 
+    BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,ccheck_buf.get()));
 
-
+    BOOST_REQUIRE_MESSAGE(flag == close_escape_repeat[i],
+      "unexpected bytesequence repeatflag " << flag << " != "
+        << close_escape_repeat[i]);
+  }
 }
 
+// check multiple open and closing sequences. Do this iteratively and build it
+// up. That is,
+// - clear and insert the first and then check it
+// - clear and insert the first and second, then check each
+// - clear and insert the first, second, and third , then check each
+// we do this to ensure appending doesn't invalidate any prior pair
+BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+  int iresult;
+  std::size_t sresult;
+
+  std::size_t num_field_escape_pairs = 0;
+
+  unsigned char obytesequence1[] = {'O'};
+  unsigned char obytesequence2_1[] = {'o','p','e','n'};
+  unsigned char obytesequence2_2[] = {'f','o','o'};
+  unsigned char obytesequence3_1[] = {0xfb, 0x17, 0x2b, 0xf5};
+  unsigned char obytesequence3_2[] = {0x5b, 0x5c, 0x98, 0x2c};
+  unsigned char obytesequence3_3[] = {0x6c, 0xa1, 0xed, 0x32};
+  const unsigned char *open_escape_seq[][3] = {
+    {obytesequence1},
+    {obytesequence2_1,obytesequence2_2},
+    {obytesequence3_1,obytesequence3_2,obytesequence3_3}
+  };
+
+  std::size_t open_escape_seq_size[][3] = {{1},{4,3},{4,4,4}};
+  int open_escape_repeat[][1] = {{1},{0},{0}};
+  std::size_t open_size[] = {1,2,3};
+  int open_repeatflag[] = {1,0,1};
+  int open_exclusiveflag[] = {0,1,1};
+
+  unsigned char cbytesequence1[] = {'C'};
+  unsigned char cbytesequence2_1[] = {'c','l','o','s','e'};
+  unsigned char cbytesequence2_2[] = {'b','a','r'};
+  unsigned char cbytesequence2_3[] = {'b','a','r','f','o','o'};
+  unsigned char cbytesequence3_1[] = {0x12, 0xca, 0xfb, 0x22};
+  unsigned char cbytesequence3_2[] = {0x9a, 0x42, 0x72, 0xde};
+  const unsigned char *close_escape_seq[][3] = {
+    {cbytesequence1},
+    {cbytesequence2_1,cbytesequence2_2,cbytesequence2_3},
+    {cbytesequence3_1,cbytesequence3_2}
+  };
+
+  std::size_t close_escape_seq_size[][3] = {{1},{5,3,6},{4,4}};
+  int close_escape_repeat[][1] = {{0},{1},{1}};
+  std::size_t close_size[] = {1,3,2};
+  int close_repeatflag[] = {0,1,0};
+  int close_exclusiveflag[] = {1,0,0};
+
+  std::size_t sets = 3;
+  std::size_t padsize = 5;
 
 
+  for(std::size_t n=0; n<sets; ++n) {
+    // clear out defaults
+    dsv_parser_clear_field_escape_pairs(parser);
+
+    // add 0 through n sets
+    for(std::size_t i=0; i<n; ++i) {
+      iresult = dsv_parser_append_field_escape_pair(parser,
+        open_escape_seq[i],open_escape_seq_size[i],open_escape_repeat[i],
+          open_size[i],open_repeatflag[i],open_exclusiveflag[i],
+        close_escape_seq[i],close_escape_seq_size[i],close_escape_repeat[i],
+          close_size[i],close_repeatflag[i],close_exclusiveflag[i]);
+
+      BOOST_REQUIRE_MESSAGE(iresult == 0,
+        "unexpected exit code from " << i << "th insertion: " << iresult
+          << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+      num_field_escape_pairs = dsv_parser_num_field_escape_pairs(parser);
+
+      BOOST_REQUIRE_MESSAGE(num_field_escape_pairs == i+1,
+        "number of field delimiters " << num_field_escape_pairs << " != "
+          << i+1);
+    }
+
+    //check the validity of each pair up to i
+    for(std::size_t pair_index = 0; pair_index<n; ++pair_index) {
+      sresult = dsv_parser_num_field_escape_pair_open_sequences(parser,
+        pair_index);
+
+      BOOST_REQUIRE_MESSAGE(sresult == open_size[pair_index],
+        "number of open sequences for pair " << pair_index << ": " << sresult
+          << " != " << open_size[pair_index]);
+
+      for(size_t i=0; i<open_size[pair_index]; ++i) {
+        std::size_t obuffsize = open_escape_seq_size[pair_index][i]+(2*padsize);
+        std::unique_ptr<unsigned char[]> obuf(new unsigned char[obuffsize]);
+        std::unique_ptr<unsigned char[]> ocheck_buf(
+          new unsigned char[obuffsize]);
+        std::fill(obuf.get(),obuf.get()+obuffsize,0xFF);
+        std::fill(ocheck_buf.get(),ocheck_buf.get()+obuffsize,0xFF);
+        std::copy(open_escape_seq[pair_index][i],
+          open_escape_seq[pair_index][i]+open_escape_seq_size[pair_index][i],
+          ocheck_buf.get()+padsize);
+
+        // check for returned bytesequence of exact buff size
+        // check flag again since library is actually filling the buffer
+        int flag = 42;
+        sresult = dsv_parser_get_field_escape_pair_open_sequence(parser,
+          pair_index,i,obuf.get()+padsize,
+          open_escape_seq_size[pair_index][i],&flag);
+
+        BOOST_REQUIRE_MESSAGE(sresult == open_escape_seq_size[pair_index][i],
+          "pair open sequence size for pair " << pair_index << ": "
+            << sresult << " != " << open_escape_seq_size[pair_index][i]);
+
+        BOOST_REQUIRE(std::equal(obuf.get(),obuf.get()+obuffsize,
+          ocheck_buf.get()));
+
+        BOOST_REQUIRE_MESSAGE(flag == open_escape_repeat[pair_index][i],
+          "unexpected bytesequence repeatflag for pair " << pair_index
+          << ": " << flag << " != " << open_escape_repeat[i]);
 
 
+        std::size_t cbuffsize =
+          close_escape_seq_size[pair_index][i]+(2*padsize);
+        std::unique_ptr<unsigned char[]> cbuf(new unsigned char[cbuffsize]);
+        std::unique_ptr<unsigned char[]> ccheck_buf(
+          new unsigned char[cbuffsize]);
+        std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+        std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+        std::copy(close_escape_seq[pair_index][i],
+          close_escape_seq[pair_index][i]+close_escape_seq_size[pair_index][i],
+          ccheck_buf.get()+padsize);
+
+        // check for returned bytesequence of exact buff size
+        // check flag again since library is actually filling the buffer
+        flag = 42;
+        sresult = dsv_parser_get_field_escape_pair_close_sequence(parser,
+          pair_index,i,cbuf.get()+padsize,
+          close_escape_seq_size[pair_index][i],&flag);
+
+        BOOST_REQUIRE_MESSAGE(sresult == close_escape_seq_size[pair_index][i],
+          "pair close sequence size for pair " << pair_index << ": "
+            << sresult << " != " << close_escape_seq_size[pair_index][i]);
+
+        BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+          ccheck_buf.get()));
+
+        BOOST_REQUIRE_MESSAGE(flag == close_escape_repeat[pair_index][i],
+          "unexpected bytesequence repeatflag for pair " << pair_index
+          << ": " << flag << " != " << close_escape_repeat[i]);
+      }
+    }
+  }
+
+}
 
 
 
