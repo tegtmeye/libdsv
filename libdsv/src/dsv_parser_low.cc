@@ -647,10 +647,10 @@ size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
         const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
 
         if(bufsize == 0)
-          result = delim.seq_bytes.size();
+          result = delim.base_seq_bytes.size();
         else {
-          while(result < delim.seq_bytes.size() && result < bufsize) {
-            buf[result] = delim.seq_bytes[result];
+          while(result < delim.base_seq_bytes.size() && result < bufsize) {
+            buf[result] = delim.base_seq_bytes[result];
             ++result;
           }
         }
@@ -695,10 +695,10 @@ size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
         const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
 
         if(bufsize == 0)
-          result = delim.seq_bytes.size();
+          result = delim.base_seq_bytes.size();
         else {
-          while(result < delim.seq_bytes.size() && result < bufsize) {
-            buf[result] = delim.seq_bytes[result];
+          while(result < delim.base_seq_bytes.size() && result < bufsize) {
+            buf[result] = delim.base_seq_bytes[result];
             ++result;
           }
         }
