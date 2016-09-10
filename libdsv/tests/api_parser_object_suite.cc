@@ -1272,7 +1272,6 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_clear_check )
   BOOST_REQUIRE_MESSAGE(iresult == default_exclusiveflag,
     "unexpected field escape exclusiveflag " << iresult << " != "
       << default_exclusiveflag);
-
 }
 
 
@@ -1356,6 +1355,8 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
         "number of field delimiters " << num_field_escape_pairs << " != "
           << i+1);
     }
+
+    dsv_parser_set_field_escape_exclusiveflag(parser,0);
 
     //check the validity of each pair up to i
     for(std::size_t pair_index = 0; pair_index<n; ++pair_index) {
@@ -1554,6 +1555,11 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
           << ": " << flag << " != " << close_escape_repeat[i]);
       }
     }
+
+    iresult = dsv_parser_get_field_escape_exclusiveflag(parser);
+
+    BOOST_REQUIRE_MESSAGE(iresult == 0,
+     "unexpected field escape exclusiveflag " << iresult << " != 0");
   }
 
 }
