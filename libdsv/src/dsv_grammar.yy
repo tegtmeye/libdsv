@@ -667,8 +667,9 @@ std::size_t read_bytes(detail::scanner_state &scanner,
 int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)
 {
+#if 0
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+//  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
 
   static const unsigned char crlf_il[] = {0x0D,0x0A};
   static const YYSTYPE::char_buff_ptr_type
@@ -1056,6 +1057,6 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     // if here, we reached EOF
     return FIELDDATA;
   }
-
+#endif
   return 0;
 }

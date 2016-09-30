@@ -407,7 +407,6 @@ int dsv_parser_append_field_escape_pair(dsv_parser_t _parser,
   size_t close_size, int close_repeatflag, int close_exclusiveflag)
 {
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
 
   assert(_parser.p);
 
@@ -429,18 +428,21 @@ int dsv_parser_append_field_escape_pair(dsv_parser_t _parser,
   int err = 0;
 
   try {
-    std::vector<equiv_bytesequence_pair> pair_vec;
-    pair_vec.reserve(parser.field_escapes().size()+1);
-    pair_vec.insert(pair_vec.end(),parser.field_escapes().begin(),
-      parser.field_escapes().end());
+    detail::parser::escaped_field_desc_seq_type escaped_field_seq;
+    escaped_field_seq.reserve(parser.field_escapes().size()+1);
+    escaped_field_seq.insert(escaped_field_seq.end(),
+      parser.field_escapes().begin(),parser.field_escapes().end());
 
-    pair_vec.emplace_back(
-      equiv_bytesequence_type(open_escape_seq,open_escape_seq_size,
-        open_escape_repeat,open_size,open_repeatflag,open_exclusiveflag),
-      equiv_bytesequence_type(close_escape_seq,close_escape_seq_size,
-        close_escape_repeat,close_size,close_repeatflag,close_exclusiveflag));
+    escaped_field_seq.emplace_back(
+      detail::parser::escaped_field_desc {
+        equiv_bytesequence_type(open_escape_seq,open_escape_seq_size,
+          open_escape_repeat,open_size,open_repeatflag,open_exclusiveflag),
+        equiv_bytesequence_type(close_escape_seq,close_escape_seq_size,
+          close_escape_repeat,close_size,close_repeatflag,close_exclusiveflag)
+        }
+      );
 
-    parser.field_escapes(pair_vec);
+    parser.field_escapes(escaped_field_seq);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -473,7 +475,7 @@ size_t dsv_parser_num_field_escape_pairs(dsv_parser_t _parser)
 int dsv_parser_get_field_escape_pair_open_repeatflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -485,8 +487,8 @@ int dsv_parser_get_field_escape_pair_open_repeatflag(dsv_parser_t _parser,
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[i];
-      result = pair.first.repeatflag();
+      const escaped_field_desc &desc = parser.field_escapes()[i];
+      result = desc.open_equiv_bytesequence.repeatflag();
     }
   }
   catch (...) {
@@ -499,7 +501,7 @@ int dsv_parser_get_field_escape_pair_open_repeatflag(dsv_parser_t _parser,
 int dsv_parser_get_field_escape_pair_close_repeatflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -511,8 +513,8 @@ int dsv_parser_get_field_escape_pair_close_repeatflag(dsv_parser_t _parser,
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[i];
-      result = pair.second.repeatflag();
+      const escaped_field_desc &desc = parser.field_escapes()[i];
+      result = desc.close_equiv_bytesequence.repeatflag();
     }
   }
   catch (...) {
@@ -525,7 +527,7 @@ int dsv_parser_get_field_escape_pair_close_repeatflag(dsv_parser_t _parser,
 int dsv_parser_get_field_escape_pair_open_exclusiveflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -537,8 +539,8 @@ int dsv_parser_get_field_escape_pair_open_exclusiveflag(dsv_parser_t _parser,
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[i];
-      result = pair.first.exclusiveflag();
+      const escaped_field_desc &desc = parser.field_escapes()[i];
+      result = desc.open_equiv_bytesequence.exclusiveflag();
     }
   }
   catch (...) {
@@ -551,7 +553,7 @@ int dsv_parser_get_field_escape_pair_open_exclusiveflag(dsv_parser_t _parser,
 int dsv_parser_get_field_escape_pair_close_exclusiveflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -563,8 +565,8 @@ int dsv_parser_get_field_escape_pair_close_exclusiveflag(dsv_parser_t _parser,
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[i];
-      result = pair.second.exclusiveflag();
+      const escaped_field_desc &desc = parser.field_escapes()[i];
+      result = desc.close_equiv_bytesequence.exclusiveflag();
     }
   }
   catch (...) {
@@ -577,7 +579,7 @@ int dsv_parser_get_field_escape_pair_close_exclusiveflag(dsv_parser_t _parser,
 size_t dsv_parser_num_field_escape_pair_open_sequences(dsv_parser_t _parser,
   size_t pairi)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -587,8 +589,8 @@ size_t dsv_parser_num_field_escape_pair_open_sequences(dsv_parser_t _parser,
 
   try {
     if(pairi < parser.field_escapes().size()) {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[pairi];
-      result = pair.first.byteseq_desc_vec().size();
+      const escaped_field_desc &desc = parser.field_escapes()[pairi];
+      result = desc.open_equiv_bytesequence.byteseq_desc_vec().size();
     }
   }
   catch (...) {
@@ -601,7 +603,7 @@ size_t dsv_parser_num_field_escape_pair_open_sequences(dsv_parser_t _parser,
 size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t _parser,
   size_t pairi)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
   assert(_parser.p);
 
@@ -611,8 +613,8 @@ size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t _parser,
 
   try {
     if(pairi < parser.field_escapes().size()) {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[pairi];
-      result = pair.second.byteseq_desc_vec().size();
+      const escaped_field_desc &desc = parser.field_escapes()[pairi];
+      result = desc.close_equiv_bytesequence.byteseq_desc_vec().size();
     }
   }
   catch (...) {
@@ -625,7 +627,7 @@ size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t _parser,
 size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
   size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
   typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
 
@@ -640,8 +642,9 @@ size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
     if(pairi >= parser.field_escapes().size())
       result = 0;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[pairi];
-      const equiv_bytesequence_type &bytesequence = pair.first;
+      const escaped_field_desc &desc = parser.field_escapes()[pairi];
+      const equiv_bytesequence_type &bytesequence =
+        desc.open_equiv_bytesequence;
 
       if(n < bytesequence.byteseq_desc_vec().size()) {
         const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
@@ -673,7 +676,7 @@ size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
 size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
   size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
 {
-  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
   typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
   typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
 
@@ -688,8 +691,9 @@ size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
     if(pairi >= parser.field_escapes().size())
       result = 0;
     else {
-      const equiv_bytesequence_pair &pair = parser.field_escapes()[pairi];
-      const equiv_bytesequence_type &bytesequence = pair.second;
+      const escaped_field_desc &desc = parser.field_escapes()[pairi];
+      const equiv_bytesequence_type &bytesequence =
+        desc.close_equiv_bytesequence;
 
       if(n < bytesequence.byteseq_desc_vec().size()) {
         const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
@@ -720,14 +724,13 @@ size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
 
 void dsv_parser_clear_field_escape_pairs(dsv_parser_t _parser)
 {
-  typedef detail::parser::equiv_bytesequence_pair_seq
-    equiv_bytesequence_pair_seq;
+  typedef detail::parser::escaped_field_desc_seq_type escaped_field_desc_seq;
 
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  parser.field_escapes(equiv_bytesequence_pair_seq());
+  parser.field_escapes(escaped_field_desc_seq());
 
 }
 

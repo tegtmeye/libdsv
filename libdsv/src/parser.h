@@ -122,19 +122,22 @@ class parser {
     typedef basic_equiv_bytesequence<
       byte_type,bytesequence_type> equiv_bytesequence_type;
 
-    typedef std::pair<bytesequence_type,bytesequence_type> bytesequence_pair;
-    typedef std::pair<equiv_bytesequence_type,equiv_bytesequence_type>
-      equiv_bytesequence_pair;
-
-    typedef std::vector<bytesequence_pair> bytesequence_pair_seq;
-    typedef std::vector<equiv_bytesequence_pair> equiv_bytesequence_pair_seq;
-
-    typedef log_list_type::const_iterator const_log_iterator;
-
     struct escaped_field_desc {
       equiv_bytesequence_type open_equiv_bytesequence;
       equiv_bytesequence_type close_equiv_bytesequence;
     };
+
+    typedef std::pair<bytesequence_type,bytesequence_type> bytesequence_pair;
+//     typedef std::pair<equiv_bytesequence_type,equiv_bytesequence_type>
+//       equiv_bytesequence_pair;
+
+    typedef std::vector<bytesequence_pair> bytesequence_pair_seq;
+//     typedef std::vector<equiv_bytesequence_pair> equiv_bytesequence_pair_seq;
+
+    typedef std::vector<escaped_field_desc> escaped_field_desc_seq_type;
+
+    typedef log_list_type::const_iterator const_log_iterator;
+
 
     parser(void);
 
@@ -232,8 +235,8 @@ class parser {
       to exclusive but field_escapes_exclusives is set to false, then only it
       will be considered when considering A before moving on to B.
     */
-    void field_escapes(const std::vector<equiv_bytesequence_pair> &pair_vec);
-    const std::vector<equiv_bytesequence_pair> & field_escapes(void) const;
+    void field_escapes(const escaped_field_desc_seq_type &seq);
+    const escaped_field_desc_seq_type & field_escapes(void) const;
 
     // an idx of -1 or SIZE_MAX indicates exclusive was not set or it was set
     // but an open field escape was not seen yet
@@ -252,20 +255,6 @@ class parser {
     bool escaped_field(void) const;
     bool escaped_field(bool val);
 
-
-
-
-    /*
-      FIELD ESCAPE ESCAPES --- how to represent the field escape sequence
-      when in the middle of an escaped field. eg if the field escape is a
-      quote and the field is 'foo' ("foo"), how do you represent a quote between
-      the two 'o's. Examples include a "\"' sequence or a double quote for
-      RFC-4180. ie "fo\"o" and "fo""o" respectively.
-    */
-    void field_escape_escapes(const equiv_bytesequence_type &byte_seq);
-    const equiv_bytesequence_type & field_escape_escapes(void) const;
-    void set_effective_field_escape_escapes(
-      const std::shared_ptr<parser::bytesequence_type> &seq);
 
 
 
@@ -308,12 +297,12 @@ class parser {
     equiv_bytesequence_type _record_delimiters;
     equiv_bytesequence_type _field_delimiters;
 
-    std::vector<equiv_bytesequence_pair> _field_escapes;
-    std::size_t _effective_field_escapes_pair;
+    escaped_field_desc_seq_type _field_escapes;
+    std::size_t _effective_field_escapes_idx;
     bool _field_escapes_exclusives;
     bool _escaped_field;
 
-    equiv_bytesequence_type _field_escape_escapes;
+
 
     size_t _field_columns;
     bool _escaped_binary_fields;
@@ -323,9 +312,7 @@ class parser {
 
     static const equiv_bytesequence_type & make_default_record_delimiters(void);
     static const equiv_bytesequence_type & make_default_field_delimiters(void);
-    static const std::vector<parser::equiv_bytesequence_pair> &
-      make_default_field_escapes(void);
-    static equiv_bytesequence_type make_default_field_escape_escapes(void);
+    static const escaped_field_desc_seq_type & make_default_field_escapes(void);
 };
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
@@ -333,9 +320,8 @@ inline parser::parser(void) :_log_callback(0), _log_context(0),
   _record_delimiters(make_default_record_delimiters()),
   _field_delimiters(make_default_field_delimiters()),
   _field_escapes(make_default_field_escapes()),
-  _effective_field_escapes_pair(-1),
+  _effective_field_escapes_idx(-1),
   _field_escapes_exclusives(1),
-  _field_escape_escapes(make_default_field_escape_escapes()),
   _field_columns(0), _escaped_binary_fields(false),
   _effective_field_columns(0),
   _effective_field_columns_set(false)
@@ -441,25 +427,24 @@ inline void parser::set_effective_field_delimiters(
 
 
 inline void
-parser::field_escapes(const std::vector<equiv_bytesequence_pair> &pair_vec)
+parser::field_escapes(const escaped_field_desc_seq_type &seq)
 {
-  _field_escapes = pair_vec;
+  _field_escapes = seq;
 }
 
-inline const std::vector<parser::equiv_bytesequence_pair> &
-parser::field_escapes(void) const
+inline const parser::escaped_field_desc_seq_type & parser::field_escapes(void) const
 {
   return _field_escapes;
 }
 
 inline void parser::effective_field_escapes_pair(std::size_t idx)
 {
-  _effective_field_escapes_pair = idx;
+  _effective_field_escapes_idx = idx;
 }
 
 inline std::size_t parser::effective_field_escapes_pair(void) const
 {
-  return _effective_field_escapes_pair;
+  return _effective_field_escapes_idx;
 }
 
 inline void parser::field_escapes_exclusives(bool flag)
@@ -472,24 +457,6 @@ inline bool parser::field_escapes_exclusives(void) const
   return _field_escapes_exclusives;
 }
 
-
-inline void
-parser::field_escape_escapes(const equiv_bytesequence_type &byte_seq)
-{
-  _field_escape_escapes = byte_seq;
-}
-
-inline const parser::equiv_bytesequence_type &
-parser::field_escape_escapes(void) const
-{
-  return _field_escape_escapes;
-}
-
-inline void parser::set_effective_field_escape_escapes(
-  const std::shared_ptr<parser::bytesequence_type> &seq)
-{
-  _field_escape_escapes.effective_byteseq(seq);
-}
 
 
 
@@ -621,7 +588,7 @@ parser::make_default_field_delimiters(void)
   return equiv_sequence;
 }
 
-inline const std::vector<parser::equiv_bytesequence_pair> &
+inline const parser::escaped_field_desc_seq_type &
 parser::make_default_field_escapes(void)
 {
   // default is double quote ie "
@@ -630,29 +597,17 @@ parser::make_default_field_escapes(void)
   static const size_t default_equiv_seqs_size[1] = {1};
   static const int default_equiv_seqs_repeat[1] = {0};
 
-  static const equiv_bytesequence_pair bytesequence_pair(
-    equiv_bytesequence_type(default_equiv_seqs,
-      default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1),
-    equiv_bytesequence_type(default_equiv_seqs,
-      default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1));
+  static const escaped_field_desc default_escape_field_desc = {
+      equiv_bytesequence_type(default_equiv_seqs,
+        default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1),
+      equiv_bytesequence_type(default_equiv_seqs,
+        default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1)
+    };
 
-  static const std::vector<parser::equiv_bytesequence_pair> equiv_vec =
-    {bytesequence_pair};
+  static const escaped_field_desc_seq_type default_escape_field_desc_seq =
+    {default_escape_field_desc};
 
-  return equiv_vec;
-}
-
-inline parser::equiv_bytesequence_type
-parser::make_default_field_escape_escapes(void)
-{
-  // default is two double quotes ie ""
-  static const byte_type default_seq[] = {'"','"'};
-  static const byte_type *default_equiv_seqs[1] = {default_seq};
-  static const size_t default_equiv_seqs_size[1] = {2};
-  static const int default_equiv_seqs_repeat[1] = {0};
-
-  return equiv_bytesequence_type(default_equiv_seqs,
-    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
+  return default_escape_field_desc_seq;
 }
 
 
