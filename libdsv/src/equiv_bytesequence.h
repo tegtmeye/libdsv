@@ -291,11 +291,11 @@ std::vector<byte_chunk> compile_seq(ByteSeqDescIter desc_first,
 
 
 
-template<typename T>
+template<typename T, typename ByteSequenceT>
 class basic_equiv_bytesequence {
   public:
     typedef T byte_type;
-    typedef std::vector<byte_type> byte_vec_type;
+    typedef ByteSequenceT bytesequence_type;
 
     struct byteseq_desc;
 
@@ -318,8 +318,8 @@ class basic_equiv_bytesequence {
 
     const byte_chunk_vec_type & compiled_seq_vec(void) const;
 
-    std::shared_ptr<byte_vec_type> effective_byteseq(void) const;
-    void effective_byteseq(const std::shared_ptr<byte_vec_type> &seq);
+    std::shared_ptr<bytesequence_type> effective_byteseq(void) const;
+    void effective_byteseq(const std::shared_ptr<bytesequence_type> &seq);
 
   private:
     byteseq_desc_vec_type _byteseq_desc_vec;
@@ -327,17 +327,17 @@ class basic_equiv_bytesequence {
     bool _exclusiveflag;
 
     byte_chunk_vec_type _compiled_seq_vec;
-    std::shared_ptr<byte_vec_type> _effective_byteseq;
+    std::shared_ptr<bytesequence_type> _effective_byteseq;
 };
 
 
-template<typename T>
-struct basic_equiv_bytesequence<T>::byteseq_desc {
-  byte_vec_type seq_bytes;
-  byte_vec_type base_seq_bytes;
+template<typename T, typename ByteSequenceT>
+struct basic_equiv_bytesequence<T,ByteSequenceT>::byteseq_desc {
+  bytesequence_type seq_bytes;
+  bytesequence_type base_seq_bytes;
   bool repeat;
 
-  byteseq_desc(const byte_vec_type &seq, bool rep)
+  byteseq_desc(const bytesequence_type &seq, bool rep)
     :seq_bytes(seq), base_seq_bytes(seq), repeat(rep) {}
 
   template<typename ForwardIterator>
@@ -345,13 +345,13 @@ struct basic_equiv_bytesequence<T>::byteseq_desc {
     :seq_bytes(first,last), base_seq_bytes(first,last), repeat(rep) {}
 };
 
-template<typename T>
-inline basic_equiv_bytesequence<T>::
+template<typename T, typename ByteSequenceT>
+inline basic_equiv_bytesequence<T,ByteSequenceT>::
   basic_equiv_bytesequence(const byte_type *bytes[], const size_t bytelen[],
   const int seq_repeat[], size_t size, bool repeatflag, bool exclusiveflag)
 {
   if(size == 0)
-    throw std::length_error("basic_equiv_bytesequence<T>::"
+    throw std::length_error("basic_equiv_bytesequence<T,ByteSequenceT>::"
       "basic_equiv_bytesequence(bytes,bytelen,seq_repeat,size,repeatflag,"
       "exclusiveflag)");
 
@@ -359,7 +359,7 @@ inline basic_equiv_bytesequence<T>::
 
   for(std::size_t i=0; i<size; ++i) {
     if(bytelen[i] == 0)
-      throw std::length_error("basic_equiv_bytesequence<T>::"
+      throw std::length_error("basic_equiv_bytesequence<T,ByteSequenceT>::"
         "basic_equiv_bytesequence(bytes,bytelen,seq_repeat,size,repeatflag,"
         "exclusiveflag)");
 
@@ -371,7 +371,7 @@ inline basic_equiv_bytesequence<T>::
     _repeatflag = repeatflag || seq_repeat[0];
     _exclusiveflag = false;
     _effective_byteseq.reset(
-      new byte_vec_type(bytes[0],bytes[0]+bytelen[0]));
+      new bytesequence_type(bytes[0],bytes[0]+bytelen[0]));
   }
   else {
     _repeatflag = repeatflag;
@@ -382,54 +382,54 @@ inline basic_equiv_bytesequence<T>::
   }
 }
 
-template<typename T>
-inline const typename basic_equiv_bytesequence<T>::byteseq_desc_vec_type &
-basic_equiv_bytesequence<T>::byteseq_desc_vec(void) const
+template<typename T, typename ByteSequenceT>
+inline const typename basic_equiv_bytesequence<T,ByteSequenceT>::byteseq_desc_vec_type &
+basic_equiv_bytesequence<T,ByteSequenceT>::byteseq_desc_vec(void) const
 {
   return _byteseq_desc_vec;
 }
 
-template<typename T>
-inline bool basic_equiv_bytesequence<T>::repeatflag(void) const
+template<typename T, typename ByteSequenceT>
+inline bool basic_equiv_bytesequence<T,ByteSequenceT>::repeatflag(void) const
 {
   return _repeatflag;
 }
 
-template<typename T>
-inline void basic_equiv_bytesequence<T>::repeatflag(bool flag)
+template<typename T, typename ByteSequenceT>
+inline void basic_equiv_bytesequence<T,ByteSequenceT>::repeatflag(bool flag)
 {
   _repeatflag = flag;
 }
 
-template<typename T>
-inline bool basic_equiv_bytesequence<T>::exclusiveflag(void) const
+template<typename T, typename ByteSequenceT>
+inline bool basic_equiv_bytesequence<T,ByteSequenceT>::exclusiveflag(void) const
 {
   return _exclusiveflag;
 }
 
-template<typename T>
-inline void basic_equiv_bytesequence<T>::exclusiveflag(bool flag)
+template<typename T, typename ByteSequenceT>
+inline void basic_equiv_bytesequence<T,ByteSequenceT>::exclusiveflag(bool flag)
 {
   _exclusiveflag = flag;
 }
 
-template<typename T>
-inline const typename basic_equiv_bytesequence<T>::byte_chunk_vec_type &
-basic_equiv_bytesequence<T>::compiled_seq_vec(void) const
+template<typename T, typename ByteSequenceT>
+inline const typename basic_equiv_bytesequence<T,ByteSequenceT>::byte_chunk_vec_type &
+basic_equiv_bytesequence<T,ByteSequenceT>::compiled_seq_vec(void) const
 {
   return _compiled_seq_vec;
 }
 
-template<typename T>
-inline std::shared_ptr<typename basic_equiv_bytesequence<T>::byte_vec_type>
-basic_equiv_bytesequence<T>::effective_byteseq(void) const
+template<typename T, typename ByteSequenceT>
+inline std::shared_ptr<typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type>
+basic_equiv_bytesequence<T,ByteSequenceT>::effective_byteseq(void) const
 {
   return _effective_byteseq;
 }
 
-template<typename T>
-void basic_equiv_bytesequence<T>::effective_byteseq(
-  const std::shared_ptr<typename basic_equiv_bytesequence<T>::byte_vec_type> &seq)
+template<typename T, typename ByteSequenceT>
+void basic_equiv_bytesequence<T,ByteSequenceT>::effective_byteseq(
+  const std::shared_ptr<typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type> &seq)
 {
   _effective_byteseq = seq;
 }

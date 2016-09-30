@@ -764,6 +764,60 @@ void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t _parser, int flag)
 }
 
 
+int dsv_parser_set_equiv_escaped_field_escapes(dsv_parser_t _parser,
+  size_t field_escape_pair, const unsigned char *equiv_byteseq[],
+  const size_t byteseq_size[], const int byteseq_repeat[],
+  const unsigned char *replace_seq[], const size_t replace_seq_size[],
+  size_t replacements, int repeatflag, int exclusiveflag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int err = (replacements == 0);
+
+  try {
+    if(!err) {
+
+    }
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

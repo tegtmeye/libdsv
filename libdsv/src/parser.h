@@ -117,15 +117,24 @@ class parser {
     typedef std::list<std::pair<dsv_log_level,log_description> > log_list_type;
 
   public:
-    typedef basic_equiv_bytesequence<unsigned char> equiv_bytesequence_type;
-    typedef equiv_bytesequence_type::byte_type byte_type;
-    typedef equiv_bytesequence_type::byte_vec_type byte_vec_type;
+    typedef unsigned char byte_type;
+    typedef std::vector<unsigned char> bytesequence_type;
+    typedef basic_equiv_bytesequence<
+      byte_type,bytesequence_type> equiv_bytesequence_type;
 
+    typedef std::pair<bytesequence_type,bytesequence_type> bytesequence_pair;
     typedef std::pair<equiv_bytesequence_type,equiv_bytesequence_type>
       equiv_bytesequence_pair;
+
+    typedef std::vector<bytesequence_pair> bytesequence_pair_seq;
     typedef std::vector<equiv_bytesequence_pair> equiv_bytesequence_pair_seq;
 
     typedef log_list_type::const_iterator const_log_iterator;
+
+    struct escaped_field_desc {
+      equiv_bytesequence_type open_equiv_bytesequence;
+      equiv_bytesequence_type close_equiv_bytesequence;
+    };
 
     parser(void);
 
@@ -150,13 +159,13 @@ class parser {
     void record_delimiters(const equiv_bytesequence_type &byte_seq);
     const equiv_bytesequence_type & record_delimiters(void) const;
     void set_effective_record_delimiter(
-      const std::shared_ptr<parser::byte_vec_type> &seq);
+      const std::shared_ptr<parser::bytesequence_type> &seq);
 
     /* FIELD COMPLETION DELIMITER */
     void field_delimiters(const equiv_bytesequence_type &byte_seq);
     const equiv_bytesequence_type & field_delimiters(void) const;
     void set_effective_field_delimiters(
-      const std::shared_ptr<parser::byte_vec_type> &seq);
+      const std::shared_ptr<parser::bytesequence_type> &seq);
 
     /*
       FIELD ESCAPE  --- the sequence used to open and close an escaped field
@@ -234,9 +243,9 @@ class parser {
     // sets \c seq on the field_escapes pair indicated by
     // \c effective_field_escapes_pair
     void set_effective_open_field_escapes(
-      const std::shared_ptr<parser::byte_vec_type> &seq);
+      const std::shared_ptr<parser::bytesequence_type> &seq);
     void set_effective_close_field_escapes(
-      const std::shared_ptr<parser::byte_vec_type> &seq);
+      const std::shared_ptr<parser::bytesequence_type> &seq);
 
     void field_escapes_exclusives(bool flag);
     bool field_escapes_exclusives(void) const;
@@ -256,7 +265,7 @@ class parser {
     void field_escape_escapes(const equiv_bytesequence_type &byte_seq);
     const equiv_bytesequence_type & field_escape_escapes(void) const;
     void set_effective_field_escape_escapes(
-      const std::shared_ptr<parser::byte_vec_type> &seq);
+      const std::shared_ptr<parser::bytesequence_type> &seq);
 
 
 
@@ -402,7 +411,7 @@ parser::record_delimiters(void) const
 }
 
 inline void parser::set_effective_record_delimiter(
-  const std::shared_ptr<parser::byte_vec_type> &seq)
+  const std::shared_ptr<parser::bytesequence_type> &seq)
 {
   _record_delimiters.effective_byteseq(seq);
 }
@@ -421,7 +430,7 @@ parser::field_delimiters(void) const
 }
 
 inline void parser::set_effective_field_delimiters(
-  const std::shared_ptr<parser::byte_vec_type> &seq)
+  const std::shared_ptr<parser::bytesequence_type> &seq)
 {
   _field_delimiters.effective_byteseq(seq);
 }
@@ -477,7 +486,7 @@ parser::field_escape_escapes(void) const
 }
 
 inline void parser::set_effective_field_escape_escapes(
-  const std::shared_ptr<parser::byte_vec_type> &seq)
+  const std::shared_ptr<parser::bytesequence_type> &seq)
 {
   _field_escape_escapes.effective_byteseq(seq);
 }

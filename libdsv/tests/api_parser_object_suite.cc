@@ -1276,12 +1276,22 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_clear_check )
 
 
 
-// check multiple open and closing sequences. Do this iteratively and build it
-// up. That is,
-// - clear and insert the first and then check it
-// - clear and insert the first and second, then check each
-// - clear and insert the first, second, and third , then check each
-// we do this to ensure appending doesn't invalidate any prior pair
+/*
+  Check multiple open and closing field escapes sequence pairs and
+  escaped field escapes. Do this iteratively and build it up. That is,
+   - clear and insert the first field escape pair and escaped field escape
+      and then check it
+   - clear and insert the first and second field escape pair and escaped field
+      escape , then check each
+   - clear and insert the first, second, and third field escape pair and escaped
+      field escape  then check each
+   - etc etc
+   we do this to ensure appending doesn't invalidate any prior pair and clearing
+   truly clears the set
+
+   This is a less than ideal monolithic check but doing it piecewise opens up
+   too many unchecked aspects of each interface
+*/
 BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
 {
   dsv_parser_t parser;
@@ -1329,6 +1339,43 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
   int close_repeatflag[] = {0,1,0};
   int close_exclusiveflag[] = {1,0,0};
 
+  // escaped field escapes
+  unsigned char ebytesequence0[] = {'"'};
+  unsigned char ebytesequence1_0[] = {'e','s','c','a','p','e'};
+  unsigned char ebytesequence1_1[] = {'s','e','q'};
+  unsigned char ebytesequence1_2[] = {'"','"'};
+  unsigned char ebytesequence2_0[] = {0x51, 0xa7, 0xb3};
+  unsigned char ebytesequence2_1[] = {0xfa, 0x7c, 0xa2, 0xed};
+  const unsigned char *escaped_seq[][3] = {
+    {ebytesequence0},
+    {ebytesequence1_0,ebytesequence1_1,ebytesequence1_2},
+    {ebytesequence2_0,ebytesequence2_1}
+  };
+
+  std::size_t escaped_seq_size[][3] = {{1},{6,3,2},{3,4}};
+  int escaped_repeat[][3] = {{0},{1,0,0},{1,1}};
+
+  // escaped field escapes replacements
+  unsigned char rbytesequence0[] = {'1'};
+  unsigned char rbytesequence1_0[] = {'2','2'};
+  unsigned char *rbytesequence1_1  = 0;
+  unsigned char rbytesequence1_2[] = {'3','3','3'};
+  unsigned char rbytesequence2_0[] = {'4', '4', '4', '4'};
+  unsigned char rbytesequence2_1[] = {'5'};
+  const unsigned char *replacement_seq[][3] = {
+    {rbytesequence0},
+    {rbytesequence1_0,rbytesequence1_1,rbytesequence1_2},
+    {rbytesequence2_0,rbytesequence2_1}
+  };
+
+  std::size_t replacement_seq_size[][3] = {{1},{2,0,3},{4,1}};
+  std::size_t replacements_size[] = {1,3,2};
+
+  int escaped_repeatflag[] = {0,1,0};
+  int escaped_exclusiveflag[] = {1,0,0};
+
+
+
   std::size_t sets = 3;
   std::size_t padsize = 5;
 
@@ -1354,6 +1401,16 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
       BOOST_REQUIRE_MESSAGE(num_field_escape_pairs == i+1,
         "number of field delimiters " << num_field_escape_pairs << " != "
           << i+1);
+
+      iresult = dsv_parser_set_equiv_escaped_field_escapes(parser,i,
+        escaped_seq[i],escaped_seq_size[i],escaped_repeat[i],
+        replacement_seq[i],replacement_seq_size[i],replacements_size[i],
+        escaped_repeatflag[i],escaped_exclusiveflag[i]);
+
+      BOOST_REQUIRE_MESSAGE(iresult == 0,
+        "unexpected exit code from " << i << "th escaped field escapes "
+        "insertion: " << iresult << " (ENOMEM = " << ENOMEM << ", EINVAL = "
+        << EINVAL);
     }
 
     dsv_parser_set_field_escape_exclusiveflag(parser,0);

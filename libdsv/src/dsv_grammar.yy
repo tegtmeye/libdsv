@@ -758,8 +758,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
             return FIELDDATA;
           }
 
-          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-            new detail::parser::byte_vec_type());
+          std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+            new detail::parser::bytesequence_type());
           parsed_seq->reserve(bytes);
 
           for(std::size_t i=bytes; i != 0; --i)
@@ -818,8 +818,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
             return FIELDDATA;
           }
 
-          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-            new detail::parser::byte_vec_type());
+          std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+            new detail::parser::bytesequence_type());
           parsed_seq->reserve(bytes);
 
           for(std::size_t i=bytes; i != 0; --i)
@@ -878,8 +878,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
             field_delimiters.repeatflag());
 
         if(bytes) {
-          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-            new detail::parser::byte_vec_type());
+          std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+            new detail::parser::bytesequence_type());
           parsed_seq->reserve(bytes);
 
           for(std::size_t i=bytes; i != 0; --i)
@@ -921,8 +921,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
             record_delimiters.repeatflag());
 
         if(bytes) {
-          std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-            new detail::parser::byte_vec_type());
+          std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+            new detail::parser::bytesequence_type());
           parsed_seq->reserve(bytes);
 
           for(std::size_t i=bytes; i != 0; --i)
@@ -973,8 +973,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
               open_seq.repeatflag());
 
           if(bytes) {
-            std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-              new detail::parser::byte_vec_type());
+            std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+              new detail::parser::bytesequence_type());
             parsed_seq->reserve(bytes);
 
             for(std::size_t i=bytes; i != 0; --i)
@@ -1022,8 +1022,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
                 open_seq.repeatflag());
 
             if(bytes) {
-              std::shared_ptr<detail::parser::byte_vec_type> parsed_seq(
-                new detail::parser::byte_vec_type());
+              std::shared_ptr<detail::parser::bytesequence_type> parsed_seq(
+                new detail::parser::bytesequence_type());
               parsed_seq->reserve(bytes);
 
               for(std::size_t i=bytes; i != 0; --i)

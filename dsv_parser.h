@@ -587,7 +587,10 @@ extern "C" {
 
       A 13 parameter function call is less that ideal but the alternative would
       be either error-prone or involve many function calls that present a
-      verbose and clunky interface.
+      verbose and clunky interface. For example, an opening bytesequence
+      without the corresponding closing bytesequence doesn't make sense but
+      a more granular interface would syntactically allow it thus requiring
+      some sort of pre-parse invalid state if the interface was used incorrectly
 
       \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
@@ -889,8 +892,8 @@ extern "C" {
     int *repeatflag);
 
   /**
-      \brief Clear all field escape open and close pairs associated
-      with \c parser.
+      \brief Clear all field escape open and close pairs and escaped field
+      escapes associated with \c parser.
 
       N.B. If new pairs are not set, then it is impossible to have field or
       record delimiters represented in a field
@@ -945,13 +948,12 @@ extern "C" {
 
 
 
-//replace 'w' with equiv. no equiv means single seq in high API
 
 
   /**
     \brief Set equivalent, potentially repeating, and optionally
-    parse-exclusive multibyte escaped field escapes to be used for
-    future parsing with \c parser.
+    parse-exclusive multibyte escaped field escapes to be used with the
+    chosen field escape pair for future parsing with \c parser.
 
     An escaped field escape is a bytesequence used inside of an escaped
     field to indicate that the sequence is part of the field
@@ -968,7 +970,7 @@ extern "C" {
     one wanted the field to actually contain the quotes, the field would
     contain """foo bar""", which has nine characters: the first \c "
     opens the field (not part of the nine), the two repeating \c "" is a
-    field escaped escape sequence which is replaced in the actual field
+    escaped field escape sequence which is replaced in the actual field
     by a single \c ", the words \c 'foo' and \c 'bar' separated by a
     space, two more repeating \c "" which is replaced in the actual
     field by a single \c ", and the final \c " to close the field (also
@@ -980,42 +982,113 @@ extern "C" {
     either two double quotes \c "" OR the hex representation of the
     single double quote---ie \c 0x22. To which a valid version of the
     previous example would be \c """foo bar0x22". Specifying each of
-    these as valid sequences is possible along with optionally
+    these as valid sequences is possible along with optional
     functionality to repeat the sequence or enable parse
     exclusivity---that is, the first valid bytesequence of an equivalent
     bytesequence set becomes the only valid bytesequence for the rest of
     the file.
 
-    \note There must always be a escaped field escapes. That is, setting
-    \c size to zero is invalid.
+    For each equivalent bytesequence representing valid escaped field escapes
+    there is a replacement bytesequence that will be substituted
+    for the parsed escaped field escape. For example, in an RFC 4180-strict
+    parser a twice repeating double quote \c "" is replaced by the single
+    double quote in the field. That is, if the raw field contains
+    \c "foo""bar", the parsed field field contains \c 'foo"bar' without the
+    single tics. Turning again to the previous fictional example, if a valid
+    escaped field escape is two double quotes OR the string '0x22' which
+    corresponds to ASCII representation of the double quote both would map
+    a replacement to a single double quote. That is, for the raw field
+    \c """foo bar0x22" the parsed value would be \c '"foo bar"' without the
+    single tics.
+
+    By allowing multiple equivalent bytesequence -> replacement mappings,
+    this matches the flexibility in the field escape pairs. For example it is
+    possible to have a field opened and closed by a single tic; \c ' OR a double
+    quote; \c " and have each be twice repeating to be an escaped field escape.
+    That is, support the raw sequence \c "foo""bar" and \c 'foo''bar' as parsed
+    fields \c foo"bar and \c foo'bar respectively in the same file. This is
+    done by assigning a escaped field escape to a particular open and closing
+    field escape. For the previous example, there is a open and closing
+    field escape pair for a double quote ("foo") with a escaped field escape of
+    two double quotes ("") ie "foo""bar" is parsed as the 7 characters foo"bar
+    and another open and closing field escape pair for the single quote ('foo')
+    with and escaped field escape of two single quotes ('') ie 'foo''bar' is
+    parsed as the 7 characters foo'bar.
+
+    N.B. It is not required that a field escape pair has an escaped field
+    escape but is is illegal to have more escaped field escapes equivalent
+    bytesequences than there are field escape pairs. It is also legal to map
+    an escape field escape to multiple field escape pairs. For example, two
+    double quotes \c "" -> \c " can be mapped to every set field escape pair.
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \param[in] equiv_byteseq An array of length \c size such that the ith
+
+    \para,[in] field_escape_pair The field escape pair to associate this
+      escaped field escape with. If the return value of
+      dsv_parser_num_field_escape_pairs is less than \c field_escape_pair,
+      the function returns EINVAL and no changes are made.
+
+    \param[in] equiv_byteseq An array of length \c equiv_size such that the ith
       element is a pointer to a sequence of bytes of size \c byteseq_size[i]
-    \param[in] byteseq_size An array of length \c size such that the ith element
-      is the size of the ith sequence of bytes pointed to by
+
+    \param[in] byteseq_size An array of length \c equiv_size such that the ith
+      element is the size of the ith sequence of bytes pointed to by
       \c equiv_byteseq[i].
+
     \param[in] byteseq_repeat An array of length \c size such that if the ith
       element is nonzero, the ith bytesequence in \c equiv_byteseq may be
       repeated indefinitely.
-    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
-      \c byteseq_repeat. If \c size is zero, this call has no effect on the
-      previous parsing state.
+
+    \param[in] replace_seq An array of length replace_size such that the ith
+      element is a pointer to a sequence of bytes of size \c replace_seq_size[i]
+      where the bytes will replace a parsed sequence pointed to by
+      equiv_byteseq[i]. If zero, any parsed replace_seq[i] will be
+      stripped from the field.
+
+    \param[in] replace_seq_size An array of length \c replace_size such that the
+      ith element is the size of the ith sequence of bytes pointed to by
+      \c replace_seq[i]. If zero, any parsed replace_seq[i] will be stripped
+      from the field.
+
+    \param[in] replacements The size of each arrays \c equiv_byteseq,
+      \c byteseq_size, \c byteseq_repeat, \c replace_seq,
+      and \c replace_seq_size. If \c replacements is zero, the effect is to
+      remove all escaped field escapes associated with \c field_escape_pair
+
     \param[in] repeatflag If nonzero, any bytesequence chosen from
       \c equiv_byteseq my be repeated an indefinite number of times.
+
     \param[in] exclusiveflag If nonzero, then the first bytesequence represented
       by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
       is encountered, it becomes the only valid bytesequence for the remainder
       of the parser operation.
+
     \retval 0 success
+
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero or
-      greater than available storage
+
+    \retval EINVAL Either \c size or an element of byteseq_size is zero
   */
-  int dsv_parser_set_equiv_field_escaped_escapes(dsv_parser_t parser,
-    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
-    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
+  int dsv_parser_set_equiv_escaped_field_escapes(dsv_parser_t parser,
+    size_t field_escape_pair, const unsigned char *equiv_byteseq[],
+    const size_t byteseq_size[], const int byteseq_repeat[],
+    const unsigned char *replace_seq[], const size_t replace_seq_size[],
+    size_t replacements, int repeatflag, int exclusiveflag);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   /**
     \brief Obtain the number of equivalent field escaped escapes
