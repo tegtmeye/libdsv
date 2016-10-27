@@ -121,18 +121,19 @@ class parser {
     typedef std::vector<unsigned char> bytesequence_type;
     typedef basic_equiv_bytesequence<
       byte_type,bytesequence_type> equiv_bytesequence_type;
+    typedef std::pair<
+      equiv_bytesequence_type,bytesequence_type> replacement_pair_type;
+    typedef std::vector<replacement_pair_type> replacement_pair_seq_type;
 
     struct escaped_field_desc {
       equiv_bytesequence_type open_equiv_bytesequence;
       equiv_bytesequence_type close_equiv_bytesequence;
+      replacement_pair_seq_type escaped_field_escapes;
+      bool escaped_repeatflag;
+      bool escaped_exclusiveflag;
+
+      std::size_t effective_escaped_field_escape_idx;
     };
-
-    typedef std::pair<bytesequence_type,bytesequence_type> bytesequence_pair;
-//     typedef std::pair<equiv_bytesequence_type,equiv_bytesequence_type>
-//       equiv_bytesequence_pair;
-
-    typedef std::vector<bytesequence_pair> bytesequence_pair_seq;
-//     typedef std::vector<equiv_bytesequence_pair> equiv_bytesequence_pair_seq;
 
     typedef std::vector<escaped_field_desc> escaped_field_desc_seq_type;
 
@@ -237,6 +238,14 @@ class parser {
     */
     void field_escapes(const escaped_field_desc_seq_type &seq);
     const escaped_field_desc_seq_type & field_escapes(void) const;
+
+    void set_escaped_field_escapes(std::size_t idx,
+      const replacement_pair_seq_type &escaped_field_escapes);
+
+    void set_escaped_field_escapes_repeat(std::size_t idx, bool flag);
+    void set_escaped_field_escapes_exclusives(std::size_t idx, bool flag);
+
+
 
     // an idx of -1 or SIZE_MAX indicates exclusive was not set or it was set
     // but an open field escape was not seen yet
@@ -436,6 +445,29 @@ inline const parser::escaped_field_desc_seq_type & parser::field_escapes(void) c
 {
   return _field_escapes;
 }
+
+inline void parser::set_escaped_field_escapes(std::size_t idx,
+    const replacement_pair_seq_type &escaped_field_escapes)
+{
+  escaped_field_desc &desc = _field_escapes.at(idx);
+  desc.escaped_field_escapes = escaped_field_escapes;
+}
+
+inline void
+parser::set_escaped_field_escapes_repeat(std::size_t idx, bool flag)
+{
+  escaped_field_desc &desc = _field_escapes.at(idx);
+  desc.escaped_repeatflag = flag;
+}
+
+inline void
+parser::set_escaped_field_escapes_exclusives(std::size_t idx, bool flag)
+{
+  escaped_field_desc &desc = _field_escapes.at(idx);
+  desc.escaped_exclusiveflag = flag;
+}
+
+
 
 inline void parser::effective_field_escapes_pair(std::size_t idx)
 {

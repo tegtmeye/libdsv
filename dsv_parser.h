@@ -951,9 +951,9 @@ extern "C" {
 
 
   /**
-    \brief Set equivalent, potentially repeating, and optionally
-    parse-exclusive multibyte escaped field escapes to be used with the
-    chosen field escape pair for future parsing with \c parser.
+    \brief Append the equivalent, potentially repeating, and optionally
+    parse-exclusive multibyte escaped field escapes with replacement to be
+    used with the chosen field escape pair for future parsing with \c parser.
 
     An escaped field escape is a bytesequence used inside of an escaped
     field to indicate that the sequence is part of the field
@@ -1030,7 +1030,9 @@ extern "C" {
       the function returns EINVAL and no changes are made.
 
     \param[in] equiv_byteseq An array of length \c equiv_size such that the ith
-      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
+      element is a pointer to a sequence of bytes of size \c byteseq_size[i].
+      If any sequence of \c equiv_byteseq is parsed, it is replaced by the
+      contents of replace_seq in the stored field.
 
     \param[in] byteseq_size An array of length \c equiv_size such that the ith
       element is the size of the ith sequence of bytes pointed to by
@@ -1040,140 +1042,285 @@ extern "C" {
       element is nonzero, the ith bytesequence in \c equiv_byteseq may be
       repeated indefinitely.
 
-    \param[in] replace_seq An array of length replace_size such that the ith
-      element is a pointer to a sequence of bytes of size \c replace_seq_size[i]
-      where the bytes will replace a parsed sequence pointed to by
-      equiv_byteseq[i]. If zero, any parsed replace_seq[i] will be
-      stripped from the field.
-
-    \param[in] replace_seq_size An array of length \c replace_size such that the
-      ith element is the size of the ith sequence of bytes pointed to by
-      \c replace_seq[i]. If zero, any parsed replace_seq[i] will be stripped
-      from the field.
-
-    \param[in] replacements The size of each arrays \c equiv_byteseq,
-      \c byteseq_size, \c byteseq_repeat, \c replace_seq,
-      and \c replace_seq_size. If \c replacements is zero, the effect is to
-      remove all escaped field escapes associated with \c field_escape_pair
+    \param[in] equiv_size The size of each arrays \c equiv_byteseq,
+      \c byteseq_size, \c byteseq_repeat. If \c equiv_size is zero,
+      the function returns EINVAL and no changes are made.
 
     \param[in] repeatflag If nonzero, any bytesequence chosen from
       \c equiv_byteseq my be repeated an indefinite number of times.
 
     \param[in] exclusiveflag If nonzero, then the first bytesequence represented
       by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
-      is encountered, it becomes the only valid bytesequence for the remainder
-      of the parser operation.
+      is encountered, it becomes the only valid bytesequence from this
+      equiv_byteseq for the remainder of the parser operation.
+
+    \param[in] replace_seq A pointer to a sequence of bytes of size
+      \c replace_seq_size where the bytes will replace any parsed sequence
+      pointed to by equiv_byteseq. If zero, any parsed equiv_byteseq will be
+      stripped from the field.
+
+    \param[in] replace_seq_size The size of the sequence of bytes pointed to by
+      \c replace_seq. If zero, any parsed equiv_byteseq will be stripped
+      from the field.
+
 
     \retval 0 success
 
     \retval ENOMEM Could not allocate memory
 
-    \retval EINVAL Either \c size or an element of byteseq_size is zero
+    \retval EINVAL Either \c field_escape_pair does not index a valid
+      field escape pair or the arguments or any element of:
+      equiv_byteseq, byteseq_size, or byteseq_repeat is zero
   */
-  int dsv_parser_set_equiv_escaped_field_escapes(dsv_parser_t parser,
+  int dsv_parser_append_equiv_escaped_field_escapes(dsv_parser_t parser,
     size_t field_escape_pair, const unsigned char *equiv_byteseq[],
     const size_t byteseq_size[], const int byteseq_repeat[],
-    const unsigned char *replace_seq[], const size_t replace_seq_size[],
-    size_t replacements, int repeatflag, int exclusiveflag);
-
-
-
-
-
-
-
-
-
-
-
-
-
+    size_t equiv_size, int repeatflag, int exclusiveflag,
+    const unsigned char replace_seq[], size_t replace_seq_size);
 
 
   /**
-    \brief Obtain the number of equivalent field escaped escapes
-    currently assigned to \c parser
-
-    The returned values is the same as the \c size parameter in \c
-    dsv_parser_set_equiv_field_escaped_escapes
+    \brief Clear all escaped field escapes and replacement associated with
+    the indicated field escape pair for future parsing with \c parser.
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \retval The number of equivalent field escaped escapes set for \c parser
+
+    \para,[in] field_escape_pair The field escape pair to clear all escaped
+      field escapes from. If the return value of
+      dsv_parser_num_field_escape_pairs is less than \c field_escape_pair,
+      the function returns EINVAL and no changes are made.
+
+    \retval 0 success
+
+    \retval ENOMEM Could not allocate memory
+
+    \retval EINVAL Either \c field_escape_pair does not index a valid
+      field escape pair
   */
-  size_t dsv_parser_num_equiv_field_escaped_escapes(dsv_parser_t parser);
+  int dsv_parser_clear_equiv_escaped_field_escapes(dsv_parser_t parser,
+    size_t field_escape_pair);
+
 
   /**
-    \brief Obtain whether or not the equivalent field escaped escapes
-    assigned to \parser are allowed to repeat indefinitely
-
-    The returned values is the same as the \c repeatflag parameter in \c
-    dsv_parser_set_equiv_field_escaped_escapes
+    \brief Obtain the number of escaped field escapes and replacement
+    associated with the indicated field escape pair
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-    \retval If nonzero, the currently assigned
-      dsv_parser_set_equiv_field_escaped_escapes to \c parser are allowed
-      to repeat indefinitely
-   */
-  int dsv_parser_get_equiv_field_escaped_escapes_repeatflag(
-    dsv_parser_t parser);
+    \para,[in] field_escape_pair The field escape pair to query. If the return
+      value of dsv_parser_num_field_escape_pairs is less than
+      \c field_escape_pair, the function returns (size_t)(-1)
+
+    \retval nonnegative number of escaped field escapes and replacements
+      associated with \c field_escape_pair
+
+    \retval ENOMEM Could not allocate memory
+
+    \retval (size_t)(-1) \c field_escape_pair does not index a valid
+      field escape pair
+  */
+  size_t dsv_parser_num_equiv_escaped_field_escapes(dsv_parser_t parser,
+    size_t field_escape_pair);
+
 
   /**
-    \brief Obtain whether or not the first parsed equivalent field escaped
-    escapes assigned to \parser is the only permitted subsequent field escaped
-    escape bytesequence for the remainder of parsing
-
-    The returned values is the same as the \c exclusiveflag parameter in
-    \c dsv_parser_set_equiv_field_escaped_escapes
-
-    \param[in] parser A pointer to a dsv_parser_t object previously initialized
-      with one of the \c dsv_parser_create* functions
-    \retval If nonzero, the first field escaped escape bytesequence parsed
-      among the currently assigned field equivalent field escaped escapes in
-      \c parser shall be the only permitted field escaped escape bytesequence
-      for the remainder of the parsing session.
-   */
-  int dsv_parser_get_equiv_field_escaped_escapes_exclusiveflag(
-    dsv_parser_t parser);
-
-  /**
-    \brief Copy the \c nth field escaped escape bytesequence to be used for
-    future parsing with \c parser into the buffer \c buf of size \c bufsize and
-    set the location pointed to by \c repeatflag as to if the bytesequence is
-    allowed to be repeated indefinitely.
-
-    If \c bufsize is zero, return the number of bytes needed to hold the
-    currently assigned bytesequence for this location. This number is suitable
-    for allocating memory for \c buf. If \c bufsize is nonzero, copy the bytes
-    representing the bytesequence or \c bufsize whichever is smaller and return
-    this value. If \c bufsize is zero, \c buf is not referenced and may be zero
-    for the call.
-
-    If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
-    the repeat value of the \c nth bytesequence regardless of the value of \c
-    buf and \c buffsize
+    \brief Obtain the number of escaped field escapes equivalent bytesequences
+    associated with the indicated field escape pair and equiv escape index
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of size
-      \bufsize to which the nth bytesequence will be copied into. N.B. since the
-      sequence of bytes contained in \c buf may not represent a string, no null
-      terminator will be added to the end of the bytes.
-    \param [in] bufsize The size of the unsigned char buffer pointed to by
-      \c buf.
-    \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
-      pointed to by \c repeatflag to a value if nonzero indicates that the
-      \nth bytesequence can be repeated indefinitely.
-    \retval If \c bufsize is zero, return the number of bytes needed to hold the
-      \c nth bytesequence. If \c bufsize is nonzero, return the number of bytes
-      copied to \c buf which is not necessarily the same size as \c bufsize.
-    \retval 0 \c n is greater than the number of equivalent bytesequences
-      currently set for \c parser
-   */
-  size_t dsv_parser_get_equiv_field_escaped_escapes(dsv_parser_t parser,
-    size_t n, unsigned char *buf, size_t bufsize, int *repeatflag);
+
+    \para,[in] field_escape_pair The field escape pair to query. If the return
+      value of dsv_parser_num_field_escape_pairs is less than
+      \c field_escape_pair, the function returns (size_t)(-1)
+
+    \para,[in] equiv_escape_idx The equivalent escaped field escape to query.
+      If the return value of dsv_parser_num_equiv_escaped_field_escapes is less
+       than \c equiv_escape_idx, the function returns (size_t)(-1)
+
+    \retval nonnegative number of equivalent bytesequences associated with the
+      \c field_escape_pair escaped field escapes and \c equiv_escape_idx
+      equivalent bytesequence
+
+    \retval ENOMEM Could not allocate memory
+
+    \retval (size_t)(-1) \c field_escape_pair or equiv_escape_idx does not
+      index a valid field escape pair or equivalent bytesequence
+  */
+  size_t dsv_parser_num_equiv_escaped_field_escapes_sequences(
+    dsv_parser_t parser, size_t field_escape_pair, size_t equiv_escape_idx);
+
+
+  /**
+      \brief Obtain the replacement bytesequence
+      associated with the indicated field escape pair and equiv escape index
+
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \param[in] pairi A nonzero value smaller than the return value of
+      \c dsv_parser_num_field_escape_pairs
+
+      \param[in] idx A nonzero value smaller than the return value of
+      \c dsv_parser_num_equiv_escaped_field_escapes
+
+      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
+      to be overwritten by the \c nth bytesequence associated with the \c pairi
+      close pair.
+
+      \param[in] buffsize If nonzero, the size of the buffer pointed to by
+      \c buf. If zero, return the size of the \c nth bytesequence associated
+      with the \c pairi close pair.
+
+      \retval 0 If \c pairi is not smaller than the value returned by \c
+      dsv_parser_num_field_escape_pairs OR \c idx is not smaller than the value
+      returned by \c dsv_parser_num_equiv_escaped_field_escapes
+
+      \retval nonnegative If buffsize is zero, then return the the number of
+      bytes needed to store the \c nth bytesequence associated with the \c
+      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
+      bytesequence associated with the \c pairi-th pair.
+  */
+  size_t dsv_parser_get_equiv_escaped_field_escapes_replacement(
+    dsv_parser_t parser, size_t pairi, size_t idx, unsigned char *buf,
+    size_t bufsize);
+
+
+  /**
+      \brief Obtain the \c nth escaped field escapes equivalent bytesequence
+      associated with the indicated field escape pair and equiv escape index
+
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \param[in] pairi A nonzero value smaller than the return value of
+      \c dsv_parser_num_field_escape_pairs
+
+      \param[in] idx A nonzero value smaller than the return value of
+      \c dsv_parser_num_equiv_escaped_field_escapes
+
+      \param[in] n A nonzero value smaller than the return value of
+      \c dsv_parser_num_field_escape_pair_close_sequences
+
+      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
+      to be overwritten by the \c nth bytesequence associated with the \c pairi
+      close pair.
+
+      \param[in] buffsize If nonzero, the size of the buffer pointed to by
+      \c buf. If zero, return the size of the \c nth bytesequence associated
+      with the \c pairi close pair.
+
+      \param[in,out] repeatflag If nonzero, a pointer to an integer that will be
+      overwritten with a nonzero value to indicate that the repeatflag was set
+      for the \c nth bytesequence associated with the \c pairi close pair.
+
+      \retval 0 If \c pairi is not smaller than the value returned by \c
+      dsv_parser_num_field_escape_pairs OR \c idx is not smaller than the value
+      returned by \c dsv_parser_num_equiv_escaped_field_escapes OR
+      \c n is not less than the value returned by
+      \c dsv_parser_num_equiv_escaped_field_escapes_sequences
+
+      \retval nonnegative If buffsize is zero, then return the the number of
+      bytes needed to store the \c nth bytesequence associated with the \c
+      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
+      bytesequence associated with the \c pairi-th pair.
+  */
+  size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
+    dsv_parser_t parser, size_t pairi, size_t idx, size_t n,
+    unsigned char *buf, size_t bufsize, int *repeatflag);
+
+
+  /**
+      \brief Return whether or not the parser will accept repeated occurrences
+      of any escaped field escape associated with the \c pairi
+      escape pair seen with \c parser.
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \retval nonnegative If repeated occurrences of any escaped field escape
+      associated with the \c pairi escape pair
+
+      \retval negative If \c pairi is not smaller than the value returned by
+      \c dsv_parser_num_field_escape_pairs
+  */
+  int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t parser,
+    size_t pairi);
+
+
+  /**
+      \brief Set whether or not the parser will accept repeated occurrences
+      of any escaped field escape associated with the \c pairi
+      escape pair seen with \c parser.
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \param[in] flag Nonnegative indicates repeated occurrences of any
+      escaped field escape associated with the \c pairi escape pair for future
+      parsing with \c parser
+
+      \retval 0 success
+
+      \retval negative If \c pairi is not smaller than the value returned by
+      \c dsv_parser_num_field_escape_pairs
+  */
+  int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t parser,
+    size_t pairi, int flag);
+
+
+  /**
+      \brief Return whether or not the parser will only accept future occurances
+      of the first escaped field escape associated with the \c pairi
+      escape pair seen with \c parser.
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \retval nonnegative If the first occurrence of a particular field escape
+      pair will be the only valid pair for the remainder of the parsing.
+
+      \retval negative If \c pairi is not smaller than the value returned by
+      \c dsv_parser_num_field_escape_pairs
+  */
+  int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
+    size_t pairi);
+
+  /**
+      \brief Set whether or not the parser will only accept future occurances
+      of the first escaped field escape associated with the \c pairi
+      escape pair seen with \c parser.
+
+      \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+      \param[in] flag Nonnegative indicates the first occurrence of a particular
+      field escape pair will be the only valid pair for the remainder of the
+      parsing.
+
+      \retval 0 success
+
+      \retval negative If \c pairi is not smaller than the value returned by
+      \c dsv_parser_num_field_escape_pairs
+  */
+  int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
+    size_t pairi, int flag);
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

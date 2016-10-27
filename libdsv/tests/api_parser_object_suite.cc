@@ -1303,6 +1303,13 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
 
   std::size_t num_field_escape_pairs = 0;
 
+  /*
+      There are 3 pairs of opening and closing equiv butesequences and equiv
+      replacements. The pairs are:
+        - 1 open, 1 close, 3 escapes w replacement
+        - 2 open, 3 close, 2 escapes w replacement
+        - 3 open, 2 close, 4 escape w no replacement
+  */
   unsigned char obytesequence0[] = {'O'};
   unsigned char obytesequence1_0[] = {'o','p','e','n'};
   unsigned char obytesequence1_1[] = {'f','o','o'};
@@ -1340,36 +1347,47 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
   int close_exclusiveflag[] = {1,0,0};
 
   // escaped field escapes
-  unsigned char ebytesequence0[] = {'"'};
+  unsigned char ebytesequence0_0[] = {'\"'};
+  unsigned char ebytesequence0_1[] = {'\''};
+  unsigned char ebytesequence0_2[] = {'`'};
   unsigned char ebytesequence1_0[] = {'e','s','c','a','p','e'};
   unsigned char ebytesequence1_1[] = {'s','e','q'};
-  unsigned char ebytesequence1_2[] = {'"','"'};
-  unsigned char ebytesequence2_0[] = {0x51, 0xa7, 0xb3};
-  unsigned char ebytesequence2_1[] = {0xfa, 0x7c, 0xa2, 0xed};
+  unsigned char ebytesequence2_0[] = {0xfa, 0x7c, 0xa2, 0xed};
+
   const unsigned char *escaped_seq[][3] = {
-    {ebytesequence0},
-    {ebytesequence1_0,ebytesequence1_1,ebytesequence1_2},
-    {ebytesequence2_0,ebytesequence2_1}
+    {ebytesequence0_0,ebytesequence0_1,ebytesequence0_2},
+    {ebytesequence1_0,ebytesequence1_1},
+    {ebytesequence2_0}
   };
 
-  std::size_t escaped_seq_size[][3] = {{1},{6,3,2},{3,4}};
-  int escaped_repeat[][3] = {{0},{1,0,0},{1,1}};
+  std::size_t escaped_seq_size[][3] = {
+    {1,1,1},
+    {6,3},
+    {4}
+  };
+  int escaped_repeat[][3] = {
+    {0,1,0},
+    {1,0},
+    {1}
+  };
+
+  std::size_t replacement_equiv_size[] = {
+    3,
+    2,
+    4
+  };
 
   // escaped field escapes replacements
-  unsigned char rbytesequence0[] = {'1'};
-  unsigned char rbytesequence1_0[] = {'2','2'};
-  unsigned char *rbytesequence1_1  = 0;
-  unsigned char rbytesequence1_2[] = {'3','3','3'};
-  unsigned char rbytesequence2_0[] = {'4', '4', '4', '4'};
-  unsigned char rbytesequence2_1[] = {'5'};
-  const unsigned char *replacement_seq[][3] = {
-    {rbytesequence0},
-    {rbytesequence1_0,rbytesequence1_1,rbytesequence1_2},
-    {rbytesequence2_0,rbytesequence2_1}
+  const unsigned char replacement_seq[3][11] = {
+    {'r','e','p','l','a','c','e','m','e','n','t'},
+    {'1'}
   };
 
-  std::size_t replacement_seq_size[][3] = {{1},{2,0,3},{4,1}};
-  std::size_t replacements_size[] = {1,3,2};
+  std::size_t replacement_seq_size[] = {
+    11,
+    1,
+    0
+  };
 
   int escaped_repeatflag[] = {0,1,0};
   int escaped_exclusiveflag[] = {1,0,0};
@@ -1394,7 +1412,7 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
 
       BOOST_REQUIRE_MESSAGE(iresult == 0,
         "unexpected exit code from " << i << "th insertion: " << iresult
-          << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+          << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL << ")");
 
       num_field_escape_pairs = dsv_parser_num_field_escape_pairs(parser);
 
@@ -1402,15 +1420,15 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
         "number of field delimiters " << num_field_escape_pairs << " != "
           << i+1);
 
-      iresult = dsv_parser_set_equiv_escaped_field_escapes(parser,i,
+      iresult = dsv_parser_append_equiv_escaped_field_escapes(parser,i,
         escaped_seq[i],escaped_seq_size[i],escaped_repeat[i],
-        replacement_seq[i],replacement_seq_size[i],replacements_size[i],
-        escaped_repeatflag[i],escaped_exclusiveflag[i]);
+        replacement_equiv_size[i],escaped_repeatflag[i],
+        escaped_exclusiveflag[i],replacement_seq[i],replacement_seq_size[i]);
 
       BOOST_REQUIRE_MESSAGE(iresult == 0,
         "unexpected exit code from " << i << "th escaped field escapes "
         "insertion: " << iresult << " (ENOMEM = " << ENOMEM << ", EINVAL = "
-        << EINVAL);
+        << EINVAL << ")");
     }
 
     dsv_parser_set_field_escape_exclusiveflag(parser,0);

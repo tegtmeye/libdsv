@@ -767,22 +767,54 @@ void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t _parser, int flag)
 }
 
 
-int dsv_parser_set_equiv_escaped_field_escapes(dsv_parser_t _parser,
+int dsv_parser_append_equiv_escaped_field_escapes(dsv_parser_t _parser,
   size_t field_escape_pair, const unsigned char *equiv_byteseq[],
   const size_t byteseq_size[], const int byteseq_repeat[],
-  const unsigned char *replace_seq[], const size_t replace_seq_size[],
-  size_t replacements, int repeatflag, int exclusiveflag)
+  size_t equiv_size, int repeatflag, int exclusiveflag,
+  const unsigned char replace_seq[], size_t replace_seq_size)
 {
+  typedef detail::parser::bytesequence_type bytesequence_type;
+  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
+
   assert(_parser.p);
 
   detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
-  int err = (replacements == 0);
+  if(equiv_byteseq == 0 || byteseq_size == 0 || byteseq_repeat == 0
+    || equiv_size == 0)
+  {
+    return EINVAL;
+  }
+
+  if(parser.field_escapes().size() <= field_escape_pair)
+    return EINVAL;
+
+  for(std::size_t i = 0; i < equiv_size; ++i) {
+    if(!(equiv_byteseq[i] && byteseq_size[i]))
+      return EINVAL;
+  }
+
+
+  int err = 0;
 
   try {
-    if(!err) {
+    detail::parser::replacement_pair_seq_type replacement_pair_seq;
+    const detail::parser::escaped_field_desc &desc =
+      parser.field_escapes().at(field_escape_pair);
 
-    }
+    replacement_pair_seq.reserve(desc.escaped_field_escapes.size()+1);
+    replacement_pair_seq.insert(replacement_pair_seq.end(),
+      desc.escaped_field_escapes.begin(),desc.escaped_field_escapes.end());
+
+    replacement_pair_seq.emplace_back(
+      detail::parser::replacement_pair_type {
+        equiv_bytesequence_type(equiv_byteseq,byteseq_size,byteseq_repeat,
+          equiv_size,repeatflag,exclusiveflag),
+        bytesequence_type(replace_seq,replace_seq+replace_seq_size)
+      }
+    );
+
+    parser.set_escaped_field_escapes(field_escape_pair,replacement_pair_seq);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -796,13 +828,287 @@ int dsv_parser_set_equiv_escaped_field_escapes(dsv_parser_t _parser,
 
 
 
+int dsv_parser_clear_equiv_escaped_field_escapes(dsv_parser_t _parser,
+  size_t field_escape_pair)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  if(parser.field_escapes().size() <= field_escape_pair)
+    return EINVAL;
+
+  int err = 0;
+
+  try {
+    detail::parser::replacement_pair_seq_type replacement_pair_seq;
+
+    parser.set_escaped_field_escapes(field_escape_pair,replacement_pair_seq);
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch (...) {
+    abort();
+  }
+
+  return err;
+}
+
+
+size_t dsv_parser_num_equiv_escaped_field_escapes(dsv_parser_t _parser,
+  size_t field_escape_pair)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t value = static_cast<size_t>(-1);
+
+  try {
+    if(field_escape_pair < parser.field_escapes().size()) {
+      const detail::parser::escaped_field_desc &desc =
+        parser.field_escapes().at(field_escape_pair);
+
+      value = desc.escaped_field_escapes.size();
+    }
+  }
+  catch (...) {
+    abort();
+  }
+
+  return value;
+}
+
+size_t dsv_parser_num_equiv_escaped_field_escapes_sequences(
+  dsv_parser_t _parser, size_t field_escape_pair, size_t equiv_escape_idx)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t value = static_cast<size_t>(-1);
+
+  try {
+    if(field_escape_pair < parser.field_escapes().size()) {
+      const detail::parser::escaped_field_desc &desc =
+        parser.field_escapes().at(field_escape_pair);
+
+      if(equiv_escape_idx < desc.escaped_field_escapes.size()) {
+        const detail::parser::escaped_field_desc &desc =
+          parser.field_escapes().at(field_escape_pair);
+
+        value = desc.escaped_field_escapes.size();
+      }
+    }
+  }
+  catch (...) {
+    abort();
+  }
+
+  return value;
+}
+
+size_t dsv_parser_get_equiv_escaped_field_escapes_replacement(
+  dsv_parser_t _parser, size_t pairi, size_t idx, unsigned char *buf,
+  size_t bufsize)
+{
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
+  typedef detail::parser::bytesequence_type bytesequence_type;
+
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t result = 0;
+
+
+  try {
+    if(pairi < parser.field_escapes().size()) {
+      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+
+      if(idx < desc.escaped_field_escapes.size()) {
+        const bytesequence_type &bytesequence =
+          desc.escaped_field_escapes.at(idx).second;
+
+        if(bufsize == 0)
+          result = bytesequence.size();
+        else {
+          while(result < bytesequence.size() && result < bufsize) {
+            buf[result] = bytesequence[result];
+            ++result;
+          }
+        }
+      }
+    }
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+
+size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
+  dsv_parser_t _parser, size_t pairi, size_t idx, size_t n,
+  unsigned char *buf, size_t bufsize, int *repeatflag)
+{
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
+  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
+  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
+
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  size_t result = 0;
+
+
+  try {
+    if(pairi < parser.field_escapes().size()) {
+      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+
+      if(idx < desc.escaped_field_escapes.size()) {
+        const equiv_bytesequence_type &bytesequence =
+          desc.escaped_field_escapes.at(idx).first;
+
+        if(n < bytesequence.byteseq_desc_vec().size()) {
+          const byteseq_desc &seq = bytesequence.byteseq_desc_vec().at(n);
+
+          if(bufsize == 0)
+            result = seq.base_seq_bytes.size();
+          else {
+            while(result < seq.base_seq_bytes.size() && result < bufsize) {
+              buf[result] = seq.base_seq_bytes[result];
+              ++result;
+            }
+          }
+
+          if(repeatflag)
+            *repeatflag = seq.repeat;
+        }
+      }
+    }
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
+  size_t pairi)
+{
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
+
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = -1;
+
+  try {
+    if(pairi < parser.field_escapes().size()) {
+      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+
+      result = desc.escaped_repeatflag;
+    }
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
+    size_t pairi, int flag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = -1;
+
+  try {
+    if(pairi < parser.field_escapes().size())
+      parser.set_escaped_field_escapes_repeat(pairi,flag);
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
 
 
 
 
+int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
+  size_t pairi)
+{
+  typedef detail::parser::escaped_field_desc escaped_field_desc;
 
+  assert(_parser.p);
 
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
 
+  int result = -1;
+
+  try {
+    if(pairi < parser.field_escapes().size()) {
+      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+
+      result = desc.escaped_exclusiveflag;
+    }
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
+    size_t pairi, int flag)
+{
+  assert(_parser.p);
+
+  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+
+  int result = -1;
+
+  try {
+    if(pairi < parser.field_escapes().size())
+      parser.set_escaped_field_escapes_exclusives(pairi,flag);
+  }
+  catch(std::range_error &) {
+    abort(); // should never get here.
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
 
 
 
