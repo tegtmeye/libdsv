@@ -1006,7 +1006,7 @@ size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
 }
 
 int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
-  size_t pairi)
+  size_t pairi, size_t idx)
 {
   typedef detail::parser::escaped_field_desc escaped_field_desc;
 
@@ -1020,7 +1020,8 @@ int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
     if(pairi < parser.field_escapes().size()) {
       const escaped_field_desc &desc = parser.field_escapes().at(pairi);
 
-      result = desc.escaped_repeatflag;
+      if(idx < desc.escaped_field_escapes.size())
+        result = desc.escaped_field_escapes.at(idx).first.repeatflag();
     }
   }
   catch(std::range_error &) {
@@ -1034,7 +1035,7 @@ int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
 }
 
 int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
-    size_t pairi, int flag)
+    size_t pairi, size_t idx, int flag)
 {
   assert(_parser.p);
 
@@ -1044,7 +1045,7 @@ int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
 
   try {
     if(pairi < parser.field_escapes().size())
-      parser.set_escaped_field_escapes_repeat(pairi,flag);
+      parser.set_escaped_field_escapes_repeat(pairi,idx,flag);
   }
   catch(std::range_error &) {
     abort(); // should never get here.
@@ -1060,7 +1061,7 @@ int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
 
 
 int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
-  size_t pairi)
+  size_t pairi, size_t idx)
 {
   typedef detail::parser::escaped_field_desc escaped_field_desc;
 
@@ -1074,7 +1075,8 @@ int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
     if(pairi < parser.field_escapes().size()) {
       const escaped_field_desc &desc = parser.field_escapes().at(pairi);
 
-      result = desc.escaped_exclusiveflag;
+      if(idx < desc.escaped_field_escapes.size())
+        result = desc.escaped_field_escapes.at(idx).first.exclusiveflag();
     }
   }
   catch(std::range_error &) {
@@ -1088,7 +1090,7 @@ int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
 }
 
 int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
-    size_t pairi, int flag)
+    size_t pairi, size_t idx, int flag)
 {
   assert(_parser.p);
 
@@ -1098,7 +1100,7 @@ int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
 
   try {
     if(pairi < parser.field_escapes().size())
-      parser.set_escaped_field_escapes_exclusives(pairi,flag);
+      parser.set_escaped_field_escapes_exclusives(pairi,idx,flag);
   }
   catch(std::range_error &) {
     abort(); // should never get here.

@@ -1306,8 +1306,8 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
   /*
       There are 3 pairs of opening and closing equiv butesequences and equiv
       replacements. The pairs are:
-        - 1 open, 1 close, 3 escapes w replacement
-        - 2 open, 3 close, 2 escapes w replacement
+        - 1 open, 1 close, 2 escapes w replacement
+        - 2 open, 3 close, 1 escapes w replacement
         - 3 open, 2 close, 4 escape w no replacement
   */
   unsigned char obytesequence0[] = {'O'};
@@ -1347,50 +1347,106 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
   int close_exclusiveflag[] = {1,0,0};
 
   // escaped field escapes
-  unsigned char ebytesequence0_0[] = {'\"'};
-  unsigned char ebytesequence0_1[] = {'\''};
-  unsigned char ebytesequence0_2[] = {'`'};
-  unsigned char ebytesequence1_0[] = {'e','s','c','a','p','e'};
-  unsigned char ebytesequence1_1[] = {'s','e','q'};
-  unsigned char ebytesequence2_0[] = {0xfa, 0x7c, 0xa2, 0xed};
+  unsigned char ebytesequence0_0_0[] = {'\\','"'};
+  unsigned char ebytesequence0_0_1[] = {'0','x','2','2'};
+  unsigned char rbytesequence0_0[]   = {0x22};
 
-  const unsigned char *escaped_seq[][3] = {
-    {ebytesequence0_0,ebytesequence0_1,ebytesequence0_2},
-    {ebytesequence1_0,ebytesequence1_1},
-    {ebytesequence2_0}
+  unsigned char ebytesequence0_1_0[] = {'\\','\''};
+  unsigned char ebytesequence0_1_1[] = {'0','x','2','7'};
+  unsigned char rbytesequence0_1[] = {0x27};
+
+
+  unsigned char ebytesequence1_0_0[] = {'e','s','c','a','p','e'};
+  unsigned char rbytesequence1_0[] = {'s', 'e', 'q'};
+
+
+  unsigned char ebytesequence2_0_0[] = {'b','l','a','h'};
+  unsigned char ebytesequence2_0_1[] = {'h','a','l','b'};
+  //zero
+  //unsigned char rbytesequence2_0[] = {};
+
+  unsigned char ebytesequence2_1_0[] = {'a','s','d','f'};
+  unsigned char ebytesequence2_1_1[] = {'q','w','e','r','t','y'};
+  unsigned char ebytesequence2_1_2[] = {'z','x','c','v','b'};
+  unsigned char rbytesequence2_1[]   = {'r','e','p','l','a','c','e','m','e'};
+
+
+  const unsigned char *escaped_seq[][2][3] = {
+    {
+      {ebytesequence0_0_0,ebytesequence0_0_1},
+      {ebytesequence0_1_0,ebytesequence0_1_1}
+    },
+    {
+      {ebytesequence1_0_0}
+    },
+    {
+      {ebytesequence2_0_0,ebytesequence2_0_1},
+      {ebytesequence2_1_0,ebytesequence2_1_1,ebytesequence2_1_2}
+    }
   };
 
-  std::size_t escaped_seq_size[][3] = {
-    {1,1,1},
-    {6,3},
-    {4}
+  std::size_t num_equiv_sequences[][2] = {
+    {2,2},
+    {1},
+    {2,3}
   };
-  int escaped_repeat[][3] = {
-    {0,1,0},
+
+  std::size_t escapes_per_pair[] = {
+    2,1,2
+  };
+
+  std::size_t escaped_seq_size[][2][3] = {
+    {
+      {2,4},
+      {2,4}
+    },
+    {
+      {6}
+    },
+    {
+      {4,4},
+      {4,6,5},
+    }
+  };
+
+  int escaped_repeat[][2][3] = {
+    {
+      {1,0},
+      {0,1}
+    },
+    {
+      {0}
+    },
+    {
+      {1,1},
+      {0,1,0},
+    }
+  };
+
+  const unsigned char *replacement_seq[][2] = {
+    {rbytesequence0_0,rbytesequence0_1},
+    {rbytesequence1_0},
+    {0,rbytesequence2_1}
+  };
+
+  std::size_t replacement_seq_size[][2] = {
+    {1,1},
+    {3},
+    {0,9}
+  };
+
+
+  int escaped_repeatflag[][2] = {
+    {0,1},
+    {1},
+    {1,0}
+  };
+
+  int escaped_exclusiveflag[][2] = {
     {1,0},
-    {1}
+    {0},
+    {0,1}
   };
-
-  std::size_t replacement_equiv_size[] = {
-    3,
-    2,
-    4
-  };
-
-  // escaped field escapes replacements
-  const unsigned char replacement_seq[3][11] = {
-    {'r','e','p','l','a','c','e','m','e','n','t'},
-    {'1'}
-  };
-
-  std::size_t replacement_seq_size[] = {
-    11,
-    1,
-    0
-  };
-
-  int escaped_repeatflag[] = {0,1,0};
-  int escaped_exclusiveflag[] = {1,0,0};
 
 
 
@@ -1420,15 +1476,37 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
         "number of field delimiters " << num_field_escape_pairs << " != "
           << i+1);
 
-      iresult = dsv_parser_append_equiv_escaped_field_escapes(parser,i,
-        escaped_seq[i],escaped_seq_size[i],escaped_repeat[i],
-        replacement_equiv_size[i],escaped_repeatflag[i],
-        escaped_exclusiveflag[i],replacement_seq[i],replacement_seq_size[i]);
+      sresult = dsv_parser_num_equiv_escaped_field_escapes(parser,i);
 
-      BOOST_REQUIRE_MESSAGE(iresult == 0,
-        "unexpected exit code from " << i << "th escaped field escapes "
-        "insertion: " << iresult << " (ENOMEM = " << ENOMEM << ", EINVAL = "
-        << EINVAL << ")");
+      BOOST_REQUIRE_MESSAGE(sresult == 0,
+          "for newly inserted pair '" << i
+            << "' number of equivalent escape field escapes '"
+            << sresult << " != 0");
+
+      for(std::size_t j=0; j<escapes_per_pair[i]; ++j) {
+        iresult = dsv_parser_append_equiv_escaped_field_escapes(parser,i,
+          escaped_seq[i][j],escaped_seq_size[i][j],escaped_repeat[i][j],
+          num_equiv_sequences[i][j],escaped_repeatflag[i][j],
+          escaped_exclusiveflag[i][j],replacement_seq[i][j],
+          replacement_seq_size[i][j]);
+
+        BOOST_REQUIRE_MESSAGE(iresult == 0,
+          "unexpected exit code from " << i << "th escaped field escapes "
+          "insertion: " << iresult << " (ENOMEM = " << ENOMEM << ", EINVAL = "
+          << EINVAL << ")");
+
+        sresult = dsv_parser_num_equiv_escaped_field_escapes(parser,i);
+
+        BOOST_REQUIRE_MESSAGE(sresult == j+1,
+          "for pair '" << i << "' number of equivalent escape field escapes '"
+            << sresult << " != " << j+1);
+      }
+
+      sresult = dsv_parser_num_equiv_escaped_field_escapes(parser,i);
+
+      BOOST_REQUIRE_MESSAGE(sresult == escapes_per_pair[i],
+        "for pair '" << i << "' number of equivalent escape field escapes '"
+          << sresult << " != " << escapes_per_pair[i]);
     }
 
     dsv_parser_set_field_escape_exclusiveflag(parser,0);
@@ -1629,6 +1707,247 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
           "unexpected bytesequence repeatflag for pair " << pair_index
           << ": " << flag << " != " << close_escape_repeat[i]);
       }
+
+      // check for escaped field escapes correctness
+      sresult = dsv_parser_num_equiv_escaped_field_escapes(parser,pair_index);
+
+      BOOST_REQUIRE_MESSAGE(sresult == escapes_per_pair[pair_index],
+        "for pair '" << pair_index
+          << "' number of equivalent escape field escapes '"
+          << sresult << " != " << escapes_per_pair[pair_index]);
+
+
+      for(std::size_t i=0; i<escapes_per_pair[pair_index]; ++i) {
+        sresult = dsv_parser_num_equiv_escaped_field_escapes_sequences(
+          parser,pair_index,i);
+
+        BOOST_REQUIRE_MESSAGE(sresult == num_equiv_sequences[pair_index][i],
+          "for pair '" << i << "' number of equivalent escaped field escape "
+          "sequences '" << sresult << " != "
+            << num_equiv_sequences[pair_index][i]);
+
+        for(std::size_t j=0; j<num_equiv_sequences[pair_index][i]; ++j) {
+          std::size_t cbuffsize =
+            escaped_seq_size[pair_index][i][j]+(3*padsize);
+          std::unique_ptr<unsigned char[]> cbuf(new unsigned char[cbuffsize]);
+          std::unique_ptr<unsigned char[]> ccheck_buf(
+            new unsigned char[cbuffsize]);
+          std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+          std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+          // checkbuf laid out like:
+          // padsize byteseq padsize padsize
+          std::copy(escaped_seq[pair_index][i][j],
+            escaped_seq[pair_index][i][j]+
+              escaped_seq_size[pair_index][i][j],
+            ccheck_buf.get()+padsize);
+
+          // CHECK FOR BYTESEQUENCE OF EXACT BUFF SIZE
+
+          int flag = 42;
+          sresult = dsv_parser_get_equiv_escaped_field_escapes_sequence(
+            parser,pair_index,i,j,cbuf.get()+padsize,
+            escaped_seq_size[pair_index][i][j],&flag);
+
+          BOOST_REQUIRE_MESSAGE(sresult == escaped_seq_size[pair_index][i][j],
+            "incorrect return size of pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << ": " << sresult << " != "
+              << escaped_seq_size[pair_index][i][j]);
+
+          BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+            ccheck_buf.get()));
+
+          BOOST_REQUIRE_MESSAGE(flag == escaped_repeat[pair_index][i][j],
+            "incorrect repeatflag for pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << " replacement set: " << i << ": " << flag << " != "
+              << escaped_repeat[pair_index][i][j]);
+
+          // CHECK FOR BYTESEQUENCE OF LARGER BUFF SIZE
+
+          //reset buffers
+          std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+
+          flag = 42;
+          sresult = dsv_parser_get_equiv_escaped_field_escapes_sequence(
+            parser,pair_index,i,j,cbuf.get()+padsize,
+            escaped_seq_size[pair_index][i][j]+padsize,&flag);
+
+          BOOST_REQUIRE_MESSAGE(sresult == escaped_seq_size[pair_index][i][j],
+            "incorrect return size of pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << ": " << sresult << " != "
+              << escaped_seq_size[pair_index][i][j]);
+
+          BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+            ccheck_buf.get()));
+
+          BOOST_REQUIRE_MESSAGE(flag == escaped_repeat[pair_index][i][j],
+            "incorrect repeatflag for pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << " replacement set: " << i << ": " << flag << " != "
+              << escaped_repeat[pair_index][i][j]);
+
+
+          // CHECK FOR BYTESEQUENCE OF SMALLER BUFF SIZE BUT
+          // NO SMALLER THAN SIZE 1
+
+          //reset buffers
+          std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+
+          std::size_t half_seq_size =
+            std::max(std::size_t(1),(escaped_seq_size[pair_index][i][j])/2);
+
+          //setup check buffer for partial contents
+          std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+          // checkbuf laid out like:
+          // padsize byteseq/2 byteseq/2 byteseq/2 padsize padsize
+          std::copy(escaped_seq[pair_index][i][j],
+            escaped_seq[pair_index][i][j]+half_seq_size,
+            ccheck_buf.get()+padsize);
+
+
+          flag = 42;
+          sresult = dsv_parser_get_equiv_escaped_field_escapes_sequence(
+            parser,pair_index,i,j,cbuf.get()+padsize,half_seq_size,&flag);
+
+          BOOST_REQUIRE_MESSAGE(sresult == half_seq_size,
+            "incorrect return size of pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << ": " << sresult << " != " << half_seq_size);
+
+          BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+            ccheck_buf.get()));
+
+          BOOST_REQUIRE_MESSAGE(flag == escaped_repeat[pair_index][i][j],
+            "incorrect repeatflag for pair " << pair_index
+              << " replacement set " << i << " equiv bytesequence " << j
+              << " replacement set: " << i << ": " << flag << " != "
+              << escaped_repeat[pair_index][i][j]);
+        }
+
+        // CHECK REPLACEMENTS
+        std::size_t cbuffsize =
+          replacement_seq_size[pair_index][i]+(3*padsize);
+        std::unique_ptr<unsigned char[]> cbuf(new unsigned char[cbuffsize]);
+        std::unique_ptr<unsigned char[]> ccheck_buf(
+          new unsigned char[cbuffsize]);
+        std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+        std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+        // checkbuf laid out like:
+        // padsize byteseq padsize padsize
+        std::copy(replacement_seq[pair_index][i],
+          replacement_seq[pair_index][i]+replacement_seq_size[pair_index][i],
+          ccheck_buf.get()+padsize);
+
+        // CHECK FOR BYTESEQUENCE OF EXACT BUFF SIZE
+        sresult = dsv_parser_get_equiv_escaped_field_escapes_replacement(parser,
+          pair_index,i,cbuf.get()+padsize,replacement_seq_size[pair_index][i]);
+
+        BOOST_REQUIRE_MESSAGE(sresult == replacement_seq_size[pair_index][i],
+          "incorrect return size of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << sresult << " != " << replacement_seq_size[pair_index][i]);
+
+        BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+          ccheck_buf.get()));
+
+        // CHECK FOR BYTESEQUENCE OF LARGER BUFF SIZE
+        //reset buffers
+        std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+
+        sresult = dsv_parser_get_equiv_escaped_field_escapes_replacement(parser,
+          pair_index,i,cbuf.get()+padsize,
+          replacement_seq_size[pair_index][i]+padsize);
+
+        BOOST_REQUIRE_MESSAGE(sresult == replacement_seq_size[pair_index][i],
+          "incorrect return size of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << sresult << " != " << replacement_seq_size[pair_index][i]);
+
+        BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+          ccheck_buf.get()));
+
+
+        // CHECK FOR BYTESEQUENCE OF SMALLER BUFF SIZE BUT
+        // NO SMALLER THAN SIZE 1
+
+        //reset buffers
+        std::fill(cbuf.get(),cbuf.get()+cbuffsize,0xFF);
+
+        std::size_t half_seq_size =
+          std::max(std::size_t(1),(replacement_seq_size[pair_index][i])/2);
+
+        //setup check buffer for partial contents
+        std::fill(ccheck_buf.get(),ccheck_buf.get()+cbuffsize,0xFF);
+        // checkbuf laid out like:
+        // padsize byteseq/2 byteseq/2 byteseq/2 padsize padsize
+        std::copy(replacement_seq[pair_index][i],
+          replacement_seq[pair_index][i]+half_seq_size,
+          ccheck_buf.get()+padsize);
+
+        sresult = dsv_parser_get_equiv_escaped_field_escapes_replacement(parser,
+          pair_index,i,cbuf.get()+padsize,half_seq_size);
+
+        BOOST_REQUIRE_MESSAGE(sresult == half_seq_size,
+          "incorrect return size of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << sresult << " != " << half_seq_size);
+
+        BOOST_REQUIRE(std::equal(cbuf.get(),cbuf.get()+cbuffsize,
+          ccheck_buf.get()));
+
+
+        // CHECK REPLACEMENT REPEATS
+        iresult =
+          dsv_parser_get_escaped_field_escapes_repeatflag(parser,pair_index,i);
+
+        BOOST_REQUIRE_MESSAGE(iresult == escaped_repeatflag[pair_index][i],
+          "incorrect repeatflag of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << iresult << " != " << escaped_repeatflag[pair_index][i]);
+
+        int inverse = !(static_cast<bool>(escaped_repeatflag[pair_index][i]));
+
+        iresult =
+          dsv_parser_set_escaped_field_escapes_repeatflag(parser,pair_index,i,
+            inverse);
+
+        iresult =
+          dsv_parser_get_escaped_field_escapes_repeatflag(parser,pair_index,i);
+
+        BOOST_REQUIRE_MESSAGE(iresult == inverse,
+          "incorrect repeatflag of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << iresult << " != " << inverse);
+
+        // CHECK REPLACEMENT EXCLUSIVES
+        iresult =
+          dsv_parser_get_escaped_field_escapes_exclusiveflag(parser,pair_index,
+            i);
+
+        BOOST_REQUIRE_MESSAGE(iresult == escaped_exclusiveflag[pair_index][i],
+          "incorrect exclusivflag of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << iresult << " != " << escaped_exclusiveflag[pair_index][i]);
+
+        inverse = !(static_cast<bool>(escaped_exclusiveflag[pair_index][i]));
+
+        iresult =
+          dsv_parser_set_escaped_field_escapes_exclusiveflag(parser,pair_index,
+            i,inverse);
+
+        iresult =
+          dsv_parser_get_escaped_field_escapes_exclusiveflag(parser,pair_index,
+            i);
+
+        BOOST_REQUIRE_MESSAGE(iresult == inverse,
+          "incorrect exclusiveflag of pair " << pair_index
+            << " replacement sequence " << i << ": "
+            << iresult << " != " << inverse);
+
+      }
+
     }
 
     iresult = dsv_parser_get_field_escape_exclusiveflag(parser);

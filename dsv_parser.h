@@ -1116,8 +1116,6 @@ extern "C" {
     \retval nonnegative number of escaped field escapes and replacements
       associated with \c field_escape_pair
 
-    \retval ENOMEM Could not allocate memory
-
     \retval (size_t)(-1) \c field_escape_pair does not index a valid
       field escape pair
   */
@@ -1249,7 +1247,7 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
   */
   int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t parser,
-    size_t pairi);
+    size_t pairi, size_t idx);
 
 
   /**
@@ -1270,7 +1268,7 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
   */
   int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t parser,
-    size_t pairi, int flag);
+    size_t pairi, size_t idx, int flag);
 
 
   /**
@@ -1288,7 +1286,7 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
   */
   int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
-    size_t pairi);
+    size_t pairi, size_t idx);
 
   /**
       \brief Set whether or not the parser will only accept future occurances
@@ -1308,7 +1306,7 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
   */
   int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
-    size_t pairi, int flag);
+    size_t pairi, size_t idx, int flag);
 
 
 

@@ -129,8 +129,6 @@ class parser {
       equiv_bytesequence_type open_equiv_bytesequence;
       equiv_bytesequence_type close_equiv_bytesequence;
       replacement_pair_seq_type escaped_field_escapes;
-      bool escaped_repeatflag;
-      bool escaped_exclusiveflag;
 
       std::size_t effective_escaped_field_escape_idx;
     };
@@ -242,8 +240,10 @@ class parser {
     void set_escaped_field_escapes(std::size_t idx,
       const replacement_pair_seq_type &escaped_field_escapes);
 
-    void set_escaped_field_escapes_repeat(std::size_t idx, bool flag);
-    void set_escaped_field_escapes_exclusives(std::size_t idx, bool flag);
+    void set_escaped_field_escapes_repeat(std::size_t idx, std::size_t n,
+      bool flag);
+    void set_escaped_field_escapes_exclusives(std::size_t idx, std::size_t n,
+      bool flag);
 
 
 
@@ -454,17 +454,19 @@ inline void parser::set_escaped_field_escapes(std::size_t idx,
 }
 
 inline void
-parser::set_escaped_field_escapes_repeat(std::size_t idx, bool flag)
+parser::set_escaped_field_escapes_repeat(std::size_t idx, std::size_t n,
+  bool flag)
 {
   escaped_field_desc &desc = _field_escapes.at(idx);
-  desc.escaped_repeatflag = flag;
+  desc.escaped_field_escapes.at(n).first.repeatflag(flag);
 }
 
 inline void
-parser::set_escaped_field_escapes_exclusives(std::size_t idx, bool flag)
+parser::set_escaped_field_escapes_exclusives(std::size_t idx,
+  std::size_t n, bool flag)
 {
   escaped_field_desc &desc = _field_escapes.at(idx);
-  desc.escaped_exclusiveflag = flag;
+  desc.escaped_field_escapes.at(n).first.exclusiveflag(flag);
 }
 
 
