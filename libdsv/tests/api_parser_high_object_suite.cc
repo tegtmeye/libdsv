@@ -4,10 +4,8 @@
 #include "test_detail.h"
 
 
-#include <errno.h>
-#include <stdio.h>
-
-#include <string>
+#include <algorithm>
+#include <limits>
 
 /** \file
  *  \brief Unit tests for parser creation
@@ -18,41 +16,45 @@ namespace test {
 
 
 
-BOOST_AUTO_TEST_SUITE( api_parser_object_suite )
+BOOST_AUTO_TEST_SUITE( api_parser_high_object_suite )
 
-/** \test Basic parser object checks
- *
- *  These unit tests are scheduled before checks of the logging functionality.
- *  That is, do not place unit tests here that require logging functionality. For
- *  checks that require valid logging, see:
- *
- */
 
-BOOST_AUTO_TEST_CASE( parser_create )
-{
-  dsv_parser_t parser;
-  int result = dsv_parser_create(&parser);
 
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_create failed with exit code " << result);
-}
 
-/** \test Destroy uninitialized parser object
- */
-BOOST_AUTO_TEST_CASE( initialized_parser_destroy )
-{
-  dsv_parser_t parser;
-  int result = dsv_parser_create(&parser);
 
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_create failed with exit code " << result);
 
-  dsv_parser_destroy(parser);
 
-  BOOST_REQUIRE_MESSAGE(result == 0,
-    "obj_parser_destroy failed with exit code " << result);
-}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# if 0
 /** \test Test newline getting and setting
  */
 BOOST_AUTO_TEST_CASE( parser_newline_getting_and_setting )
@@ -338,6 +340,7 @@ BOOST_AUTO_TEST_CASE( parser_default_object_delimiter_settings )
     "dsv_parser_get_field_delimiter did not return a nonrepeating flag for "
     "the default delimiter but instead returned '" << repeatflag << "'");
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 

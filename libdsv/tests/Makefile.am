@@ -26,7 +26,8 @@ additional_test_ldflags=\
 check_PROGRAMS= \
 	scanner_test \
 	equiv_bytesequence_test \
-	api_parser_object_suite \
+	api_parser_low_object_suite \
+	api_parser_high_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
@@ -45,12 +46,21 @@ equiv_bytesequence_test_CPPFLAGS=$(additional_test_cppflags)
 equiv_bytesequence_test_LDADD=$(additional_test_libs)
 equiv_bytesequence_test_LDFLAGS=$(additional_test_ldflags)
 
-api_parser_object_suite_SOURCES=$(master_suite) \
+api_parser_low_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
-        api_parser_object_suite.cc
-api_parser_object_suite_CPPFLAGS=$(additional_test_cppflags)
-api_parser_object_suite_LDADD=$(additional_test_libs)
-api_parser_object_suite_LDFLAGS=\
+        api_parser_low_object_suite.cc
+api_parser_low_object_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_low_object_suite_LDADD=$(additional_test_libs)
+api_parser_low_object_suite_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
+
+api_parser_high_object_suite_SOURCES=$(master_suite) \
+	test_detail.h \
+        api_parser_high_object_suite.cc
+api_parser_high_object_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_high_object_suite_LDADD=$(additional_test_libs)
+api_parser_high_object_suite_LDFLAGS=\
 	$(libdsv_test_ldflags)\
 	$(additional_test_ldflags)
 
@@ -102,7 +112,8 @@ api_alt_delimiter_test_LDFLAGS=\
 TESTS=\
 	scanner_test \
 	equiv_bytesequence_test \
-	api_parser_object_suite \
+	api_parser_low_object_suite \
+	api_parser_high_object_suite \
 	api_operations_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
@@ -114,8 +125,10 @@ CLEANFILES=\
 	scanner_test.trs \
 	equiv_bytesequence_test.log \
 	equiv_bytesequence_test.trs \
-	api_parser_object_suite.log \
-	api_parser_object_suite.trs \
+	api_parser_low_object_suite.log \
+	api_parser_low_object_suite.trs \
+	api_parser_high_object_suite.log \
+	api_parser_high_object_suite.trs \
 	api_operations_object_suite.log \
 	api_operations_object_suite.trs \
 	api_RFC4180_parse_test.log \
