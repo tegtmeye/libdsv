@@ -291,7 +291,7 @@ std::vector<byte_chunk> compile_seq(ByteSeqDescIter desc_first,
 
 
 
-template<typename T, typename ByteSequenceT>
+template<typename T, typename ByteSequenceT=std::vector<T> >
 class basic_equiv_bytesequence {
   public:
     typedef T byte_type;
