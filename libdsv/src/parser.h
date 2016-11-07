@@ -314,26 +314,15 @@ class parser {
 
 
     size_t _field_columns;
-    bool _escaped_binary_fields;
+    bool _escaped_binary_fields; // delete me?
 
     size_t _effective_field_columns;
     bool _effective_field_columns_set;
-
-    static const equiv_bytesequence_type & make_default_record_delimiters(void);
-    static const equiv_bytesequence_type & make_default_field_delimiters(void);
-    static const escaped_field_desc_seq_type & make_default_field_escapes(void);
 };
 
 inline parser::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none),
-  _record_delimiters(make_default_record_delimiters()),
-  _field_delimiters(make_default_field_delimiters()),
-  _field_escapes(make_default_field_escapes()),
-  _effective_field_escapes_idx(-1),
-  _field_escapes_exclusives(1),
-  _field_columns(0), _escaped_binary_fields(false),
-  _effective_field_columns(0),
-  _effective_field_columns_set(false)
+  _log_level(dsv_log_none), _effective_field_escapes_idx(-1),
+  _field_escapes_exclusives(false), _escaped_field(false), _field_columns(0)
 {
 }
 
@@ -591,59 +580,6 @@ inline void parser::reset(void)
   _effective_field_columns = _field_columns;
   _effective_field_columns_set = (_field_columns > 0);
 }
-
-inline const parser::equiv_bytesequence_type &
-parser::make_default_record_delimiters(void)
-{
-  // default is CRLF
-  static const byte_type default_seq[] = {0x0D,0x0A};
-  static const byte_type *default_equiv_seqs[1] = {default_seq};
-  static const size_t default_equiv_seqs_size[1] = {2};
-  static const int default_equiv_seqs_repeat[1] = {0};
-
-  static const equiv_bytesequence_type equiv_sequence(default_equiv_seqs,
-    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
-
-  return equiv_sequence;
-}
-
-inline const parser::equiv_bytesequence_type &
-parser::make_default_field_delimiters(void)
-{
-  // default is comma
-  static const byte_type default_seq[] = {','};
-  static const byte_type *default_equiv_seqs[1] = {default_seq};
-  static const size_t default_equiv_seqs_size[1] = {1};
-  static const int default_equiv_seqs_repeat[1] = {0};
-
-  static const equiv_bytesequence_type equiv_sequence(default_equiv_seqs,
-    default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1);
-
-  return equiv_sequence;
-}
-
-inline const parser::escaped_field_desc_seq_type &
-parser::make_default_field_escapes(void)
-{
-  // default is double quote ie "
-  static const byte_type default_seq[] = {'"'};
-  static const byte_type *default_equiv_seqs[1] = {default_seq};
-  static const size_t default_equiv_seqs_size[1] = {1};
-  static const int default_equiv_seqs_repeat[1] = {0};
-
-  static const escaped_field_desc default_escape_field_desc = {
-      equiv_bytesequence_type(default_equiv_seqs,
-        default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1),
-      equiv_bytesequence_type(default_equiv_seqs,
-        default_equiv_seqs_size,default_equiv_seqs_repeat,1,0,1)
-    };
-
-  static const escaped_field_desc_seq_type default_escape_field_desc_seq =
-    {default_escape_field_desc};
-
-  return default_escape_field_desc_seq;
-}
-
 
 }
 

@@ -90,7 +90,7 @@ void print_repeats(const std::vector<bytesequence_desc> &delim_desc_vec)
 {
   std::cerr << "delim_desc:\n";
   for(std::size_t i=0; i<delim_desc_vec.size(); ++i) {
-    std::cerr << "\t" << delim_desc_vec[i].seq_bytes;
+    std::cerr << "\t" << delim_desc_vec[i].normalized_seq_bytes;
     if(delim_desc_vec[i].repeat)
       std::cerr << " [repeat]";
     std::cerr << "\n";
@@ -108,14 +108,14 @@ output_byteseq_desc_eval(const std::vector<bytesequence_desc> &desc_vec,
   for(cur=0; cur < val_vec.size() && cur < desc_vec.size(); ++cur) {
     out << "\trequired base: " << "[" << desc_vec[cur].base_seq_bytes
       << "] received: [" << val_vec[cur].first << "]\n";
-    out << "\trequired effective: " << "[" << desc_vec[cur].seq_bytes
+    out << "\trequired effective: " << "[" << desc_vec[cur].normalized_seq_bytes
       << "] received: [" << val_vec[cur].second << "]\n";
   }
 
   out << "Additional received:\n";
   for(;cur < desc_vec.size(); ++cur) {
     out << "\tbase:" << desc_vec[cur].base_seq_bytes << "\n";
-    out << "\teffective:" << desc_vec[cur].seq_bytes << "\n";
+    out << "\teffective:" << desc_vec[cur].normalized_seq_bytes << "\n";
   }
 
   out << "Additional required:\n";
@@ -192,7 +192,7 @@ bool check_byteseq_contents(const std::vector<bytesequence_desc> &desc_vec,
 
   for(std::size_t i=0; i<desc_vec.size(); ++i) {
     if(!(desc_vec[i].base_seq_bytes.size() == val_vec[i].first.size() &&
-      desc_vec[i].seq_bytes.size() == val_vec[i].second.size()))
+      desc_vec[i].normalized_seq_bytes.size() == val_vec[i].second.size()))
     {
       return false;
     }
@@ -203,8 +203,8 @@ bool check_byteseq_contents(const std::vector<bytesequence_desc> &desc_vec,
       return false;
     }
 
-    if(!std::equal(desc_vec[i].seq_bytes.begin(),
-      desc_vec[i].seq_bytes.end(),val_vec[i].second.begin()))
+    if(!std::equal(desc_vec[i].normalized_seq_bytes.begin(),
+      desc_vec[i].normalized_seq_bytes.end(),val_vec[i].second.begin()))
     {
       return false;
     }
@@ -1114,6 +1114,218 @@ BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_overlapping_test )
     "Failed compile_byteseq_overlapping_overlapping_test:\n"
       << output_byte_chunk_eval(expected_bytes,comp_bytes));
 }
+
+
+
+/**
+    \test Basic object checks
+ */
+BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_creation_check )
+{
+  // check default object creation
+  equiv_bytesequence ebyteseq;
+
+  BOOST_REQUIRE(ebyteseq.byteseq_desc_vec().empty());
+  BOOST_REQUIRE(ebyteseq.repeatflag() == false);
+  BOOST_REQUIRE(ebyteseq.exclusiveflag() == false);
+  BOOST_REQUIRE(ebyteseq.compiled_seq_vec().empty());
+  BOOST_REQUIRE(!ebyteseq.effective_byteseq());
+}
+
+BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_check )
+{
+  const unsigned char bytes0[] = {'f','o','o'};
+  const unsigned char bytes1[] = {'b','a','r'};
+  const unsigned char bytes2[] = {'h','e','l','l','o'};
+  const unsigned char bytes3[] = {'w','o','r','l','d'};
+
+  const unsigned char *bytes[5] = {bytes0,bytes1,bytes2,bytes3};
+
+  std::size_t bytelen[] = {3,3,5,5};
+  int seq_repeat[] = {true,true,true,true};
+
+  // check default object creation
+  equiv_bytesequence ebyteseq(bytes,bytelen,seq_repeat,4,false,true);
+
+  BOOST_REQUIRE(ebyteseq.byteseq_desc_vec().size() == 4);
+
+  for(std::size_t i=0; i<4; ++i) {
+    // lengths may be different so use this form instead of std::equal
+    equiv_bytesequence::bytesequence_type byteseq(bytes[i],bytes[i]+bytelen[i]);
+
+    const bytesequence_desc &desc = ebyteseq.byteseq_desc_vec().at(i);
+    BOOST_REQUIRE(desc.base_seq_bytes == byteseq);
+    BOOST_REQUIRE(desc.repeat == seq_repeat[i]);
+  }
+
+  BOOST_REQUIRE(ebyteseq.repeatflag() == false);
+  BOOST_REQUIRE(ebyteseq.exclusiveflag() == true);
+
+  const equiv_bytesequence::byte_chunk_vec_type &comp_bytes =
+    ebyteseq.compiled_seq_vec();
+
+  std::vector<d::byte_chunk> expected_bytes{
+    {'f',0,1,3},
+    {'o',0,1,0},
+    {'o',1,-3,0},
+    {'b',0,1,3},
+    {'a',0,1,0},
+    {'r',1,-3,0},
+    {'h',0,1,5},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-5,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-5,0}
+  };
+
+  BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
+    "Failed to produce expected compiled bytesequence:\n"
+      << output_byte_chunk_eval(expected_bytes,comp_bytes));
+
+  std::shared_ptr<const equiv_bytesequence::bytesequence_type> eff_byteseq =
+    ebyteseq.effective_byteseq();
+
+  BOOST_REQUIRE_MESSAGE(!(eff_byteseq),
+    "Nonempty effective bytesequence for unset equiv_byteseq");
+}
+
+// schedule after basic object creation check
+BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_copy_check )
+{
+  const unsigned char bytes0[] = {'f','o','o'};
+  const unsigned char bytes1[] = {'b','a','r'};
+  const unsigned char bytes2[] = {'h','e','l','l','o'};
+  const unsigned char bytes3[] = {'w','o','r','l','d'};
+
+  const unsigned char *bytes[5] = {bytes0,bytes1,bytes2,bytes3};
+
+  std::size_t bytelen[] = {3,3,5,5};
+  int seq_repeat[] = {true,true,true,true};
+
+  equiv_bytesequence tmp(bytes,bytelen,seq_repeat,4,false,true);
+
+  // check for copy constructor
+  equiv_bytesequence ebyteseq(tmp);
+
+  BOOST_REQUIRE(ebyteseq.byteseq_desc_vec().size() == 4);
+
+  for(std::size_t i=0; i<4; ++i) {
+    // lengths may be different so use this form instead of std::equal
+    equiv_bytesequence::bytesequence_type byteseq(bytes[i],bytes[i]+bytelen[i]);
+
+    const bytesequence_desc &desc = ebyteseq.byteseq_desc_vec().at(i);
+    BOOST_REQUIRE(desc.base_seq_bytes == byteseq);
+    BOOST_REQUIRE(desc.repeat == seq_repeat[i]);
+  }
+
+  BOOST_REQUIRE(ebyteseq.repeatflag() == false);
+  BOOST_REQUIRE(ebyteseq.exclusiveflag() == true);
+
+  const equiv_bytesequence::byte_chunk_vec_type &comp_bytes =
+    ebyteseq.compiled_seq_vec();
+
+  std::vector<d::byte_chunk> expected_bytes{
+    {'f',0,1,3},
+    {'o',0,1,0},
+    {'o',1,-3,0},
+    {'b',0,1,3},
+    {'a',0,1,0},
+    {'r',1,-3,0},
+    {'h',0,1,5},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-5,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-5,0}
+  };
+
+  BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
+    "Failed to produce expected compiled bytesequence:\n"
+      << output_byte_chunk_eval(expected_bytes,comp_bytes));
+
+  std::shared_ptr<const equiv_bytesequence::bytesequence_type> eff_byteseq =
+    ebyteseq.effective_byteseq();
+
+  BOOST_REQUIRE_MESSAGE(!(eff_byteseq),
+    "Nonempty effective bytesequence for unset equiv_byteseq");
+}
+
+// schedule after basic object creation check
+BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_assignment_check )
+{
+  const unsigned char bytes0[] = {'f','o','o'};
+  const unsigned char bytes1[] = {'b','a','r'};
+  const unsigned char bytes2[] = {'h','e','l','l','o'};
+  const unsigned char bytes3[] = {'w','o','r','l','d'};
+
+  const unsigned char *bytes[5] = {bytes0,bytes1,bytes2,bytes3};
+
+  std::size_t bytelen[] = {3,3,5,5};
+  int seq_repeat[] = {true,true,true,true};
+
+  equiv_bytesequence tmp(bytes,bytelen,seq_repeat,4,false,true);
+
+  // check for copy constructor
+  equiv_bytesequence ebyteseq;
+  ebyteseq = tmp;
+
+  BOOST_REQUIRE(ebyteseq.byteseq_desc_vec().size() == 4);
+
+  for(std::size_t i=0; i<4; ++i) {
+    // lengths may be different so use this form instead of std::equal
+    equiv_bytesequence::bytesequence_type byteseq(bytes[i],bytes[i]+bytelen[i]);
+
+    const bytesequence_desc &desc = ebyteseq.byteseq_desc_vec().at(i);
+    BOOST_REQUIRE(desc.base_seq_bytes == byteseq);
+    BOOST_REQUIRE(desc.repeat == seq_repeat[i]);
+  }
+
+  BOOST_REQUIRE(ebyteseq.repeatflag() == false);
+  BOOST_REQUIRE(ebyteseq.exclusiveflag() == true);
+
+  const equiv_bytesequence::byte_chunk_vec_type &comp_bytes =
+    ebyteseq.compiled_seq_vec();
+
+  std::vector<d::byte_chunk> expected_bytes{
+    {'f',0,1,3},
+    {'o',0,1,0},
+    {'o',1,-3,0},
+    {'b',0,1,3},
+    {'a',0,1,0},
+    {'r',1,-3,0},
+    {'h',0,1,5},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-5,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-5,0}
+  };
+
+  BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
+    "Failed to produce expected compiled bytesequence:\n"
+      << output_byte_chunk_eval(expected_bytes,comp_bytes));
+
+  std::shared_ptr<const equiv_bytesequence::bytesequence_type> eff_byteseq =
+    ebyteseq.effective_byteseq();
+
+  BOOST_REQUIRE_MESSAGE(!(eff_byteseq),
+    "Nonempty effective bytesequence for unset equiv_byteseq");
+}
+
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

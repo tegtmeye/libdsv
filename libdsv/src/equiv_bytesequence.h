@@ -73,16 +73,16 @@ bool is_repetative(BiDirectionalIterator first1, BiDirectionalIterator last1,
 }
 
 /**
- *  Inspect each bytesequence_desc and extend the seq_bytes with
- *  repeated instances of base_seq_bytes to ensure the tail of seq_bytes
- *  contains an instance of base_seq_bytes that shares no bytes with any other
- *  bytesequence_desc. That is; if bytesequence_desc (A) contains a
- *  base_seq_bytes of "foo" and bytesequence_desc (B) contains a base_seq_bytes
- *  of "foobar", the resulting compiled_sequence of (A) will contain "foofoo"
- *  [the last "foo" is not shared with any other bytesequence_desc] and the
- *  resulting bytesequence of (B) will contain "foobarfoobar" [the last "foobar"
- *  is has no shared content with "foofoo"]. This logic is extended to
- *  arbitrarily complex strings.
+ *  Inspect each bytesequence_desc and extend the normalized_seq_bytes with
+ *  repeated instances of base_seq_bytes to ensure the tail of
+ *  normalized_seq_bytes contains an instance of base_seq_bytes that shares no
+ *  bytes with any other bytesequence_desc. That is; if bytesequence_desc (A)
+ *  contains a base_seq_bytes of "foo" and bytesequence_desc (B) contains a
+ *  base_seq_bytes of "foobar", the resulting compiled_sequence of (A) will
+ *  contain "foofoo" [the last "foo" is not shared with any other
+ *  bytesequence_desc] and the resulting bytesequence of (B) will contain
+ *  "foobarfoobar" [the last "foobar" is has no shared content with "foofoo"].
+ *  This logic is extended to arbitrarily complex strings.
  *
  *  If a bytesequence_desc is made up of whole instances of another
  *  bytesequence_desc, an exception is thrown. For example (A) is "foo" and (B)
@@ -104,43 +104,48 @@ void normalize_seq(ByteSeqDescIter desc_first, ByteSeqDescIter desc_last)
         if(insp == cur)
           continue;
 
-        assert(!is_repetative(cur->seq_bytes.begin(),cur->seq_bytes.end(),
-          insp->seq_bytes.begin(),insp->seq_bytes.end()));
+        assert(!is_repetative(cur->normalized_seq_bytes.begin(),
+          cur->normalized_seq_bytes.end(),insp->normalized_seq_bytes.begin(),
+          insp->normalized_seq_bytes.end()));
 
 
-        if(cur->seq_bytes.size() < insp->seq_bytes.size()) {
-          auto res = std::mismatch(cur->seq_bytes.begin(),cur->seq_bytes.end(),
-            insp->seq_bytes.begin());
+        if(cur->normalized_seq_bytes.size()<insp->normalized_seq_bytes.size()) {
+          auto res = std::mismatch(cur->normalized_seq_bytes.begin(),
+            cur->normalized_seq_bytes.end(),insp->normalized_seq_bytes.begin());
 
-          std::size_t shared_len = res.first - cur->seq_bytes.begin();
+          std::size_t shared_len = res.first -
+            cur->normalized_seq_bytes.begin();
 
-          if(shared_len > cur->seq_bytes.size() - cur->base_seq_bytes.size()) {
-
+          if(shared_len > cur->normalized_seq_bytes.size() -
+            cur->base_seq_bytes.size())
+          {
             std::vector<unsigned char>
-              new_delim(cur->seq_bytes);
+              new_delim(cur->normalized_seq_bytes);
             new_delim.insert(new_delim.end(),cur->base_seq_bytes.begin(),
               cur->base_seq_bytes.end());
 
-            std::swap(cur->seq_bytes,new_delim);
+            std::swap(cur->normalized_seq_bytes,new_delim);
 
             recheck = true;
             break;
           }
         }
         else {
-          auto res = std::mismatch(insp->seq_bytes.begin(),
-            insp->seq_bytes.end(),cur->seq_bytes.begin());
+          auto res = std::mismatch(insp->normalized_seq_bytes.begin(),
+            insp->normalized_seq_bytes.end(),cur->normalized_seq_bytes.begin());
 
-          std::size_t shared_len = res.first - insp->seq_bytes.begin();
+          std::size_t shared_len = res.first -
+            insp->normalized_seq_bytes.begin();
 
-          if(shared_len > cur->seq_bytes.size() - cur->base_seq_bytes.size()) {
-
+          if(shared_len > cur->normalized_seq_bytes.size() -
+            cur->base_seq_bytes.size())
+          {
             std::vector<unsigned char>
-              new_delim(cur->seq_bytes);
+              new_delim(cur->normalized_seq_bytes);
             new_delim.insert(new_delim.end(),cur->base_seq_bytes.begin(),
               cur->base_seq_bytes.end());
 
-            std::swap(cur->seq_bytes,new_delim);
+            std::swap(cur->normalized_seq_bytes,new_delim);
 
             recheck = true;
             break;
@@ -278,12 +283,14 @@ std::vector<byte_chunk> compile_seq(ByteSeqDescIter desc_first,
   normalize_seq(desc_first,desc_last);
 
   std::vector<byte_chunk> compiled_result =
-    assign_bytes(desc_first->seq_bytes.begin(),desc_first->seq_bytes.end(),
-      desc_first->base_seq_bytes.size(),desc_first->repeat);
+    assign_bytes(desc_first->normalized_seq_bytes.begin(),
+      desc_first->normalized_seq_bytes.end(),desc_first->base_seq_bytes.size(),
+      desc_first->repeat);
 
   for(++desc_first; desc_first != desc_last; ++desc_first)
-    compile_bytes(desc_first->seq_bytes.begin(),desc_first->seq_bytes.end(),
-      desc_first->base_seq_bytes.size(),desc_first->repeat,compiled_result);
+    compile_bytes(desc_first->normalized_seq_bytes.begin(),
+      desc_first->normalized_seq_bytes.end(),desc_first->base_seq_bytes.size(),
+      desc_first->repeat,compiled_result);
 
   return compiled_result;
 }
@@ -302,6 +309,8 @@ class basic_equiv_bytesequence {
     typedef std::vector<byteseq_desc> byteseq_desc_vec_type;
     typedef std::vector<byte_chunk> byte_chunk_vec_type;
 
+    basic_equiv_bytesequence(void);
+
     // may throw std::length_error if size or seq_repeat[i] is zero or greater
     // than vector.max_size();
     basic_equiv_bytesequence(const byte_type *bytes[],
@@ -318,8 +327,8 @@ class basic_equiv_bytesequence {
 
     const byte_chunk_vec_type & compiled_seq_vec(void) const;
 
-    std::shared_ptr<bytesequence_type> effective_byteseq(void) const;
-    void effective_byteseq(const std::shared_ptr<bytesequence_type> &seq);
+    std::shared_ptr<const bytesequence_type> effective_byteseq(void) const;
+    void effective_byteseq(const std::shared_ptr<const bytesequence_type> &seq);
 
   private:
     byteseq_desc_vec_type _byteseq_desc_vec;
@@ -327,23 +336,32 @@ class basic_equiv_bytesequence {
     bool _exclusiveflag;
 
     byte_chunk_vec_type _compiled_seq_vec;
-    std::shared_ptr<bytesequence_type> _effective_byteseq;
+    std::shared_ptr<const bytesequence_type> _effective_byteseq;
 };
 
 
 template<typename T, typename ByteSequenceT>
 struct basic_equiv_bytesequence<T,ByteSequenceT>::byteseq_desc {
-  bytesequence_type seq_bytes;
+  bytesequence_type normalized_seq_bytes;
   bytesequence_type base_seq_bytes;
   bool repeat;
 
   byteseq_desc(const bytesequence_type &seq, bool rep)
-    :seq_bytes(seq), base_seq_bytes(seq), repeat(rep) {}
+    :normalized_seq_bytes(seq), base_seq_bytes(seq), repeat(rep) {}
 
   template<typename ForwardIterator>
   byteseq_desc(ForwardIterator first, ForwardIterator last, bool rep)
-    :seq_bytes(first,last), base_seq_bytes(first,last), repeat(rep) {}
+    :normalized_seq_bytes(first,last), base_seq_bytes(first,last), repeat(rep)
+  {
+  }
 };
+
+template<typename T, typename ByteSequenceT>
+inline basic_equiv_bytesequence<T,ByteSequenceT>::basic_equiv_bytesequence(void)
+  :_repeatflag(false), _exclusiveflag(false)
+{
+}
+
 
 template<typename T, typename ByteSequenceT>
 inline basic_equiv_bytesequence<T,ByteSequenceT>::
@@ -421,7 +439,7 @@ basic_equiv_bytesequence<T,ByteSequenceT>::compiled_seq_vec(void) const
 }
 
 template<typename T, typename ByteSequenceT>
-inline std::shared_ptr<typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type>
+inline std::shared_ptr<const typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type>
 basic_equiv_bytesequence<T,ByteSequenceT>::effective_byteseq(void) const
 {
   return _effective_byteseq;
@@ -429,7 +447,7 @@ basic_equiv_bytesequence<T,ByteSequenceT>::effective_byteseq(void) const
 
 template<typename T, typename ByteSequenceT>
 void basic_equiv_bytesequence<T,ByteSequenceT>::effective_byteseq(
-  const std::shared_ptr<typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type> &seq)
+  const std::shared_ptr<const typename basic_equiv_bytesequence<T,ByteSequenceT>::bytesequence_type> &seq)
 {
   _effective_byteseq = seq;
 }
