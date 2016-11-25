@@ -48,9 +48,10 @@
     // can store 0s
     typedef std::vector<unsigned char> char_buff_type;
     typedef std::shared_ptr<char_buff_type> char_buff_ptr_type;
+    typedef std::shared_ptr<const char_buff_type> const_char_buff_ptr_type;
 
-    typedef std::vector<char_buff_ptr_type> char_buff_vec_type;
-    typedef std::shared_ptr<char_buff_vec_type> char_buff_vec_ptr_type;
+    typedef std::vector<const_char_buff_ptr_type> const_char_buff_vec_type;
+    typedef std::shared_ptr<const_char_buff_vec_type> char_buff_vec_ptr_type;
 
     // shared_ptr to character buffer
     char_buff_ptr_type char_buf_ptr;
@@ -294,10 +295,10 @@
     }
 
 
-    static const YYSTYPE::char_buff_ptr_type empty_buf(
+    static const YYSTYPE::const_char_buff_ptr_type empty_buf(
       new YYSTYPE::char_buff_type());
     static const YYSTYPE::char_buff_vec_ptr_type empty_vec(
-      new YYSTYPE::char_buff_vec_type());
+      new YYSTYPE::const_char_buff_vec_type());
   }
 
 }
@@ -350,7 +351,9 @@ empty_header:
     RECORD_DELIMITER {
       // RECORD_DELIMITER means no header. Check to see if empty records are allowed
 //       std::cerr << "HERE!!!!!!!!!!!!!!\n";
-      if(!detail::check_or_update_column_count(@1,scanner,parser,detail::empty_vec)) {
+      if(!detail::check_or_update_column_count(@1,scanner,parser,
+        detail::empty_vec))
+      {
 //         std::cerr << "ABORTING!!!!!!!!!!!!!!\n";
         YYABORT;
       }
@@ -377,27 +380,27 @@ header_block:
 
 field_list:
     field {
-      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$.reset(new YYSTYPE::const_char_buff_vec_type());
       $$->push_back($1);
     }
   | FIELD_DELIMITER {
-      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$.reset(new YYSTYPE::const_char_buff_vec_type());
       $$->push_back(detail::empty_buf);
       $$->push_back(detail::empty_buf);
     }
   | FIELD_DELIMITER field {
-      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$.reset(new YYSTYPE::const_char_buff_vec_type());
       $$->push_back(detail::empty_buf);
       $$->push_back($2);
     }
   | field_list FIELD_DELIMITER {
-      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$.reset(new YYSTYPE::const_char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back(detail::empty_buf);
     }
   | field_list FIELD_DELIMITER field {
-      $$.reset(new YYSTYPE::char_buff_vec_type());
+      $$.reset(new YYSTYPE::const_char_buff_vec_type());
       $$->reserve($1->size()+1);
       $$->assign($1->begin(),$1->end());
       $$->push_back($3);
@@ -419,10 +422,12 @@ escaped_textdata_list:
     escaped_textdata { $$ = $1; }
   | escaped_textdata_list escaped_textdata {
       // need to aggregate so must use unique vector
-      $$.reset(new YYSTYPE::char_buff_type());
-      $$->reserve($1->size()+$2->size());
-      $$->assign($1->begin(),$1->end());
-      $$->insert($$->end(),$2->begin(),$2->end());
+      YYSTYPE::char_buff_ptr_type tmp(new YYSTYPE::char_buff_type());
+      tmp->reserve($1->size()+$2->size());
+      tmp->assign($1->begin(),$1->end());
+      tmp->insert($$->end(),$2->begin(),$2->end());
+
+      $$ = tmp;
     }
   ;
 
@@ -661,32 +666,87 @@ std::size_t read_bytes(detail::scanner_state &scanner,
 
 
 
+
+
+
+
+
 /**
 
  */
 int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
  detail::parser &parser)
 {
+  typedef detail::parser parser_type;
+  typedef parser_type::equiv_bytesequence_type equiv_bytesequence_type;
+  typedef parser_type::escaped_field_desc_seq_type escaped_field_desc_seq_type;
+
+  lvalp->char_buf_ptr.reset();
+
+  if(scanner.eof())
+    return 0;
+
+  llocp->first_line = llocp->last_line;
+  // last_column is always 1-past as is C
+  llocp->first_column = llocp->last_column;
+
+  if(parser.escaped_field()) {
+
+  }
+  else {
+    // normal scanning
+    while(!scanner.eof()) {
+
+
+
+      // just textdata
+      if(!lvalp->char_buf_ptr)
+        lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
+
+      ++(llocp->last_column);
+      lvalp->char_buf_ptr->push_back(scanner.fgetc());
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #if 0
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-//  typedef detail::parser::equiv_bytesequence_pair equiv_bytesequence_pair;
+/**
 
-  static const unsigned char crlf_il[] = {0x0D,0x0A};
-  static const YYSTYPE::char_buff_ptr_type
-    lf_buf(new YYSTYPE::char_buff_type(1,0x0A));
-  static const YYSTYPE::char_buff_ptr_type
-    cr_buf(new YYSTYPE::char_buff_type(1,0x0D));
-  static const YYSTYPE::char_buff_ptr_type
-    crlf_buf(new YYSTYPE::char_buff_type(crlf_il,
-      crlf_il+sizeof(crlf_il)/sizeof(unsigned char)));
-
-  static const YYSTYPE::char_buff_ptr_type
-    quote_buf(new YYSTYPE::char_buff_type(1,0x22));
-
-  // <32 is non-printing
-  // > 126 is non-printing
-  // ' is 0x27
-  // " is 0x22
+ */
+int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
+ detail::parser &parser)
+{
+  typedef detail::parser parser_type;
+  typedef parser_type::equiv_bytesequence_type equiv_bytesequence_type;
+  typedef parser_type::escaped_field_desc_seq_type escaped_field_desc_seq_type;
 
   lvalp->char_buf_ptr.reset();
 
@@ -710,8 +770,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 //         << llocp->first_column << ":" << llocp->last_column << "\n";
 //     }
 
-
   if(parser.escaped_field()) {
+#if 0
     while(!scanner.eof()) {
       // SEARCH FOR CLOSING FIELD ESCAPE
       std::size_t eindex = parser.effective_field_escapes_pair();
@@ -847,7 +907,7 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
     // if here, we reached EOF
     return FIELDDATA;
-
+#endif
   }
   else {
     // normal scanning
@@ -943,13 +1003,14 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       }
 
       // SEARCH FOR OPEN FIELD ESCAPE
-      const std::vector<equiv_bytesequence_pair> &field_escapes =
+      const escaped_field_desc_seq_type &field_escapes =
         parser.field_escapes();
 
       std::size_t eindex = parser.effective_field_escapes_pair();
       if(eindex != -1) {
         // exclusive has been set on a certain pair
-        const equiv_bytesequence_type &open_seq = field_escapes[eindex].first;
+        const equiv_bytesequence_type &open_seq =
+          field_escapes[eindex].open_equiv_bytesequence;
 
         if(open_seq.effective_byteseq()) {
           // An equivalent sequence was set, just consider it
@@ -997,7 +1058,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
       else {
         // search through and see if we find a valid open
         for(std::size_t i = 0; i<field_escapes.size(); ++i) {
-          const equiv_bytesequence_type &open_seq = field_escapes[i].first;
+          const equiv_bytesequence_type &open_seq =
+            field_escapes[eindex].open_equiv_bytesequence;
 
           if(open_seq.effective_byteseq()) {
             // An equivalent sequence was set, just consider it
@@ -1057,6 +1119,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
     // if here, we reached EOF
     return FIELDDATA;
   }
-#endif
+
   return 0;
 }
+
+#endif

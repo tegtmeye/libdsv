@@ -27,8 +27,9 @@ check_PROGRAMS= \
 	scanner_test \
 	equiv_bytesequence_test \
 	api_parser_low_object_suite \
-	api_parser_high_object_suite \
 	api_operations_object_suite \
+	api_parser_defaults_suite \
+	api_parser_high_object_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
 	api_column_count_test \
@@ -55,21 +56,30 @@ api_parser_low_object_suite_LDFLAGS=\
 	$(libdsv_test_ldflags)\
 	$(additional_test_ldflags)
 
-api_parser_high_object_suite_SOURCES=$(master_suite) \
-	test_detail.h \
-        api_parser_high_object_suite.cc
-api_parser_high_object_suite_CPPFLAGS=$(additional_test_cppflags)
-api_parser_high_object_suite_LDADD=$(additional_test_libs)
-api_parser_high_object_suite_LDFLAGS=\
-	$(libdsv_test_ldflags)\
-	$(additional_test_ldflags)
-
 api_operations_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
         api_operations_object_suite.cc
 api_operations_object_suite_CPPFLAGS=$(additional_test_cppflags)
 api_operations_object_suite_LDADD=$(additional_test_libs)
 api_operations_object_suite_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
+
+api_parser_defaults_suite_SOURCES=$(master_suite) \
+	test_detail.h \
+        api_parser_defaults_suite.cc
+api_parser_defaults_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_defaults_suite_LDADD=$(additional_test_libs)
+api_parser_defaults_suite_LDFLAGS=\
+	$(libdsv_test_ldflags)\
+	$(additional_test_ldflags)
+
+api_parser_high_object_suite_SOURCES=$(master_suite) \
+	test_detail.h \
+        api_parser_high_object_suite.cc
+api_parser_high_object_suite_CPPFLAGS=$(additional_test_cppflags)
+api_parser_high_object_suite_LDADD=$(additional_test_libs)
+api_parser_high_object_suite_LDFLAGS=\
 	$(libdsv_test_ldflags)\
 	$(additional_test_ldflags)
 
@@ -115,6 +125,7 @@ TESTS=\
 	api_parser_low_object_suite \
 	api_parser_high_object_suite \
 	api_operations_object_suite \
+	api_parser_defaults_suite \
 	api_RFC4180_parse_test \
 	api_RFC4180_permissive_parse_test \
 	api_column_count_test \
@@ -131,6 +142,8 @@ CLEANFILES=\
 	api_parser_high_object_suite.trs \
 	api_operations_object_suite.log \
 	api_operations_object_suite.trs \
+	api_parser_defaults_suite.log \
+	api_parser_defaults_suite.trs \
 	api_RFC4180_parse_test.log \
 	api_RFC4180_parse_test.trs \
 	api_RFC4180_permissive_parse_test.log \

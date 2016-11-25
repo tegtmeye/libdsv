@@ -40,6 +40,10 @@
 #error TESTDATA_DIR not defined
 #endif
 
+#ifndef RANDOM_DATA_FILENAME
+#define RANDOM_DATA_FILENAME random_data_file.dat
+#endif
+
 #define _QUOTEME(x) #x
 #define QUOTEME(x) _QUOTEME(x)
 
@@ -47,6 +51,7 @@
 #include <sstream>
 #include <ctime>
 #include <cstring>
+#include <iomanip>
 
 #include <boost/filesystem.hpp>
 
@@ -64,7 +69,12 @@ typedef std::vector<unsigned char> field_storage_type;
 
 
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
+static const std::string random_data_file(QUOTEME(RANDOM_DATA_FILENAME));
 
+static const std::string missing_random_data_file_msg =
+  "Missing random data file '" QUOTEME(RANDOM_DATA_FILENAME) "'. You can "
+  "generate a new one by compiling and running '" QUOTEME(RANDOM_DATA_FILENAME)
+  ".cc' in this directory.";
 
 // 0x0A = LF
 // 0x0D = CR
@@ -248,10 +258,11 @@ std::string to_string(const field_storage_type &buf)
   std::stringstream out;
 
   for(std::size_t i=0; i<buf.size(); ++i) {
-    if(buf[i] > 32 || buf[i] < 126)
+    if(buf[i] > 32 && buf[i] < 126)
       out << buf[i];
     else
-      out << std::hex << std::showbase << buf[i];
+      out << "0x" << std::hex << std::showbase << std::setw(2)
+        << std::setfill('0') << int(buf[i]);
   }
 
   return out.str();
@@ -510,11 +521,78 @@ std::string output_fields(
   return out.str();
 }
 
+void check_file_compliance(dsv_parser_t parser,
+  const std::vector<std::vector<field_storage_type> > &headers,
+  const std::vector<std::vector<field_storage_type> > &records,
+  const std::vector<log_msg> &log_msgs, const fs::path &filepath,
+  const std::string &label, int expected_result)
+{
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  detail::logging_context log_context;
+  dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
+
+  dsv_operations_t operations;
+  assert(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
+
+  file_context context(headers,records);
+  dsv_set_header_callback(header_callback,&context,operations);
+  dsv_set_record_callback(record_callback,&context,operations);
+
+  int result = dsv_parse(filepath.c_str(),in.get(),parser,operations);
+  if(result != expected_result) {
+    std::stringstream out;
+    out << "dsv_parse returned with unexpected code: " << result
+      << ", expecting " << expected_result;
+
+    if(result > 0)
+      out << " (" << strerror(result) << ")";
+    else
+      out << " MSG LOG:\n" << compare_logs(log_msgs,log_context.recd_logs);
+
+    out << "\nfor given file: ";
+    if(!filepath.empty())
+      out << filepath;
+    else
+      out << "[file stream]";
+
+    out << "\nHeader "
+      << output_fields(context.valid_headers,context.parsed_headers)
+      << "\nRecord "
+      << output_fields(context.valid_records,context.parsed_records);
+
+    BOOST_REQUIRE_MESSAGE(result == expected_result,out.str());
+  }
+
+  BOOST_REQUIRE_MESSAGE(
+    context.valid_headers.size() == context.parsed_headers.size() &&
+    context.valid_headers == context.parsed_headers,
+      "Headers did not parse correctly. Correct: " << ": "
+      << context.valid_headers.size() << " Parsed: "
+      << context.parsed_headers.size() << "\n"
+      << output_fields(context.valid_headers,context.parsed_headers));
+
+  BOOST_REQUIRE_MESSAGE(
+    context.valid_records.size() == context.parsed_records.size() &&
+    context.valid_records == context.parsed_records,
+      "Records did not parse correctly. Correct: " << ": "
+      << context.valid_records.size() << " Parsed: "
+      << context.parsed_records.size() << "\n"
+      << output_fields(context.valid_records,context.parsed_records));
+
+  BOOST_REQUIRE_MESSAGE(check_logs(log_msgs,log_context.recd_logs),
+    "Did not receive the correct type and/or number of log messages:\n"
+    << compare_logs(log_msgs,log_context.recd_logs));
+}
+
 void check_compliance(dsv_parser_t parser,
   const std::vector<std::vector<field_storage_type> > &headers,
   const std::vector<std::vector<field_storage_type> > &records,
   const std::vector<log_msg> &log_msgs,
-  const std::vector<field_storage_type> contents,
+  const std::vector<field_storage_type> &contents,
   const std::string &label, int expected_result)
 {
   fs::path filepath = gen_testfile(contents,label);

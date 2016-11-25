@@ -63,7 +63,7 @@ namespace detail {
 
           Get the current character from the input and advance the read
           location but do not advance the putback buffer. That is, calling
-          advancec multiple consecutive times will not return the same value
+          getc multiple consecutive times will not return the same value
           until the end of stream is reached and then EOF is returned.
        */
       int getc(void);
