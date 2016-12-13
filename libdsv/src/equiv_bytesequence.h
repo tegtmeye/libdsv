@@ -33,6 +33,7 @@
 
 #include <vector>
 #include <memory>
+#include <iterator>
 
 #include <cassert>
 #include <iostream>
@@ -91,6 +92,28 @@ bool is_repetative(BiDirectionalIterator first1, BiDirectionalIterator last1,
 template<typename ByteSeqDescIter>
 void normalize_seq(ByteSeqDescIter desc_first, ByteSeqDescIter desc_last)
 {
+  typedef typename std::iterator_traits<ByteSeqDescIter>::value_type value_type;
+  typedef typename value_type::bytesequence_type bytesequence_type;
+
+  // if there is more than 1 desc, first double the lengths of all repeated
+  // sequences
+  if(std::distance(desc_first,desc_last) > 1) {
+    for(ByteSeqDescIter cur=desc_first; cur != desc_last; ++cur) {
+      if(cur->repeat
+        && cur->base_seq_bytes.size() == cur->normalized_seq_bytes.size())
+      {
+        bytesequence_type nbase;
+        nbase.reserve(cur->base_seq_bytes.size()*2);
+        nbase.insert(nbase.end(),cur->base_seq_bytes.begin(),
+          cur->base_seq_bytes.end());
+        nbase.insert(nbase.end(),cur->base_seq_bytes.begin(),
+          cur->base_seq_bytes.end());
+
+        std::swap(cur->normalized_seq_bytes,nbase);
+      }
+    }
+  }
+
   bool recheck=true;
   while(recheck) {
     recheck = false;
@@ -176,8 +199,10 @@ std::vector<byte_chunk> assign_bytes(ByteIter first, ByteIter last,
       result.back().accept = 1;
   }
 
+  // base lengths are adjusted by 1. for example, a repeating "f", we want
+  // the chunk to not change during read, so offset by 0
   if(repeat)
-    result.back().pass_skip = -base_len;
+    result.back().pass_skip = -(base_len-1);
   else
     result.back().pass_skip = 0;
 
@@ -267,8 +292,10 @@ void compile_bytes(ByteIter first, ByteIter last, std::size_t base_len,
   }
 
 // std::cerr << "HERE1\n";
+  // base lengths are adjusted by 1. for example, a repeating "f", we want
+  // the chunk to not change during read, so offset by 0
   if(repeat)
-    byte_sequence[last_off].pass_skip = -base_len;
+    byte_sequence[last_off].pass_skip = -(base_len-1);
 // std::cerr << "HERE2\n";
 }
 
@@ -342,6 +369,8 @@ class basic_equiv_bytesequence {
 
 template<typename T, typename ByteSequenceT>
 struct basic_equiv_bytesequence<T,ByteSequenceT>::byteseq_desc {
+  typedef bytesequence_type bytesequence_type;
+
   bytesequence_type normalized_seq_bytes;
   bytesequence_type base_seq_bytes;
   bool repeat;
@@ -390,6 +419,9 @@ inline basic_equiv_bytesequence<T,ByteSequenceT>::
     _exclusiveflag = false;
     _effective_byteseq.reset(
       new bytesequence_type(bytes[0],bytes[0]+bytelen[0]));
+
+    _compiled_seq_vec = compile_seq(_byteseq_desc_vec.begin(),
+      _byteseq_desc_vec.end());
   }
   else {
     _repeatflag = repeatflag;

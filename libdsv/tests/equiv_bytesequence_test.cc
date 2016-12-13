@@ -1,5 +1,7 @@
 #include <boost/test/unit_test.hpp>
 
+#include "test_detail.h"
+
 #include <equiv_bytesequence.h>
 
 #include <iostream>
@@ -28,63 +30,13 @@ inline bool operator!=(const byte_chunk &lhs, const byte_chunk &rhs)
 namespace dsv {
 namespace test {
 
-namespace d=detail;
-
-typedef d::basic_equiv_bytesequence<unsigned char> equiv_bytesequence;
+typedef ::detail::basic_equiv_bytesequence<unsigned char> equiv_bytesequence;
 typedef equiv_bytesequence::byteseq_desc bytesequence_desc;
 
+namespace d=::detail;
 
-template<typename T>
-std::string print_byte(T byte)
-{
-  std::stringstream out;
 
-  if(byte < 32 || byte > 126)
-    out << int(byte);
-  else
-    out << char(byte);
 
-  return out.str();
-}
-
-std::ostream & operator<<(std::ostream &out,
-  const std::vector<unsigned char> &seq)
-{
-  std::vector<unsigned char>::const_iterator cur = seq.begin();
-
-  while(cur != seq.end()) {
-    if(*cur < 32 || *cur > 126)
-      out << int(*cur);
-    else
-      out << char(*cur);
-
-    ++cur;
-  }
-
-  return out;
-}
-
-std::string output_packed(const std::vector<d::byte_chunk> &packed_vec)
-{
-  std::stringstream out;
-
-  for(std::size_t i=0; i<packed_vec.size(); ++i) {
-    out << "Data @ " << i << ":\n"
-      << "  Byte: " << char(packed_vec[i].byte)
-      << "  Accept: " << int(packed_vec[i].accept)
-      << "  Pass off: " << packed_vec[i].pass_skip
-        << " (" << i+packed_vec[i].pass_skip << ")"
-      << "  Fail off: " << packed_vec[i].fail_skip
-        << " (";
-    if(packed_vec[i].fail_skip==0)
-      out << "reject";
-    else
-      std::cerr << i+packed_vec[i].fail_skip;
-    out << ")\n\n";
-  }
-
-  return out.str();
-}
 
 void print_repeats(const std::vector<bytesequence_desc> &delim_desc_vec)
 {
@@ -98,6 +50,7 @@ void print_repeats(const std::vector<bytesequence_desc> &delim_desc_vec)
   std::cerr << "\n";
 }
 
+// first is base, second is normalized
 std::string
 output_byteseq_desc_eval(const std::vector<bytesequence_desc> &desc_vec,
   const std::vector<std::pair<std::string,std::string> > &val_vec)
@@ -106,22 +59,23 @@ output_byteseq_desc_eval(const std::vector<bytesequence_desc> &desc_vec,
 
   std::size_t cur;
   for(cur=0; cur < val_vec.size() && cur < desc_vec.size(); ++cur) {
-    out << "\trequired base: " << "[" << desc_vec[cur].base_seq_bytes
-      << "] received: [" << val_vec[cur].first << "]\n";
-    out << "\trequired effective: " << "[" << desc_vec[cur].normalized_seq_bytes
-      << "] received: [" << val_vec[cur].second << "]\n";
+    out << "\trequired base: [" << val_vec[cur].first  << "] received: "
+      << "[" << desc_vec[cur].base_seq_bytes << "]\n";
+    out << "\trequired normalized: " << "[" << val_vec[cur].second << "] "
+      "received: ["  << desc_vec[cur].normalized_seq_bytes << "]\n";
+
   }
 
   out << "Additional received:\n";
   for(;cur < desc_vec.size(); ++cur) {
     out << "\tbase:" << desc_vec[cur].base_seq_bytes << "\n";
-    out << "\teffective:" << desc_vec[cur].normalized_seq_bytes << "\n";
+    out << "\normalized:" << desc_vec[cur].normalized_seq_bytes << "\n";
   }
 
   out << "Additional required:\n";
   for(;cur < val_vec.size(); ++cur) {
     out << "\tbase:" << val_vec[cur].first << "\n";
-    out << "\teffective:" << val_vec[cur].second << "\n";
+    out << "\normalized:" << val_vec[cur].second << "\n";
   }
 
   return out.str();
@@ -142,28 +96,28 @@ output_byte_chunk_eval(const std::vector<d::byte_chunk> &required,
     else
       out << " ";
 
-    out << "required [" << print_byte(required[cur].byte) << ","
-      << (required[cur].accept?"accept,":"not-accept,")
+    out << "required [" << detail::print_byte(required[cur].byte) << ","
+      << (required[cur].accept?"    accept,":"not-accept,")
       << required[cur].pass_skip << "," << required[cur].fail_skip << "]";
-    out << " received [" << print_byte(received[cur].byte) << ","
-      << (received[cur].accept?"accept,":"not-accept,")
+    out << " received [" << detail::print_byte(received[cur].byte) << ","
+      << (received[cur].accept?"    accept,":"not-accept,")
       << received[cur].pass_skip << "," << received[cur].fail_skip << "]\n";
   }
 
   if(cur < required.size()) {
     out << "Additional required:\n";
     for(std::size_t i=cur; i<required.size(); ++i) {
-      out << "\trequired [" << print_byte(required[i].byte) << ","
-        << (required[i].accept?"accept,":"not-accept,")
+      out << "\trequired [" << detail::print_byte(required[i].byte) << ","
+        << (required[i].accept?"    accept,":"not-accept,")
         << required[i].pass_skip << "," << required[i].fail_skip << "]\n";
     }
   }
 
   if(cur < received.size()) {
     out << "Additional received:\n";
-    for(std::size_t i=cur; i<required.size(); ++i) {
-      out << " received [" << print_byte(received[i].byte) << ","
-        << (received[i].accept?"accept,":"not-accept,")
+    for(std::size_t i=cur; i<received.size(); ++i) {
+      out << " received [" << detail::print_byte(received[i].byte) << ","
+        << (received[i].accept?"    accept,":"not-accept,")
         << received[i].pass_skip << "," << received[i].fail_skip << "]\n";
     }
   }
@@ -184,6 +138,7 @@ make_bytesequence_vec(const std::vector<std::pair<std::string,bool> > &contents)
   return result;
 }
 
+// first is base, second is normalized
 bool check_byteseq_contents(const std::vector<bytesequence_desc> &desc_vec,
   const std::vector<std::pair<std::string,std::string> > &val_vec)
 {
@@ -229,7 +184,8 @@ BOOST_AUTO_TEST_CASE( single_char_normalization_nonrepeat_test )
     {"f",false}
   };
 
-  std::vector<bytesequence_desc> desc_vec = make_bytesequence_vec(input);
+  std::vector<bytesequence_desc> desc_vec =
+    make_bytesequence_vec(input);
 
   d::normalize_seq(desc_vec.begin(),desc_vec.end());
 
@@ -548,11 +504,11 @@ BOOST_AUTO_TEST_CASE( single_disjoint_many_single_test )
   d::normalize_seq(desc_vec.begin(),desc_vec.end());
 
   std::vector<std::pair<std::string,std::string> > req_res{
-      {"f","f"},
-      {"b","b"},
-      {"a","a"},
-      {"c","c"},
-      {"d","d"},
+      {"f","ff"},
+      {"b","bb"},
+      {"a","aa"},
+      {"c","cc"},
+      {"d","dd"},
     };
 
   BOOST_REQUIRE_MESSAGE(check_byteseq_contents(desc_vec,req_res),
@@ -659,7 +615,7 @@ BOOST_AUTO_TEST_CASE( byte_assign_single_test )
     in.end(),in.size(),true);
 
   std::vector<d::byte_chunk> expected_bytes{
-    {'f',1,-1,0}
+    {'f',1,0,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -705,7 +661,7 @@ BOOST_AUTO_TEST_CASE( byte_assign_test )
   std::vector<d::byte_chunk> expected_bytes{
     {'f',0,1,0},
     {'o',0,1,0},
-    {'o',1,-std::ptrdiff_t(in.size()),0}
+    {'o',1,-std::ptrdiff_t(in.size()-1),0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -734,7 +690,7 @@ BOOST_AUTO_TEST_CASE( byte_assign_repeat_input_test )
     {'o',1,1,0},
     {'f',0,1,0},
     {'o',0,1,0},
-    {'o',1,-3,0},
+    {'o',1,-2,0},
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -888,7 +844,7 @@ BOOST_AUTO_TEST_CASE( compile_bytes_single_repeat_repeat_test )
     {'f',0,1,0},
     {'o',0,1,0},
     {'o',0,1,0},
-    {'f',1,-4,0}
+    {'f',1,-3,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -949,7 +905,7 @@ BOOST_AUTO_TEST_CASE( compile_single_byteseq_test )
   std::vector<d::byte_chunk> expected_bytes{
     {'f',0,1,0},
     {'o',0,1,0},
-    {'o',1,-3,0},
+    {'o',1,-2,0},
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -1016,26 +972,109 @@ BOOST_AUTO_TEST_CASE( compile_disjoint_byteseq_test )
     desc_vec.end());
 
   std::vector<d::byte_chunk> expected_bytes{
-    {'f',0,1,3},
+    {'f',0,1,6},
     {'o',0,1,0},
-    {'o',1,-3,0},
-    {'b',0,1,3},
+    {'o',1,1,0},
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,-2,0},
+
+    {'b',0,1,6},
     {'a',0,1,0},
-    {'r',1,-3,0},
-    {'h',0,1,5},
+    {'r',1,1,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,-2,0},
+
+    {'h',0,1,10},
     {'e',0,1,0},
     {'l',0,1,0},
     {'l',0,1,0},
-    {'o',1,-5,0},
+    {'o',1,1,0},
+    {'h',0,1,0},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-4,0},
+
     {'w',0,1,0},
     {'o',0,1,0},
     {'r',0,1,0},
     {'l',0,1,0},
-    {'d',1,-5,0}
+    {'d',1,1,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-4,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
     "Failed compile_disjoint_byteseq_test:\n"
+      << output_byte_chunk_eval(expected_bytes,comp_bytes));
+}
+
+/**
+    \test Check overlapping sequences with no repeat
+ */
+BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_no_test )
+{
+  std::vector<std::pair<std::string,bool> > input{
+    {"foo",false},
+    {"foobar",false}
+  };
+
+  std::vector<bytesequence_desc> desc_vec = make_bytesequence_vec(input);
+
+  std::vector<d::byte_chunk> comp_bytes = d::compile_seq(desc_vec.begin(),
+    desc_vec.end());
+
+  std::vector<d::byte_chunk> expected_bytes{
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,1,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,0,0},
+  };
+
+  BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
+    "Failed compile_byteseq_overlapping_no_test:\n"
+      << output_byte_chunk_eval(expected_bytes,comp_bytes));
+}
+
+/**
+    \test Check overlapping sequences with part repeat
+ */
+BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_part_repeat_test )
+{
+  std::vector<std::pair<std::string,bool> > input{
+    {"foo",true},
+    {"foobar",false}
+  };
+
+  std::vector<bytesequence_desc> desc_vec = make_bytesequence_vec(input);
+
+  std::vector<d::byte_chunk> comp_bytes = d::compile_seq(desc_vec.begin(),
+    desc_vec.end());
+
+  std::vector<d::byte_chunk> expected_bytes{
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,1,0},
+    {'f',0,1,6},
+    {'o',0,1,0},
+    {'o',1,1,0},
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,-2,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,0,0},
+  };
+
+  BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
+    "Failed compile_byteseq_overlapping_part_repeat_test:\n"
       << output_byte_chunk_eval(expected_bytes,comp_bytes));
 }
 
@@ -1060,7 +1099,7 @@ BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_nonoverlapping_test )
     {'o',1,1,0},
     {'f',0,1,3},
     {'o',0,1,0},
-    {'o',1,-3,0},
+    {'o',1,-2,0},
     {'b',0,1,0},
     {'a',0,1,0},
     {'r',1,1,0},
@@ -1069,7 +1108,7 @@ BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_nonoverlapping_test )
     {'o',0,1,0},
     {'b',0,1,0},
     {'a',0,1,0},
-    {'r',1,-6,0}
+    {'r',1,-5,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -1101,13 +1140,13 @@ BOOST_AUTO_TEST_CASE( compile_byteseq_overlapping_overlapping_test )
     {'o',1,1,0},
     {'f',0,1,0},
     {'o',0,1,0},
-    {'o',1,-3,0},
+    {'o',1,-2,0},
     {'y',1,1,0},
     {'f',0,1,0},
     {'o',0,1,0},
     {'o',0,1,0},
     {'f',0,1,0},
-    {'y',1,-5,0}
+    {'y',1,-4,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -1165,22 +1204,41 @@ BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_check )
     ebyteseq.compiled_seq_vec();
 
   std::vector<d::byte_chunk> expected_bytes{
-    {'f',0,1,3},
+    {'f',0,1,6},
     {'o',0,1,0},
-    {'o',1,-3,0},
-    {'b',0,1,3},
+    {'o',1,1,0},
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,-2,0},
+
+    {'b',0,1,6},
     {'a',0,1,0},
-    {'r',1,-3,0},
-    {'h',0,1,5},
+    {'r',1,1,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,-2,0},
+
+    {'h',0,1,10},
     {'e',0,1,0},
     {'l',0,1,0},
     {'l',0,1,0},
-    {'o',1,-5,0},
+    {'o',1,1,0},
+    {'h',0,1,0},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-4,0},
+
     {'w',0,1,0},
     {'o',0,1,0},
     {'r',0,1,0},
     {'l',0,1,0},
-    {'d',1,-5,0}
+    {'d',1,1,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-4,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -1230,22 +1288,41 @@ BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_copy_check )
     ebyteseq.compiled_seq_vec();
 
   std::vector<d::byte_chunk> expected_bytes{
-    {'f',0,1,3},
+    {'f',0,1,6},
     {'o',0,1,0},
-    {'o',1,-3,0},
-    {'b',0,1,3},
+    {'o',1,1,0},
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,-2,0},
+
+    {'b',0,1,6},
     {'a',0,1,0},
-    {'r',1,-3,0},
-    {'h',0,1,5},
+    {'r',1,1,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,-2,0},
+
+    {'h',0,1,10},
     {'e',0,1,0},
     {'l',0,1,0},
     {'l',0,1,0},
-    {'o',1,-5,0},
+    {'o',1,1,0},
+    {'h',0,1,0},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-4,0},
+
     {'w',0,1,0},
     {'o',0,1,0},
     {'r',0,1,0},
     {'l',0,1,0},
-    {'d',1,-5,0}
+    {'d',1,1,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-4,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,
@@ -1296,22 +1373,41 @@ BOOST_AUTO_TEST_CASE( basic_equiv_bytesequence_object_assignment_check )
     ebyteseq.compiled_seq_vec();
 
   std::vector<d::byte_chunk> expected_bytes{
-    {'f',0,1,3},
+    {'f',0,1,6},
     {'o',0,1,0},
-    {'o',1,-3,0},
-    {'b',0,1,3},
+    {'o',1,1,0},
+    {'f',0,1,0},
+    {'o',0,1,0},
+    {'o',1,-2,0},
+
+    {'b',0,1,6},
     {'a',0,1,0},
-    {'r',1,-3,0},
-    {'h',0,1,5},
+    {'r',1,1,0},
+    {'b',0,1,0},
+    {'a',0,1,0},
+    {'r',1,-2,0},
+
+    {'h',0,1,10},
     {'e',0,1,0},
     {'l',0,1,0},
     {'l',0,1,0},
-    {'o',1,-5,0},
+    {'o',1,1,0},
+    {'h',0,1,0},
+    {'e',0,1,0},
+    {'l',0,1,0},
+    {'l',0,1,0},
+    {'o',1,-4,0},
+
     {'w',0,1,0},
     {'o',0,1,0},
     {'r',0,1,0},
     {'l',0,1,0},
-    {'d',1,-5,0}
+    {'d',1,1,0},
+    {'w',0,1,0},
+    {'o',0,1,0},
+    {'r',0,1,0},
+    {'l',0,1,0},
+    {'d',1,-4,0}
   };
 
   BOOST_REQUIRE_MESSAGE(expected_bytes==comp_bytes,

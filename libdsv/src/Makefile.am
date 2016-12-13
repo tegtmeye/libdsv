@@ -7,7 +7,9 @@ AM_YFLAGS= -d -p parser_ --report=all
 libdsv_la_SOURCES= \
 	dsv_grammar.yy \
 	scanner_state.h \
+	equiv_bytesequence.h \
 	bytesequence_compiler.h \
+	read_bytes.h \
 	parse_operations.h \
 	parser.h \
 	dsv_parser_low.cc \

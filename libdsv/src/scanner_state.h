@@ -31,8 +31,6 @@
 #ifndef LIBDSV_PARSER_STATE_H
 #define LIBDSV_PARSER_STATE_H
 
-#include "dsv_parser.h"
-
 #include <string>
 #include <vector>
 #include <cstdio>
@@ -46,15 +44,61 @@
 namespace detail {
 
   /**
-   *  Object that holds the current state of the scanner.
-   *  Also handles buffered reads. That is, we could have just used C
-   *  functionality but the buffering scheme is implementation dependent so we
-   *  buffer on our own here.
-   *
+      Object that holds the current state of the scanner.
+      Also handles buffered reads. That is, we could have just used C
+      functionality but the buffering scheme is implementation dependent so we
+      buffer on our own here.
+
+      - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      ^           ^                 ^               ^
+      A           B                 C               *
+      <  token  > <   lookahead   > <   putback   >
+
+      There are 3 bufferes associated with the scanner
+
+      - token buffer [A,B): The buffer associated with the most recent
+      accepted token. This is emptied when the scanner passes the token off to
+      the parser. That is, A = B after handoff.
+
+      - lookahead buffer [B,C): The lookahead buffer is the buffer that
+      represents the "next" token read. Although technically not
+      necessary, having a lookahead buffer prevents a token from being
+      read twice unnecessarily. For a single byte token, the cost of
+      reading the token twice is negligible but for complex tokens this
+      can have a non-trivial cost impact. For example, suppose that we
+      are currently parsing an escaped text field. The token that ends
+      the escaped field is the CLOSE_FIELD_ESCAPE. Once found, the
+      scanner returns a FIELDDATA token. The issue is that the next
+      token that needs to be returned is the CLOSE_FIELD_ESCAPE which
+      has already been read. Although we could just put the bytes back
+      to be read again, if this token is complex (multibyte, many
+      repeats) then we've added an unnecessary amount of overhead.
+      Instead it is kept and just returned.
+
+      - putback buffer [C,*) where the * is the current read location: This
+      is the buffer that that represents the mid-acceptance number of bytes
+      during scanning and is most used for repeats where the the token is
+      accepted but could potentially be longer. For example, if the token
+      sequence is "foo" repeated an infinite number of times, and the input
+      sequence is "foofoofobar", then mid-scanning, [B,C) contains the first
+      "foofoo" and the read location (*) points to "f". After scanning 'f' and
+      'o', it gets 'b' which isn't another sequence of "foo" and puts back the
+      "fo" to be read again.
    */
-  class scanner_state {
+  template<typename ByteT>
+  class basic_scanner_state {
     public:
-      scanner_state(const char *str, FILE *in=0, std::size_t min_buff_size=256);
+      typedef ByteT byte_type;
+      typedef typename std::vector<byte_type>::iterator iterator;
+      typedef typename std::vector<byte_type>::const_iterator const_iterator;
+
+      /*
+          \c min_buff_size must be at least twice as large as the largest
+          possible putback size or scanning will infinite loop! The largest
+          putback size is a known constant for regular scanners though.
+      */
+      basic_scanner_state(const char *str, FILE *in=0,
+        std::size_t min_buff_size=256);
 
       const char * filename(void) const;
 
@@ -63,64 +107,62 @@ namespace detail {
 
           Get the current character from the input and advance the read
           location but do not advance the putback buffer. That is, calling
-          getc multiple consecutive times will not return the same value
+          advancec multiple consecutive times will not return the same value
           until the end of stream is reached and then EOF is returned.
        */
       int getc(void);
 
       /*
-          forget any mark and putback buffers, get character, and advance the
-          read location
-
-          Forget any putback buffer, get the current character from the input,
-          advance the read location, set the mark location to the read location.
-          That is, calling fgetc multiple consecutive times will not return the
-          same value until the end of stream is reached and then EOF is returned
-          regardless if the the (f)getc was interlaced with a call to \c putback
-          or \c putbackmark
-       */
-      int fgetc(void);
-
-      /*
           Set the putback marker to the current read position. That is, in a
           call sequence of:
-            setmark();
+            set_lookahead();
             a = getc();
             putback();
             b = getc();
 
             'a' and 'b' will have the same value
+
+          The \c identifier parameter is the id associated with the lookahead.
+          For example, if the lookahead is parsed as a string of ASCII chars
+          with the \c identifier ASCII_STR, then when the previous token
+          buffer is accepted, ASCII_STR is returned to indicate that the
+          lookahead buffer was of this type
        */
-      void setmark(void);
+      void set_lookahead(int identifier = 0);
 
       /*
-          Putback any bytes from the putback buffer up to the mark location to
-          be read again then set the current read location to the mark location.
+          Putback \c nbytes from the putback buffer to be read again. If the
+          putback buffer is empty, this has no effect.
       */
-      void putbackmark(void);
-
-
-      /*
-          Putback any bytes from the putback buffer to be read again. If the
-          putback buffer is empty, this has no effect. This also sets the
-          putbackmark to the current read location.
-      */
-      void putback(void);
+      void putback(std::size_t nbytes);
 
       /*
-          Forget the putback buffer and mark if any exists. That is, set the
-          putback location and mark location to the read location.
+          The [first,last) bytes representing the token buffer. The return
+          values are only guaranteed to point to valid locations until the
+          next call to \c getc, \c set_lookahead, or \c accept
       */
-      void forget(void);
+      std::pair<const_iterator,const_iterator> token(void) const;
 
       /*
-          Return the number of bytes in the putback buffer
+          Accept the token currently contained in the token buffer. This
+          empties the token buffer by setting A to B and B to C.
+
+          Returns the readahead (now token) buffer identifier previously set
+          with set_lookahead()
       */
-      std::size_t putback_len(void) const;
+      int accept(void);
 
       /*
           Return nonzero if the input has reached EOF. That is, any additional
           calls to [f]getc() will return EOF.
+
+          NB that this behaves like normal C feof(). That is, \c eof() will not
+          return true until the stream is queried and not character is found.
+          For example, for a newly initialized but empty stream, \c eof()
+          will return false until a \c getc() is called (which will return
+          EOF) and then subsequent calls to \c eof() will return true. This
+          is a limitation (or feature depending on how you look at it) of normal
+          unix end-of-file handling
       */
       bool eof(void) const;
 
@@ -128,19 +170,28 @@ namespace detail {
       std::string fname;
       std::shared_ptr<FILE> stream;
 
+      std::vector<byte_type> buff;
+      int _readahead_id;
+
       std::size_t min_buf_sz;
-      std::vector<unsigned char> buff;
-      std::size_t begin_off;
-      std::size_t mark_off;
-      std::size_t cur_off;
+
+      std::size_t token_off;      // "A" in the example
+      std::size_t lookahead_off;  // "B" in the example
+      std::size_t putback_off;    // "C" in the example
+      std::size_t read_off;       // "*" in the example
       std::size_t end_off;
 
+      /*
+          Refill the buffer returning whether or not we reached EOF
+      */
       bool refill(void);
   };
 
-  inline scanner_state::scanner_state(const char *str, FILE *in,
-    std::size_t min_buff_size) :min_buf_sz(min_buff_size),
-    buff(min_buff_size,0), begin_off(0), mark_off(0), cur_off(0), end_off(0)
+  template<typename ByteT>
+  basic_scanner_state<ByteT>::basic_scanner_state(const char *str, FILE *in,
+    std::size_t min_buff_size) :buff(min_buff_size,0), _readahead_id(0),
+      min_buf_sz(min_buff_size), token_off(0), lookahead_off(0), putback_off(0),
+      read_off(0), end_off(0)
   {
     if(str)
       fname = str;
@@ -156,108 +207,94 @@ namespace detail {
     stream = std::shared_ptr<FILE>(in,&fclose);
   }
 
-  inline const char * scanner_state::filename(void) const
+  template<typename ByteT>
+  inline const char * basic_scanner_state<ByteT>::filename(void) const
   {
     return fname.c_str();
   }
 
-  inline int scanner_state::getc(void)
+  template<typename ByteT>
+  inline int basic_scanner_state<ByteT>::getc(void)
   {
-    if(cur_off == end_off && !refill())
+    if(read_off == end_off && !refill())
       return EOF;
 
-    return buff[cur_off++];
+    return buff[read_off++];
   }
 
-  inline int scanner_state::fgetc(void)
+  template<typename ByteT>
+  inline void basic_scanner_state<ByteT>::set_lookahead(int identifier)
   {
-    forget();
-
-    return getc();
+    putback_off = read_off;
+    _readahead_id = identifier;
   }
 
-  inline void scanner_state::setmark(void)
+  template<typename ByteT>
+  inline void basic_scanner_state<ByteT>::putback(std::size_t nbytes)
   {
-    mark_off = cur_off;
+    if((read_off-putback_off) < nbytes) {
+      std::cerr << "Attempt to putback " << nbytes << " when there is only "
+        "room for " << (read_off-putback_off) << "\n";
+      assert((read_off-putback_off) >= nbytes);
+    }
+
+    read_off -= nbytes;
   }
 
-  inline void scanner_state::putbackmark(void)
+  template<typename ByteT>
+  inline std::pair<typename basic_scanner_state<ByteT>::const_iterator,
+    typename basic_scanner_state<ByteT>::const_iterator>
+  basic_scanner_state<ByteT>::token(void) const
   {
-    cur_off = mark_off;
+    return std::make_pair(buff.begin()+token_off,buff.begin()+lookahead_off);
   }
 
-  inline void scanner_state::putback(void)
+  template<typename ByteT>
+  inline int basic_scanner_state<ByteT>::accept(void)
   {
-    cur_off = begin_off;
-    mark_off = begin_off;
+    token_off = lookahead_off;
+    lookahead_off = putback_off;
+    return _readahead_id;
   }
 
-  inline void scanner_state::forget(void)
-  {
-    begin_off = cur_off;
-    mark_off = cur_off;
-  }
 
-  inline std::size_t scanner_state::putback_len(void) const
+  template<typename ByteT>
+  inline bool basic_scanner_state<ByteT>::eof(void) const
   {
-    return (cur_off - begin_off);
-  }
-
-  inline bool scanner_state::eof(void) const
-  {
-    return std::feof(stream.get());
+    return (read_off == end_off) && std::feof(stream.get());
   }
 
   /**
       IMPORTANT! Buff MUST be bigger than twice the minimum putback size
       or this will likely infinite loop!
    */
-  inline bool scanner_state::refill(void)
+  template<typename ByteT>
+  bool basic_scanner_state<ByteT>::refill(void)
   {
-// std::cerr << "REFILL\n";
-//     std::cerr << "(Pre) begin_off (" << begin_off << "); cur_off ("
-//       << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
-//     for(std::size_t i=begin_off; i<cur_off; ++i) {
-//       if(i>begin_off)
-//         std::cerr << " ";
-//       std::cerr << "'" << buff.at(i) << "'";
-//     }
-//     std::cerr << "]]\n";
-
-    // move the putback buffer to the beginning of the read buffer
-    // and reset the offset values
-
+    // Push the buffer to the beginning and reset the offset values
     //todo investigate how much we really refill with a nonempty putback buffer
-    if(begin_off != 0) {
-      std::size_t putback_len = (cur_off - begin_off);
-      // reset mark_off to distance from beginning
-      mark_off = (mark_off - begin_off);
-      std::move(buff.begin()+begin_off,buff.begin()+cur_off,buff.begin());
-      begin_off = 0;
-      cur_off = end_off = putback_len;
+    if(token_off != 0) {
+      std::size_t active_len = (read_off - token_off);
+      // reset the lookahead offset and mark offset to the beginning
+      lookahead_off = (lookahead_off - token_off);
+      putback_off = (putback_off - token_off);
+      std::move(buff.begin()+token_off,buff.begin()+read_off,buff.begin());
+      token_off = 0;
+      read_off = end_off = active_len;
+    }
 
-//       std::cerr << "(Move) begin_off (" << begin_off << "); cur_off ("
-//         << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
-//       for(std::size_t i=begin_off; i<cur_off; ++i) {
-//         if(i>begin_off)
-//           std::cerr << " ";
-//         std::cerr << "'" << buff.at(i) << "'";
-//       }
-//       std::cerr << "]]\n";
+    std::size_t avail_len = buff.size()-read_off;
+
+    // ensure we are not left with a buffer smaller than the min buffer
+    if(avail_len < min_buf_sz) {
+      buff.resize(read_off+min_buf_sz,0);
+      avail_len = min_buf_sz;
     }
 
     // code adapted from flex non-posix fread
     errno=0;
     std::size_t len;
-    std::size_t buf_len = buff.size()-cur_off;
-
-    // ensure we are not left with a buffer smaller than the min buffer
-    if(buf_len < min_buf_sz) {
-      buff.resize(cur_off+min_buf_sz,0);
-      buf_len = min_buf_sz;
-    }
-
-    while ((len = std::fread(buff.data()+cur_off,1,buf_len,stream.get()))==0
+    while ((len = std::fread(buff.data()+read_off,1,avail_len,stream.get()))==0
       && std::ferror(stream.get()))
     {
       if( errno != EINTR) {
@@ -267,22 +304,12 @@ namespace detail {
       std::clearerr(stream.get());
     }
 
-    end_off = cur_off + len;
+    end_off = read_off + len;
 
-//     std::cerr << "(Final) begin_off (" << begin_off << "); cur_off ("
-//       << cur_off << "); end_off (" << end_off << "); putback contains:\n [[";
-//     for(std::size_t i=begin_off; i<cur_off; ++i) {
-//       if(i>begin_off)
-//         std::cerr << " ";
-//       std::cerr << "'" << buff.at(i) << "'";
-//     }
-//     std::cerr << "]] ";
-//     for(std::size_t i=cur_off; i<end_off; ++i)
-//       std::cerr << " '" << buff.at(i) << "'";
-//     std::cerr << "\n";
-
-    return cur_off != end_off;
+    return read_off != end_off;
   }
+
+  typedef basic_scanner_state<unsigned char> scanner_state;
 }
 
 

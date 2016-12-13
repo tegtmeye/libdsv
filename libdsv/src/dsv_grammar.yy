@@ -563,99 +563,6 @@ std::string ascii(int c)
 
 
 
-/**
-    Convenience function for parser_lex
-
-    Forget any existing putback buffer and try to read the byte seq from the
-    scanner input if possible. If successful, the current read position points
-    to the first byte not part of [first,last] and the read bytes remain in the
-    putback buffer. If not succesful, the read position remains unchanged.
-
-    Handles case 1.
- */
-template<typename ForwardIterator>
-inline std::size_t read_bytes(detail::scanner_state &scanner,
-  ForwardIterator first, ForwardIterator last, bool repeat)
-{
-  std::size_t result = 0;
-
-  scanner.forget();
-
-  ForwardIterator cur;
-  do {
-    cur = first;
-    scanner.setmark();
-
-    while(cur != last && scanner.getc() == static_cast<int>(*cur))
-      ++cur;
-
-    if(cur != last) {
-      scanner.putbackmark();
-
-      break;
-    }
-
-    result += (last-first);
-  } while(repeat);
-
-  return result;
-}
-
-/**
-    Convenience function for parser_lex
-
-    Forget any existing putback buffer and try to read any possible byte seq
-    contained in the compiled structure \c comp_byte_seq from the scanner input
-    if possible. If successful, the current read position points to the first
-    byte not part of the successful comp_byte_seq read and the read bytes remain
-    in the putback buffer. If not succesful, the read position remains
-    unchanged.
- */
-std::size_t read_bytes(detail::scanner_state &scanner,
-  const std::vector<detail::byte_chunk> &comp_byte_seq, bool repeat)
-{
-  assert(!comp_byte_seq.empty());
-
-  scanner.forget();
-
-  int in;
-  std::size_t result = 0;
-  std::size_t read_bytes;
-
-  do {
-    read_bytes = 0;
-    std::ptrdiff_t byte_off = 0;
-    for(in = scanner.getc(); in != EOF; /* empty */) {
-      const detail::byte_chunk &chunk = comp_byte_seq[byte_off];
-
-      if(in != chunk.byte) {
-        if(!chunk.fail_skip)
-          break;
-
-        byte_off += chunk.fail_skip;
-      }
-      else {
-        ++read_bytes;
-
-        if(chunk.accept) {
-          scanner.setmark();
-          result = read_bytes;
-        }
-
-        if(!chunk.pass_skip)
-          break;
-
-        in = scanner.getc();
-        byte_off += chunk.pass_skip;
-      }
-    }
-
-    // putback any partially acceptable sequences
-    scanner.putbackmark();
-  } while (repeat && read_bytes && in != EOF);
-
-  return result;
-}
 
 
 
@@ -700,11 +607,8 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
 
 
       // just textdata
-      if(!lvalp->char_buf_ptr)
-        lvalp->char_buf_ptr.reset(new YYSTYPE::char_buff_type());
-
       ++(llocp->last_column);
-      lvalp->char_buf_ptr->push_back(scanner.fgetc());
+      scanner.getc(); // ignore return, already know it doesn't end textdata
     }
   }
 }

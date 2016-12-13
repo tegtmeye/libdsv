@@ -26,6 +26,7 @@ additional_test_ldflags=\
 check_PROGRAMS= \
 	scanner_test \
 	equiv_bytesequence_test \
+	read_bytes_test \
 	api_parser_low_object_suite \
 	api_operations_object_suite \
 	api_parser_defaults_suite \
@@ -36,16 +37,25 @@ check_PROGRAMS= \
 	api_alt_delimiter_test
 
 scanner_test_SOURCES=$(master_suite) \
+	test_detail.h \
         scanner_test.cc
 scanner_test_CPPFLAGS=$(additional_test_cppflags)
 scanner_test_LDADD=$(additional_test_libs)
-scanner_test_LDFLAGS=$(additional_test_ldflags)
+scanner_test_LDFLAGS=
 
 equiv_bytesequence_test_SOURCES=$(master_suite) \
+	test_detail.h \
         equiv_bytesequence_test.cc
 equiv_bytesequence_test_CPPFLAGS=$(additional_test_cppflags)
 equiv_bytesequence_test_LDADD=$(additional_test_libs)
 equiv_bytesequence_test_LDFLAGS=$(additional_test_ldflags)
+
+read_bytes_test_SOURCES=$(master_suite) \
+	test_detail.h \
+        read_bytes_test.cc
+read_bytes_test_CPPFLAGS=$(additional_test_cppflags)
+read_bytes_test_LDADD=$(additional_test_libs)
+read_bytes_test_LDFLAGS=
 
 api_parser_low_object_suite_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -122,6 +132,7 @@ api_alt_delimiter_test_LDFLAGS=\
 TESTS=\
 	scanner_test \
 	equiv_bytesequence_test \
+	read_bytes_test \
 	api_parser_low_object_suite \
 	api_parser_high_object_suite \
 	api_operations_object_suite \
@@ -136,6 +147,8 @@ CLEANFILES=\
 	scanner_test.trs \
 	equiv_bytesequence_test.log \
 	equiv_bytesequence_test.trs \
+	read_bytes_test.log \
+	read_bytes_test.trs \
 	api_parser_low_object_suite.log \
 	api_parser_low_object_suite.trs \
 	api_parser_high_object_suite.log \
