@@ -1,19 +1,47 @@
+/*
+ Copyright (c) 2014-2016, Michael B. Tegtmeyer. All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+
+ 1. Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+
+ 3. Neither the name of the copyright holder nor the names of its
+ contributors may be used to endorse or promote products derived from
+ this software without specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include <boost/test/unit_test.hpp>
 
 #include "test_detail.h"
 
-#include <scanner_state.h>
+#include <basic_scanner.h>
 
 #include <boost/filesystem.hpp>
 
 #include <errno.h>
 
-#include <string>
-#include <sstream>
-#include <memory>
-#include <cstdio>
-
 #include <iostream>
+#include <vector>
+#include <regex>
 
 /** \file
  *  \brief Unit tests the scanner
@@ -29,10 +57,11 @@ namespace test {
 
 namespace fs=boost::filesystem;
 
+typedef d::basic_scanner<char> scanner_type;
+typedef d::basic_scanner_iterator<char> scanner_iterator;
 
 
 BOOST_AUTO_TEST_SUITE( scanner_test_suite )
-
 
 /**
     \test Check for proper handling of empty file by filename
@@ -45,11 +74,10 @@ BOOST_AUTO_TEST_CASE( scanner_basic_create_filename_test )
   fs::path filepath = detail::gen_testfile(contents,
     "scanner_basic_create_filename_test");
 
-  d::scanner_state scanner(filepath.c_str(),0);
+  scanner_type scanner(filepath.c_str(),0);
 
   fs::remove(filepath);
 }
-
 
 /**
     \test Check for proper handling of empty file by stream with filename
@@ -65,7 +93,7 @@ BOOST_AUTO_TEST_CASE( scanner_basic_create_filename_stream_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(filepath.c_str(),in.get());
+  scanner_type scanner(filepath.c_str(),in.get());
 
   fs::remove(filepath);
 }
@@ -84,7 +112,7 @@ BOOST_AUTO_TEST_CASE( scanner_basic_create_stream_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   fs::remove(filepath);
 }
@@ -103,16 +131,16 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "getc: scanner did not return EOF for empty file");
 
-  scanner.accept();
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: did not return 0 for empty file");
 
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
-    "getc: scanner did not return EOF after accepting empty token and empty "
-    "file");
+  // should not crash
+  scanner.clear_cache(0);
 
   fs::remove(filepath);
 }
@@ -132,7 +160,7 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_fn_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   BOOST_REQUIRE_MESSAGE(!scanner.eof(),
     "eof: scanner returned EOF when the stream did not pull from the file yet");
@@ -144,7 +172,8 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_fn_test )
     "getc: scanner did not return EOF after accepting empty token and empty "
     "file");
 
-  scanner.accept();
+  // should not crash
+  scanner.clear_cache(0);
 
   BOOST_REQUIRE_MESSAGE(scanner.eof(),
     "getc: scanner did not return EOF after accepting empty token and empty "
@@ -168,10 +197,12 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for single char file");
+
+  BOOST_REQUIRE(scanner.eof() == false);
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for single char "
@@ -195,13 +226,15 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_getc_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for two char file");
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
     "getc: scanner did not return 'b' for two char file");
+
+  BOOST_REQUIRE(scanner.eof() == false);
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for two char "
@@ -226,20 +259,35 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_putback_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for single char file");
 
-  scanner.putback(1);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
 
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
-    "getc: scanner did not return a putback 'a' for single char file");
+  BOOST_REQUIRE_MESSAGE(scanner.at_cache(0) == 'a',
+    "at_cache: scanner did not return 'a' for single char file");
 
-  scanner.putback(1);
+  BOOST_REQUIRE(scanner.eof() == false);
 
-  BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
-    "getc: scanner did not return a putback 'a' for single char file");
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
+    "follow-on getc: scanner did not subsequently return EOF for single char "
+      "file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+
+  BOOST_REQUIRE_MESSAGE(scanner.at_cache(0) == 'a',
+    "at_cache: scanner did not return 'a' for single char file");
+
+  scanner.clear_cache(1);
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
+
+  BOOST_REQUIRE(scanner.eof() == true);
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for single char "
@@ -247,7 +295,6 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_putback_test )
 
   fs::remove(filepath);
 }
-
 
 /* CHECK FOR BUFFER REFILL HANDLING */
 
@@ -267,7 +314,7 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_test )
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get(),1);
+  scanner_type scanner(0,in.get(),1);
 
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'a',
     "getc: scanner did not return 'a' for multi char file");
@@ -277,33 +324,53 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_test )
   BOOST_REQUIRE_MESSAGE(scanner.getc() == 'b',
     "getc: scanner did not return 'b' for multi char file");
 
+  BOOST_REQUIRE(scanner.eof() == false);
+
   BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
     "follow-on getc: scanner did not subsequently return EOF for multi char "
+      "file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 2,
+    "cache_size: scanner did not return a cache_size of 2");
+
+  BOOST_REQUIRE_MESSAGE(scanner.at_cache(0) == 'a',
+    "at_cache: scanner did not return 'a' for single char file");
+
+  BOOST_REQUIRE_MESSAGE(scanner.at_cache(1) == 'b',
+    "at_cache: scanner did not return 'a' for single char file");
+
+  scanner.clear_cache(1);
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+
+  BOOST_REQUIRE(scanner.eof() == true);
+
+  BOOST_REQUIRE_MESSAGE(scanner.getc() == EOF,
+    "follow-on getc: scanner did not subsequently return EOF for single char "
       "file");
 
   fs::remove(filepath);
 }
 
-
- /* PUTBACK CHECKS */
+ /* CACHE CHECKS */
 
 /**
-    \test Check to see if read characters are putback as requested. Read buffer
-    is large enough to hold the entire file.
+    \test Check to see if read characters are constantly putback as requested.
  */
-BOOST_AUTO_TEST_CASE( scanner_putback_test )
+BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 {
   std::vector<unsigned char> contents{
     'a','b','c','d'
   };
 
   fs::path filepath = detail::gen_testfile(contents,
-    "scanner_putback_test");
+    "scanner_constant_cache_test");
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get());
+  scanner_type scanner(0,in.get());
 
   int val;
 
@@ -311,50 +378,72 @@ BOOST_AUTO_TEST_CASE( scanner_putback_test )
   BOOST_REQUIRE_MESSAGE(val == 'a',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'a'");
 
-  scanner.putback(1);
-
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == 'a',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'a'");
-
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == 'b',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'b'");
-
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == 'c',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'c'");
-
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == 'd',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
-
-  // putback entire buffer, did not trigger EOF
-  scanner.putback(4);
-
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == 'a',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'a'");
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+  scanner.clear_cache(1);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
 
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'b',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'b'");
 
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+  scanner.clear_cache(1);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
+
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'c',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'c'");
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+  scanner.clear_cache(1);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
 
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'd',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
-  // trigger EOF
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
+    "cache_size: scanner did not return a cache_size of 1");
+  scanner.clear_cache(1);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
+
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == EOF,
     "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
-  // putback entire buffer, no longer EOF
-  scanner.putback(4);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
+}
+
+
+
+
+/**
+    \test Check to see if read characters are putback as requested. Read buffer
+    is large enough to hold the entire file.
+ */
+BOOST_AUTO_TEST_CASE( scanner_cache_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b','c','d'
+  };
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "scanner_cache_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get());
+
+  int val;
 
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'a',
@@ -371,6 +460,83 @@ BOOST_AUTO_TEST_CASE( scanner_putback_test )
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'd',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+  BOOST_REQUIRE(scanner.eof() == false);
+
+  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(val == EOF,
+    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
+
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 4,
+    "cache_size: scanner did not return a cache_size of 4");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'a'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'b'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'c'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+
+  scanner.clear_cache(0);
+
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 4,
+    "cache_size: scanner did not return a cache_size of 4");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'a',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'a'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'b'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'c'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+
+  scanner.clear_cache(1);
+
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 3,
+    "cache_size: scanner did not return a cache_size of 3");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'b',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'b'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'c',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'c'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+
+  scanner.clear_cache(3);
+
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
+
+  BOOST_REQUIRE(scanner.eof() == true);
 
   // trigger EOF again
   val=scanner.getc();
@@ -381,58 +547,29 @@ BOOST_AUTO_TEST_CASE( scanner_putback_test )
 }
 
 
+
 /**
     \test Basic buffer checks
  */
-BOOST_AUTO_TEST_CASE( scanner_basic_buffer_test )
-{
-  typedef d::scanner_state::const_iterator const_iterator;
-
-  std::vector<unsigned char> contents{
-  };
-
-  fs::path filepath = detail::gen_testfile(contents,
-    "scanner_basic_buffer_test");
-
-  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
-    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
-
-  d::scanner_state scanner(0,in.get());
-
-  std::pair<const_iterator,const_iterator> token = scanner.token();
-  BOOST_REQUIRE(token.first == token.second);
-
-  scanner.accept();
-
-  token = scanner.token();
-  BOOST_REQUIRE(token.first == token.second);
-}
-
 /**
     \test Read 4 characters and refill. Checks for proper buffer refill
-    behavior when need to preserve contents of token and lookahead buffer
+    behavior when need to preserve cache contents (compaction)
  */
-BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
+BOOST_AUTO_TEST_CASE( scanner_putback_refill_compaction_test )
 {
-  typedef d::scanner_state::const_iterator const_iterator;
-
   std::vector<unsigned char> contents{
     'a','b','c','d','e','f','g','h','i','j','k','l'
   };
 
   fs::path filepath = detail::gen_testfile(contents,
-    "scanner_putback_refill_test");
+    "scanner_putback_refill_compaction_test");
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get(),8);
+  scanner_type scanner(0,in.get(),8);
 
   int val;
-
-  std::pair<const_iterator,const_iterator> token = scanner.token();
-  BOOST_REQUIRE(token.first == token.second);
-
 
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'a',
@@ -450,21 +587,11 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
   BOOST_REQUIRE_MESSAGE(val == 'd',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
-  // set the putback and accept the empty token
-  // read location now points to 'e'
-  // token buffer points to a -> d
-  scanner.set_lookahead(42);
-  BOOST_REQUIRE(scanner.accept() == 42);
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'a');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'b');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'c');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'd');
-  BOOST_REQUIRE(token.first == token.second);
+  scanner.clear_cache(4);
+  // front of buffer is now empty
 
-
-  // start accumulating putback buffer.
+  // start accumulating cache.
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'e',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'e'");
@@ -481,24 +608,27 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
   BOOST_REQUIRE_MESSAGE(val == 'h',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'h'");
 
-  // set the putback buffer. The token buffer contains a-d and the lookahead
-  // buffer now contains e-h
-  scanner.set_lookahead(15);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 4,
+    "cache_size: scanner did not return a cache_size of 4");
 
-  // empty the token buffer and set to the lookahead buffer: token contains
-  // e-h and the putback buffer is empty. This leaves a hole in the front of
-  // the read buffer
-  BOOST_REQUIRE(scanner.accept() == 15);
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'e'");
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'e');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'f');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'g');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'h');
-  BOOST_REQUIRE(token.first == token.second);
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'f'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'g'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'h'");
 
 
-  // trigger refill
+  // trigger refill, should just compact
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'i',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'i'");
@@ -515,46 +645,57 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
   BOOST_REQUIRE_MESSAGE(val == 'l',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'l'");
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'e');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'f');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'g');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'h');
-  BOOST_REQUIRE(token.first == token.second);
 
-  // putback the buffer
-  scanner.putback(4);
+  // check to see if cache was preserved
 
-  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 8,
+    "cache_size: scanner did not return a cache_size of 8");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'e'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'f'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'g'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'h'");
+
+  val=scanner.at_cache(4);
   BOOST_REQUIRE_MESSAGE(val == 'i',
-    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'i'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'i'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(5);
   BOOST_REQUIRE_MESSAGE(val == 'j',
-    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'j'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'j'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(6);
   BOOST_REQUIRE_MESSAGE(val == 'k',
-    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'k'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'k'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(7);
   BOOST_REQUIRE_MESSAGE(val == 'l',
-    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'l'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'l'");
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'e');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'f');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'g');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'h');
-  BOOST_REQUIRE(token.first == token.second);
+  BOOST_REQUIRE(scanner.eof() == false);
+
 
   // trigger EOF
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == EOF,
     "fgetc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
-  // token buffer contains e-h, lookahead contains i-l
-  scanner.set_lookahead();
+
+  scanner.clear_cache(8);
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
 
   // check to make sure still at EOF
   val=scanner.getc();
@@ -566,34 +707,25 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_test )
 
 
 
-
-
-// CHECK FOR MARK HANDLING
-
-
 /**
-    \test Check for putback and mark setting
+    \test Read 4 characters and refill. Checks for proper buffer refill
+    behavior when need to preserve cache contents (expand)
  */
-BOOST_AUTO_TEST_CASE( scanner_putmarkback_setting_test )
+BOOST_AUTO_TEST_CASE( scanner_putback_refill_expand_test )
 {
-  typedef d::scanner_state::const_iterator const_iterator;
-
   std::vector<unsigned char> contents{
     'a','b','c','d','e','f','g','h','i','j','k','l'
   };
 
   fs::path filepath = detail::gen_testfile(contents,
-    "scanner_putmarkback_refill_test");
+    "scanner_putback_refill_expand_test");
 
   std::unique_ptr<std::FILE,int(*)(std::FILE *)>
     in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
 
-  d::scanner_state scanner(0,in.get(),8);
+  scanner_type scanner(0,in.get(),8);
 
   int val;
-
-  std::pair<const_iterator,const_iterator> token = scanner.token();
-  BOOST_REQUIRE(token.first == token.second);
 
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'a',
@@ -611,20 +743,11 @@ BOOST_AUTO_TEST_CASE( scanner_putmarkback_setting_test )
   BOOST_REQUIRE_MESSAGE(val == 'd',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
-  // set the putback and accept the empty token
-  // read location now points to 'e'
-  // token buffer points to a -> d
-  scanner.set_lookahead(42);
-  BOOST_REQUIRE(scanner.accept() == 42);
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'a');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'b');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'c');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'd');
-  BOOST_REQUIRE(token.first == token.second);
+  scanner.clear_cache(3);
+  // front of buffer is now has a single char
 
-  // start accumulating putback buffer.
+  // start accumulating cache.
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'e',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'e'");
@@ -641,20 +764,31 @@ BOOST_AUTO_TEST_CASE( scanner_putmarkback_setting_test )
   BOOST_REQUIRE_MESSAGE(val == 'h',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'h'");
 
-  // set the putback buffer. Now the token buffer contains a-d and the
-  // lookahead buffer contains e-h
-  scanner.set_lookahead(15);
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 5,
+    "cache_size: scanner did not return a cache_size of 5");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'e'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'f'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'g'");
+
+  val=scanner.at_cache(4);
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'h'");
 
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'a');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'b');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'c');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'd');
-  BOOST_REQUIRE(token.first == token.second);
-
-
-  // trigger refill
+  // trigger refill, should expand
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == 'i',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'i'");
@@ -671,108 +805,378 @@ BOOST_AUTO_TEST_CASE( scanner_putmarkback_setting_test )
   BOOST_REQUIRE_MESSAGE(val == 'l',
     "getc: unexpected '" << detail::ascii(val) << "', expected 'l'");
 
-  // putback buffer. This should not invalidate any other buffers
-  scanner.putback(4);
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'a');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'b');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'c');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'd');
-  BOOST_REQUIRE(token.first == token.second);
+  // check to see if cache was preserved
 
-  // re-read
-  val=scanner.getc();
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 9,
+    "cache_size: scanner did not return a cache_size of 9");
+
+  val=scanner.at_cache(0);
+  BOOST_REQUIRE_MESSAGE(val == 'd',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
+
+  val=scanner.at_cache(1);
+  BOOST_REQUIRE_MESSAGE(val == 'e',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'e'");
+
+  val=scanner.at_cache(2);
+  BOOST_REQUIRE_MESSAGE(val == 'f',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'f'");
+
+  val=scanner.at_cache(3);
+  BOOST_REQUIRE_MESSAGE(val == 'g',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'g'");
+
+  val=scanner.at_cache(4);
+  BOOST_REQUIRE_MESSAGE(val == 'h',
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'h'");
+
+  val=scanner.at_cache(5);
   BOOST_REQUIRE_MESSAGE(val == 'i',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'i'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'i'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(6);
   BOOST_REQUIRE_MESSAGE(val == 'j',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'j'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'j'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(7);
   BOOST_REQUIRE_MESSAGE(val == 'k',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'k'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'k'");
 
-  val=scanner.getc();
+  val=scanner.at_cache(8);
   BOOST_REQUIRE_MESSAGE(val == 'l',
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'l'");
+    "at_cache: unexpected '" << detail::ascii(val) << "', expected 'l'");
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'a');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'b');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'c');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'd');
-  BOOST_REQUIRE(token.first == token.second);
+  BOOST_REQUIRE(scanner.eof() == false);
 
-  // Accept the token. Now the token buffer should read e-h and the lookahead
-  // contains i-l
-  BOOST_REQUIRE(scanner.accept() == 15);
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'e');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'f');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'g');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'h');
-  BOOST_REQUIRE(token.first == token.second);
-
-  // reset putback
-  scanner.set_lookahead(0);
-
-  // check to make sure at EOF
+  // trigger EOF
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == EOF,
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
+    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
-  // Accept the token. Now the token buffer should read i-l and the lookahead
-  // contains nothing
-  BOOST_REQUIRE(scanner.accept() == 0);
 
-  token = scanner.token();
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'i');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'j');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'k');
-  BOOST_REQUIRE(token.first != token.second && *token.first++ == 'l');
-  BOOST_REQUIRE(token.first == token.second);
+  scanner.clear_cache(9);
+
+  BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
+    "cache_size: scanner did not return a cache_size of 0");
 
   // check to make sure still at EOF
   val=scanner.getc();
   BOOST_REQUIRE_MESSAGE(val == EOF,
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
-
-  // Accept the token. Now the token buffer contains nothing
-  BOOST_REQUIRE(scanner.accept() == 0);
-
-  BOOST_REQUIRE(token.first == token.second);
-
-  // check to make sure still at EOF
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == EOF,
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
-
-  // should do nothing
-  scanner.set_lookahead(15);
-
-  BOOST_REQUIRE(token.first == token.second);
-
-  // check to make sure still at EOF
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == EOF,
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
-
-  // Should do nothing but we explicitly set identifier
-  BOOST_REQUIRE(scanner.accept() == 15);
-
-  BOOST_REQUIRE(token.first == token.second);
-
-  // check to make sure still at EOF
-  val=scanner.getc();
-  BOOST_REQUIRE_MESSAGE(val == EOF,
-    "getc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
+    "fgetc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
   fs::remove(filepath);
 }
 
+
+
+
+/*  CHECK FOR ITERATOR HANDLING */
+
+/**
+    \test Check for basic iterator object functionality
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_object_test )
+{
+  std::vector<unsigned char> contents{
+  };
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_object_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator iter1(scanner);
+  scanner_iterator iter2(scanner);
+
+  BOOST_REQUIRE(iter1 == iter2);
+  BOOST_REQUIRE(iter1 == scanner_iterator());
+  BOOST_REQUIRE(scanner_iterator() == scanner_iterator());
+
+  scanner_iterator iter1_copy(iter1);
+  BOOST_REQUIRE(iter1_copy == iter2);
+  BOOST_REQUIRE(iter1_copy == scanner_iterator());
+
+  scanner_iterator iter2_copy;
+  iter2_copy = iter2;
+  BOOST_REQUIRE(iter2 == iter2_copy);
+  BOOST_REQUIRE(iter1 == iter2_copy);
+  BOOST_REQUIRE(iter2_copy == scanner_iterator());
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for basic iterator object functionality
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_object_test2 )
+{
+  std::vector<unsigned char> contents{
+    'a'
+  };
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_object_test2");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator iter1(scanner);
+
+  BOOST_REQUIRE(scanner.cache_size() == 1);
+  BOOST_REQUIRE(!scanner.eof());
+
+  scanner_iterator iter2(scanner);
+  BOOST_REQUIRE(!scanner.eof());
+
+  BOOST_REQUIRE(iter1 == iter2);
+  BOOST_REQUIRE(iter1 != scanner_iterator());
+  BOOST_REQUIRE(scanner_iterator() == scanner_iterator());
+
+  scanner_iterator iter1_copy(iter1);
+  BOOST_REQUIRE(iter1_copy == iter2);
+  BOOST_REQUIRE(iter1_copy != scanner_iterator());
+
+  scanner_iterator iter2_copy;
+  iter2_copy = iter2;
+  BOOST_REQUIRE(iter2 == iter2_copy);
+  BOOST_REQUIRE(iter1 == iter2_copy);
+  BOOST_REQUIRE(iter2_copy != scanner_iterator());
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for basic iterator object traversal functionality
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_traversal_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b','c','d','e','f','g','h','i','j','k','l'
+  };
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_traversal_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator iter(scanner);
+
+  std::vector<unsigned char>::iterator first = contents.begin();
+  while(iter != scanner_iterator() && first != contents.end()) {
+    BOOST_REQUIRE_MESSAGE(*iter == *first,
+      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
+        << *first << "'");
+    ++iter;
+    ++first;
+  }
+
+  // incremented iter and therefore hit EOF
+  BOOST_REQUIRE(first == contents.end());
+  BOOST_REQUIRE(scanner.eof());
+  BOOST_REQUIRE(iter == scanner_iterator());
+
+  std::vector<unsigned char>::reverse_iterator rfirst = contents.rbegin();
+  while(rfirst != contents.rend()) {
+    BOOST_REQUIRE_MESSAGE(*(--iter) == *rfirst,
+      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
+        << *rfirst << "'");
+
+    BOOST_REQUIRE(iter != scanner_iterator());
+    ++rfirst;
+  }
+
+  first = contents.begin();
+  while(iter != scanner_iterator() && first != contents.end()) {
+    BOOST_REQUIRE_MESSAGE(*iter == *first,
+      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
+        << *first << "'");
+    ++iter;
+    ++first;
+  }
+
+  BOOST_REQUIRE(first == contents.end());
+  BOOST_REQUIRE(scanner.eof());
+  BOOST_REQUIRE(iter == scanner_iterator());
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for basic iterator distance check
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_distance_test )
+{
+  std::vector<unsigned char> contents{
+    'a','b','c','d','e','f','g','h','i','j','k','l'
+  };
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_distance_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator cur(scanner);
+  scanner_iterator first(scanner);
+
+  for(std::size_t i=0; i<10; ++i) {
+    BOOST_REQUIRE(cur != scanner_iterator());
+    BOOST_REQUIRE(*cur == contents[i]);
+    ++cur;
+  }
+
+  BOOST_REQUIRE(cur != scanner_iterator());
+  BOOST_REQUIRE(std::distance(first,cur) == 10);
+
+  fs::remove(filepath);
+}
+
+
+
+/**
+    \test Check for basic iterator regular expression compatability
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_regex_test )
+{
+  // regex example from cppreference.com
+  std::string s = "Some people, when confronted with a problem, think "
+      "\"I know, I'll use regular expressions.\" "
+      "Now they have two problems.";
+
+  std::vector<unsigned char> contents(s.begin(),s.end());
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_regex_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator iter(scanner);
+
+  std::regex expression("REGULAR EXPRESSIONS",
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
+
+  auto search_begin =
+      std::regex_iterator<scanner_iterator>(iter,scanner_iterator(),
+        expression);
+  auto search_end = std::regex_iterator<scanner_iterator>();
+
+  BOOST_REQUIRE(std::distance(search_begin, search_end) == 1);
+
+  std::match_results<scanner_iterator> match = *search_begin;
+
+  BOOST_REQUIRE(match.size() == 1);
+  std::string out(match[0].first,match[0].second);
+  BOOST_REQUIRE(out == "regular expressions");
+
+  fs::remove(filepath);
+}
+
+/**
+    \test Check for complex iterator regular expression compatability
+ */
+BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
+{
+  // regex example from cppreference.com
+  std::string s = "foofoobar";
+
+  std::vector<unsigned char> contents(s.begin(),s.end());
+
+  fs::path filepath = detail::gen_testfile(contents,
+    "basic_scanner_iterator_complex_regex_test");
+
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  scanner_type scanner(0,in.get(),8);
+
+  scanner_iterator first(scanner);
+
+  std::regex expression("(foo)|(bar)",
+    std::regex_constants::ECMAScript);
+
+  auto search_begin =
+      std::regex_iterator<scanner_iterator>(scanner_iterator(scanner),
+        scanner_iterator(),expression);
+  auto search_end = std::regex_iterator<scanner_iterator>();
+
+  // 3 matches, "foo", "foo", and "bar"
+  BOOST_REQUIRE(std::distance(search_begin, search_end) == 3);
+
+  // match first "foo"
+  std::match_results<scanner_iterator> match = *search_begin;
+
+  std::size_t groups = match.size();
+  BOOST_REQUIRE_MESSAGE(groups == 3,
+    "Unexpected number of groups " << groups << " expected 3");
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].first) == 0);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].second) == 3);
+  std::string out(match[0].first,match[0].second);
+  BOOST_REQUIRE(out == "foo");
+
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[1].first) == 0);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[1].second) == 3);
+  out = std::string(match[1].first,match[1].second);
+  BOOST_REQUIRE(out == "foo");
+
+  BOOST_REQUIRE(match[2].first == scanner_iterator());
+  BOOST_REQUIRE(match[2].second == scanner_iterator());
+
+  // match second "foo"
+  match = *(++search_begin);
+
+  groups = match.size();
+  BOOST_REQUIRE_MESSAGE(groups == 3,
+    "Unexpected number of groups " << groups << " expected 3");
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].first) == 3);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].second) == 6);
+  out = std::string(match[0].first,match[0].second);
+  BOOST_REQUIRE(out == "foo");
+
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[1].first) == 3);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[1].second) == 6);
+  out = std::string(match[1].first,match[1].second);
+  BOOST_REQUIRE(out == "foo");
+
+  BOOST_REQUIRE(match[2].first == scanner_iterator());
+  BOOST_REQUIRE(match[2].second == scanner_iterator());
+
+
+  // match "bar"
+  match = *(++search_begin);
+
+  groups = match.size();
+  BOOST_REQUIRE_MESSAGE(groups == 3,
+    "Unexpected number of groups " << groups << " expected 3");
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].first) == 6);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[0].second) == 9);
+  out = std::string(match[0].first,match[0].second);
+  BOOST_REQUIRE(out == "bar");
+
+  BOOST_REQUIRE(match[1].first == scanner_iterator());
+  BOOST_REQUIRE(match[1].second == scanner_iterator());
+
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[2].first) == 6);
+  BOOST_REQUIRE(std::distance(scanner_iterator(first),match[2].second) == 9);
+  out = std::string(match[2].first,match[2].second);
+  BOOST_REQUIRE(out == "bar");
+
+  fs::remove(filepath);
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

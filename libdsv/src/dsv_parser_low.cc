@@ -32,7 +32,7 @@
 #include "parser.h"
 
 #include "parse_operations.h"
-#include "scanner_state.h"
+#include "basic_scanner.h"
 #include "dsv_grammar.hh"
 
 #include <cerrno>
@@ -1312,7 +1312,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   try {
     //parser_debug = 1;
 
-    detail::scanner_state scanner(location_str,stream);
+    detail::basic_scanner<unsigned char> scanner(location_str,stream);
     std::unique_ptr<detail::scanner_state> base_ctx;
 
     parser.reset();

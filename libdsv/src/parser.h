@@ -37,7 +37,10 @@
 
 #include <list>
 #include <vector>
+#include <stack>
 #include <memory>
+#include <regex>
+
 
 #include <iostream>
 
@@ -112,25 +115,27 @@ inline log_description::const_param_iterator log_description::param_end(void) co
 
 
 
+template<typename CharT>
 class parser {
   private:
     typedef std::list<std::pair<dsv_log_level,log_description> > log_list_type;
 
   public:
-    typedef unsigned char byte_type;
-    typedef std::vector<unsigned char> bytesequence_type;
-    typedef basic_equiv_bytesequence<
-      byte_type,bytesequence_type> equiv_bytesequence_type;
-    typedef std::pair<
-      equiv_bytesequence_type,bytesequence_type> replacement_pair_type;
-    typedef std::vector<replacement_pair_type> replacement_pair_seq_type;
+    typedef CharT char_type;
+    typedef std::vector<char_type> char_sequence_type;
+    typedef std::basic_string<char_type> expression_type;
+    typedef std::basic_regex<char_type> regex_type;
+
+    typedef std::vector<
+      std::pair<expression_type,char_sequence_type> > replacement_sequence_type;
 
     struct escaped_field_desc {
-      equiv_bytesequence_type open_equiv_bytesequence;
-      equiv_bytesequence_type close_equiv_bytesequence;
-      replacement_pair_seq_type escaped_field_escapes;
-
-      std::size_t effective_escaped_field_escape_idx;
+      expression_type open_expression;
+      expression_type close_expression;
+      replacement_sequence_type escaped_field_escape_replacements;
+      bool open_exclusive;
+      bool close_exclusive;
+      bool replacement_exlusive;
     };
 
     typedef std::vector<escaped_field_desc> escaped_field_desc_seq_type;
@@ -158,427 +163,217 @@ class parser {
     /* exposed behaviors */
 
     /* RECORD COMPLETION DELIMITER */
-    void record_delimiters(const equiv_bytesequence_type &byte_seq);
-    const equiv_bytesequence_type & record_delimiters(void) const;
-    void set_effective_record_delimiter(
-      const std::shared_ptr<parser::bytesequence_type> &seq);
+    void record_delimiters(const expression_type &exp);
+    const expression_type & record_delimiters(void) const;
+    void exclusive_record_delimiter(const char_sequence_type &seq);
+    const char_sequence_type & exclusive_record_delimiter(void) const;
 
     /* FIELD COMPLETION DELIMITER */
-    void field_delimiters(const equiv_bytesequence_type &byte_seq);
-    const equiv_bytesequence_type & field_delimiters(void) const;
-    void set_effective_field_delimiters(
-      const std::shared_ptr<parser::bytesequence_type> &seq);
+    void field_delimiters(const expression_type &exp);
+    const expression_type & field_delimiters(void) const;
+    void exclusive_field_delimiters(const char_sequence_type &seq);
+    const char_sequence_type & exclusive_field_delimiters(void) const;
 
-    /*
-      FIELD ESCAPE  --- the sequence used to open and close an escaped field
-
-      Possibilities include:
-        - any to any
-        - any to one
-        - one to any
-        - one to one
-
-      Where 'any' means multiple equivalent sequences and 'one' means a single
-      byte sequence. For each of these possibilities, multiple pairings can
-      exist. For example, suppose we have an opening set A that if scanned must
-      be closed by a sequence in closing set B or (A -> B). We can also have
-      another pairing from opening set C that must be closed by a sequence
-      contained in set D or (C -> D), etc. Each of these pairings are
-      contained in the field_escapes pair vector.
-
-      Remaining exclusivity is another supported possibility. That is, given
-      the mappings above, if once a sequence from opening set A is seen, then
-      a sequence from A and a sequence from the closing set B is the only valid
-      opening and closing sequence for the remainder of the file.
-
-      An even higher level of granularity is also supported.
-      Suppose that the equivalent opening escaped field set A contains
-      sequences {l,m,n,o}, then if sequence 'm' is seen, it is the only valid
-      opening sequence for the remainder of the parse. Optionally, then suppose
-      that the paired set B contains sequences {p,q,r,s}, then whichever
-      closing sequence is scanned (suppose 'q'), it becomes the only valid
-      closing sequence for the remainder of the file. That is to say;
-      'm' opens and 'q' closes for the rest of the file. Note that open and
-      close exclusivity can be independently enabled for each open and close
-      equivalent sequence set. That is, if both the mappings A -> B and C -> D
-      are set as exclusive but if the individual bytesequence for each of
-      C and D are also set, then if a bytesequence from A is scanned first, then
-      any subsequent sequence from A is the only valid open sequence and any
-      sequence from B is the only valid closing sequence for the rest of
-      of the file. However if a sequence from C, 'm', is scanned first, and
-      a corresponding closing sequence from D, 'q', is scanned, then 'm' and 'q'
-      are the only valid opening and closing sequences for the rest of the file.
-
-      \c field_escapes gets and sets a vector of pairs of equiv_bytesequences
-      where each pair corresponds to an equivalent opening and closing set.
-      That is, the A -> B example above. If one individual should be exclusive
-      for each set then set the \c exclusiveflag in each equiv_bytesequences.
-      That is, the \c m in the \c {l,m,n,o} example above.
-
-      \c effective_field_escapes_pair gets and sets the pair that currently
-      matched. For example, if given sets A -> B, and C -> D then if a
-      bytesequence from A is seen, then \c effective_field_escapes_pair
-      should be set to zero indicating that the closing bytesequence should
-      come from B.
-
-      \c field_escapes_exclusives gets and set a flag that indicates whether
-      or not the equiv_bytesequence_pair is considered exclusive for the
-      remainder of the file. If so, the individual effective_bytesequence
-      should be used to determine if it is the exclusive permanent bytesequence
-      for the rest of the file.
-
-      N.B. It is possible that an individual bytesequence for a set can be
-      exclusive for the remainder of the file without the set being
-      exclusive for the remainder of the file. That is:
-      field_escapes_exclusives(false). In this case, if \c m is seen and set
-      to exclusive but field_escapes_exclusives is set to false, then only it
-      will be considered when considering A before moving on to B.
-    */
+    /* FIELD ESCAPES */
     void field_escapes(const escaped_field_desc_seq_type &seq);
     const escaped_field_desc_seq_type & field_escapes(void) const;
 
-    void set_escaped_field_escapes(std::size_t idx,
-      const replacement_pair_seq_type &escaped_field_escapes);
+    // if true, then a particular field escape pair should be selected as
+    // exclusive if seen.
+    void exclusive_field_escape(bool flag);
+    bool exclusive_field_escape(void) const;
 
-    void set_escaped_field_escapes_repeat(std::size_t idx, std::size_t n,
-      bool flag);
-    void set_escaped_field_escapes_exclusives(std::size_t idx, std::size_t n,
-      bool flag);
+    // These set exclusivity within each escaped field pair
+    void exclusive_open_field_escape(std::size_t pair_idx,
+      const char_sequence_type &seq);
+    const char_sequence_type &
+      exclusive_open_field_escape(std::size_t pair_idx) const;
 
+    void exclusive_close_field_escape(std::size_t pair_idx,
+      const char_sequence_type &seq);
+    const char_sequence_type &
+      exclusive_close_field_escape(std::size_t pair_idx) const;
 
+    void exclusive_escaped_field_escape(std::size_t pair_idx,
+      const char_sequence_type &seq, std::size_t replace_idx);
+    const char_sequence_type &
+      exclusive_escaped_field_escape(std::size_t pair_idx) const;
+    const char_sequence_type &
+      exclusive_escaped_field_escape_replacement(std::size_t pair_idx) const;
 
-    // an idx of -1 or SIZE_MAX indicates exclusive was not set or it was set
-    // but an open field escape was not seen yet
-    void effective_field_escapes_pair(std::size_t idx);
-    std::size_t effective_field_escapes_pair(void) const;
-
-    // sets \c seq on the field_escapes pair indicated by
-    // \c effective_field_escapes_pair
-    void set_effective_open_field_escapes(
-      const std::shared_ptr<parser::bytesequence_type> &seq);
-    void set_effective_close_field_escapes(
-      const std::shared_ptr<parser::bytesequence_type> &seq);
-
-    void field_escapes_exclusives(bool flag);
-    bool field_escapes_exclusives(void) const;
-    bool escaped_field(void) const;
-    bool escaped_field(bool val);
-
-
+    /* FIELD COLUMNS */
+    bool restrict_field_columns(bool flag);
+    bool restrict_field_columns(void) const;
 
 
-//////////////////////
+    /*
+        Regular expression to search for valid content in a non-field escape.
+
+        Regex searches for field and record delimiters and open field escapes
+    */
+    const regex_type & free_field_regex(void) const;
+    std::size_t field_subexp_idx(void) const;
+    std::size_t record_subexp_idx(void) const;
+    // return value corresponds to each of the field escape pairs. That is,
+    // if the ith subexpression is returned and it is the jth element of the
+    // return value, then the jth pair was opened.
+    const std::vector<std::size_t> & open_field_escape_subexp_idx(void) const;
+
+    /*
+        Regular expression to search for valid content in a field escape
+        corresponding to the \c pair_idx pair.
+    */
+    const regex_type & field_escape_regex(std::size_t pair_idx) const;
+    std::size_t close_field_escape_subexp_idx(std::size_t pair_idx) const;
+    const std::vector<std::size_t> &
+      escaped_field_escape_replacement_subexp_idx(std::size_t pair_idx) const;
+
+
+    bool has_lookahead(void) const;
+    std::pair<int,std::shared_ptr<char_sequence_type> >
+      pop_lookahead(void) const;
+    void push_lookahead(
+      const std::pair<int,std::shared_ptr<char_sequence_type> > &val);
 
 
 
+    /* STATE MAINTENANCE */
 
-    const dsv_newline_behavior & newline_behavior(void) const;
-    dsv_newline_behavior newline_behavior(dsv_newline_behavior behavior);
+    /*
+      These set exclusivity to a particular escaped field pair. If \c pair_idx
+      is negative, then exclusive_field_escape is true but a field escape
+      has not been encountered yet. Reset this back to -1 if
+      exclusive_field_escape is false and no longer in a field escape. That is,
+      the value should be sticky if exclusive_field_escape is true
+    */
+    void selected_exclusive_field_escape(int pair_idx);
+    int selected_exclusive_field_escape(void) const;
 
-    size_t field_columns(void) const;
-    size_t field_columns(size_t num_cols);
-
-    bool escaped_binary_fields(void) const;
-    bool escaped_binary_fields(bool flag);
-
-
+    /* EFFECTIVE FIELD COLUMNS */
+    // If \c num_cols is negative, then restrict_field_columns is true but a
+    // full column count has not been calculated yet
+    void effective_field_columns(int num_cols);
+    int effective_field_columns(void) const;
 
 
 
-
-
-    size_t effective_field_columns(void) const;
-    size_t effective_field_columns(size_t num_cols);
-
-    bool effective_field_columns_set(void) const;
-    bool effective_field_columns_set(bool flag);
-
+    /* RESET EVERYTHING */
     void reset(void);
 
+
+
+
+
   private:
+    struct escaped_field_exlusive_desc {
+      char_sequence_type open_exlusive_sequence;
+      char_sequence_type close_exlusive_sequence;
+      char_sequence_type replacement_exlusive_sequence;
+      std::size_t replacement_exlusive_index;
+    };
+
+    typedef std::vector<escaped_field_exlusive_desc>
+      escaped_field_exclusive_desc_seq_type;
+
     log_callback_t _log_callback;
     void *_log_context;
     dsv_log_level _log_level;
 
     log_list_type log_list;
 
+    expression_type _record_delimiters;
+    char_sequence_type _exclusive_record_delimiter;
 
-    equiv_bytesequence_type _record_delimiters;
-    equiv_bytesequence_type _field_delimiters;
+    expression_type _field_delimiters;
+    char_sequence_type _exclusive_field_delimiter;
 
     escaped_field_desc_seq_type _field_escapes;
-    std::size_t _effective_field_escapes_idx;
-    bool _field_escapes_exclusives;
-    bool _escaped_field;
+    escaped_field_exclusive_desc_seq_type _exclusive_field_escapes;
+    int _selected_exclusive_field_escape;
+    bool _exclusive_field_escape;
 
-
-
-    size_t _field_columns;
-    bool _escaped_binary_fields; // delete me?
-
-    size_t _effective_field_columns;
-    bool _effective_field_columns_set;
+    int _effective_field_columns;
+    bool _restrict_field_columns;
 };
 
-inline parser::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none), _effective_field_escapes_idx(-1),
-  _field_escapes_exclusives(false), _escaped_field(false), _field_columns(0)
+template<typename CharT>
+inline parser<CharT>::parser(void) :_log_callback(0), _log_context(0),
+  _log_level(dsv_log_none), _selected_exclusive_field_escape(-1),
+  _exclusive_field_escape(false), _effective_field_columns(-1),
+  _restrict_field_columns(false)
 {
 }
 
-inline log_callback_t parser::log_callback(void) const
+template<typename CharT>
+inline log_callback_t parser<CharT>::log_callback(void) const
 {
   return _log_callback;
 }
 
-inline log_callback_t parser::log_callback(log_callback_t fn)
+template<typename CharT>
+inline log_callback_t parser<CharT>::log_callback(log_callback_t fn)
 {
   std::swap(fn,_log_callback);
   return fn;
 }
 
-inline void * parser::log_context(void) const
+template<typename CharT>
+inline void * parser<CharT>::log_context(void) const
 {
   return _log_context;
 }
 
-inline void * parser::log_context(void *context)
+template<typename CharT>
+inline void * parser<CharT>::log_context(void *context)
 {
   std::swap(context,_log_context);
   return context;
 }
 
-inline dsv_log_level parser::log_level(void) const
+template<typename CharT>
+inline dsv_log_level parser<CharT>::log_level(void) const
 {
   return _log_level;
 }
 
-inline dsv_log_level parser::log_level(dsv_log_level level)
+template<typename CharT>
+inline dsv_log_level parser<CharT>::log_level(dsv_log_level level)
 {
   std::swap(level,_log_level);
   return level;
 }
 
-inline std::size_t parser::log_size(void) const
+template<typename CharT>
+inline std::size_t parser<CharT>::log_size(void) const
 {
   return log_list.size();
 }
 
-inline parser::const_log_iterator parser::log_begin(void) const
+template<typename CharT>
+inline typename parser<CharT>::const_log_iterator
+parser<CharT>::log_begin(void) const
 {
   return log_list.begin();
 }
 
-inline parser::const_log_iterator parser::log_end(void) const
+template<typename CharT>
+inline typename parser<CharT>::const_log_iterator
+parser<CharT>::log_end(void) const
 {
   return log_list.end();
 }
 
-inline void parser::append_log(dsv_log_level level, const log_description &desc)
+template<typename CharT>
+inline void
+parser<CharT>::append_log(dsv_log_level level, const log_description &desc)
 {
   log_list.push_back(std::make_pair(level,desc));
 }
 
-
-
-
-inline void
-parser::record_delimiters(const equiv_bytesequence_type &byte_seq)
+template<typename CharT>
+inline void parser<CharT>::reset(void)
 {
-  _record_delimiters = byte_seq;
-}
-
-inline const parser::equiv_bytesequence_type &
-parser::record_delimiters(void) const
-{
-  return _record_delimiters;
-}
-
-inline void parser::set_effective_record_delimiter(
-  const std::shared_ptr<parser::bytesequence_type> &seq)
-{
-  _record_delimiters.effective_byteseq(seq);
-}
-
-
-inline void
-parser::field_delimiters(const equiv_bytesequence_type &byte_seq)
-{
-  _field_delimiters = byte_seq;
-}
-
-inline const parser::equiv_bytesequence_type &
-parser::field_delimiters(void) const
-{
-  return _field_delimiters;
-}
-
-inline void parser::set_effective_field_delimiters(
-  const std::shared_ptr<parser::bytesequence_type> &seq)
-{
-  _field_delimiters.effective_byteseq(seq);
-}
-
-
-
-
-
-
-inline void
-parser::field_escapes(const escaped_field_desc_seq_type &seq)
-{
-  _field_escapes = seq;
-}
-
-inline const parser::escaped_field_desc_seq_type & parser::field_escapes(void) const
-{
-  return _field_escapes;
-}
-
-inline void parser::set_escaped_field_escapes(std::size_t idx,
-    const replacement_pair_seq_type &escaped_field_escapes)
-{
-  escaped_field_desc &desc = _field_escapes.at(idx);
-  desc.escaped_field_escapes = escaped_field_escapes;
-}
-
-inline void
-parser::set_escaped_field_escapes_repeat(std::size_t idx, std::size_t n,
-  bool flag)
-{
-  escaped_field_desc &desc = _field_escapes.at(idx);
-  desc.escaped_field_escapes.at(n).first.repeatflag(flag);
-}
-
-inline void
-parser::set_escaped_field_escapes_exclusives(std::size_t idx,
-  std::size_t n, bool flag)
-{
-  escaped_field_desc &desc = _field_escapes.at(idx);
-  desc.escaped_field_escapes.at(n).first.exclusiveflag(flag);
-}
-
-
-
-inline void parser::effective_field_escapes_pair(std::size_t idx)
-{
-  _effective_field_escapes_idx = idx;
-}
-
-inline std::size_t parser::effective_field_escapes_pair(void) const
-{
-  return _effective_field_escapes_idx;
-}
-
-inline void parser::field_escapes_exclusives(bool flag)
-{
-  _field_escapes_exclusives = flag;
-}
-
-inline bool parser::field_escapes_exclusives(void) const
-{
-  return _field_escapes_exclusives;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-inline size_t parser::field_columns(void) const
-{
-  return _field_columns;
-}
-
-inline size_t parser::field_columns(size_t cols)
-{
-  std::swap(cols,_field_columns);
-  _effective_field_columns = _field_columns;
-  _effective_field_columns_set = (cols > 0);
-
-  return cols;
-}
-
-inline bool parser::escaped_binary_fields(void) const
-{
-  return _escaped_binary_fields;
-}
-
-inline bool parser::escaped_binary_fields(bool flag)
-{
-  std::swap(flag,_escaped_binary_fields);
-  return flag;
-}
-
-// nonexposed
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-inline bool parser::escaped_field(void) const
-{
-  return _escaped_field;
-}
-
-inline bool parser::escaped_field(bool val)
-{
-  std::swap(val,_escaped_field);
-  return val;
-}
-
-inline size_t parser::effective_field_columns(void) const
-{
-  return _effective_field_columns;
-}
-
-inline size_t parser::effective_field_columns(size_t cols)
-{
-  std::swap(cols,_effective_field_columns);
-  return cols;
-}
-
-inline bool parser::effective_field_columns_set(void) const
-{
-  return _effective_field_columns_set;
-}
-
-inline bool parser::effective_field_columns_set(bool flag)
-{
-  std::swap(flag,_effective_field_columns_set);
-  return flag;
-}
-
 // todo fix me
-inline void parser::reset(void)
-{
-  log_list.clear();
-  _escaped_field = false;
-  _effective_field_columns = _field_columns;
-  _effective_field_columns_set = (_field_columns > 0);
 }
 
 }

@@ -33,7 +33,7 @@
     Forward declarations for forward declarations of bison types
   */
   #include "parser.h"
-  #include "scanner_state.h"
+  #include "basic_scanner.h"
   #include "parse_operations.h"
 
   #include <memory>
@@ -73,9 +73,12 @@
    *  Error reporting function as required by Bison
    *  These are always errors
    */
-  void parser_error(YYLTYPE *llocp, const detail::scanner_state &scanner,
-    detail::parser &parser, const detail::parse_operations &operations,
-    const std::unique_ptr<detail::scanner_state> &context, const char *s)
+  void parser_error(YYLTYPE *llocp,
+    const detail::basic_scanner<unsigned char> &scanner,
+    detail::parser<unsigned char> &parser,
+    const detail::parse_operations &operations,
+    const std::unique_ptr<detail::basic_scanner<unsigned char> > &context,
+    const char *s)
   {
     log_callback_t logger = parser.log_callback();
     if((parser.log_level() & dsv_log_error) && logger) {
@@ -83,7 +86,7 @@
       std::string last_line = std::to_string(llocp->last_line);
       std::string first_column = std::to_string(llocp->first_column);
       std::string last_column = std::to_string(llocp->last_column);
-      std::string filename = scanner.filename();
+      std::string filename = scanner.path();
 
       const char *fields[] = {
         first_line.c_str(),
@@ -99,8 +102,9 @@
   }
 
   bool column_count_message(const YYLTYPE &llocp,
-    const detail::scanner_state &scanner, detail::parser &parser,
-    std::size_t rec_cols, dsv_log_level level)
+    const detail::basic_scanner<unsigned char> &scanner,
+    detail::parser<unsigned char> &parser, std::size_t rec_cols,
+    dsv_log_level level)
   {
 //     std::cerr << "Generating column_count_message: LOG LEVEL: "
 //       << parser.log_level() << "\n";
@@ -121,7 +125,7 @@
         std::to_string(parser.effective_field_columns());
 
       std::string rec_columns = std::to_string(rec_cols);
-      std::string filename = scanner.filename();
+      std::string filename = scanner.path();
 
       const char *fields[] = {
         first_line.c_str(),
@@ -143,7 +147,8 @@
   }
 
   bool unexpected_binary(const YYLTYPE &llocp,
-    const detail::scanner_state &scanner, detail::parser &parser,
+    const detail::basic_scanner<unsigned char> &scanner,
+    detail::parser<unsigned char> &parser,
     const YYSTYPE::char_buff_type &char_buf, dsv_log_level level)
   {
     bool result = !(level & dsv_log_error);
@@ -164,7 +169,7 @@
       std::string last_line = std::to_string(llocp.last_line);
       std::string first_column = std::to_string(llocp.first_column);
       std::string last_column = std::to_string(llocp.last_column);
-      std::string filename = scanner.filename();
+      std::string filename = scanner.path();
 
       std::stringstream out;
       for(std::size_t i=0; i<char_buf.size(); ++i)
@@ -193,8 +198,9 @@
   }
 
 
-  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
-   detail::parser &parser);
+  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
+    detail::basic_scanner<unsigned char> &scanner,
+    detail::parser<unsigned char> &parser);
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -204,9 +210,11 @@
      *  convenience declares
      */
     bool check_or_update_column_count(const YYLTYPE &llocp,
-      const detail::scanner_state &scanner, detail::parser &parser,
+      const detail::basic_scanner<unsigned char> &scanner,
+      detail::parser<unsigned char> &parser,
       const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr)
     {
+#if 0
       ssize_t columns = char_buf_vec_ptr->size();
 
       if(!parser.effective_field_columns_set()) {
@@ -225,7 +233,7 @@
           return false;
         }
       }
-
+#endif
       return true;
     }
 
@@ -234,6 +242,7 @@
     {
 //         std::cerr << "CALLING PROCESS_HEADER\n";
       bool keep_going = true;
+#if 0
       if(operations.header_callback) {
 //          std::cerr << "got size " << str_vec_ptr->size() << "\nGot:\n";
 //          for(int i=0; i<str_vec_ptr->size(); ++i)
@@ -254,6 +263,7 @@
           operations.len_storage.data(),operations.field_storage.size(),
           operations.header_context);
       }
+#endif
       return keep_going;
     }
 
@@ -262,6 +272,7 @@
     {
 //        std::cerr << "CALLING PROCESS_RECORD\n";
       bool keep_going = true;
+#if 0
       if(operations.record_callback) {
         operations.field_storage.clear();
         operations.len_storage.clear();
@@ -277,6 +288,7 @@
           operations.len_storage.data(),operations.field_storage.size(),
           operations.record_context);
       }
+#endif
       return keep_going;
     }
 
@@ -309,13 +321,13 @@
 %debug
 %error-verbose
 
-%lex-param {detail::scanner_state &scanner}
-%lex-param {const detail::parser &parser}
+%lex-param {detail::basic_scanner<unsigned char> &scanner}
+%lex-param {const detail::parser<unsigned char> &parser}
 
-%parse-param {detail::scanner_state &scanner}
-%parse-param {detail::parser &parser}
+%parse-param {detail::basic_scanner<unsigned char> &scanner}
+%parse-param {detail::parser<unsigned char> &parser}
 %parse-param {detail::parse_operations &operations}
-%parse-param {const std::unique_ptr<detail::scanner_state> &context}
+%parse-param {const std::unique_ptr<detail::basic_scanner<unsigned char> > &context}
 
 %token END 0 "end-of-file"
 %token <char_buf_ptr> FIELD_DELIMITER "field delimiter"
@@ -581,10 +593,11 @@ std::string ascii(int c)
 /**
 
  */
-int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
- detail::parser &parser)
+int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
+  detail::basic_scanner<unsigned char> &scanner,
+  detail::parser<unsigned char> &parser)
 {
-  typedef detail::parser parser_type;
+  typedef detail::parser<unsigned char> parser_type;
   typedef parser_type::equiv_bytesequence_type equiv_bytesequence_type;
   typedef parser_type::escaped_field_desc_seq_type escaped_field_desc_seq_type;
 
@@ -597,19 +610,53 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, detail::scanner_state &scanner,
   // last_column is always 1-past as is C
   llocp->first_column = llocp->last_column;
 
+  if(parser.has_lookahead()) {
+    std::pair<int,std::shared_ptr<parser::char_sequence_type> > lookahead =
+      parser.pop_lookahead();
+    // set lvalp to lookahead.second data
+    return lookahead.first;
+  }
+
+
+  std::cmatch results;
+
   if(parser.escaped_field()) {
 
   }
   else {
-    // normal scanning
-    while(!scanner.eof()) {
+    // we are starting or in a field
+    // FREE FIELD SEARCHING
+    if(std::regex_search(in,parser.free_field_regex(),results)) {
+      // prefix holds normal textdata
+      for(std::size_t i=0; i<results.size(); ++i) {
+        if(results[i].matched()) {
+          /*
+            find which subexpression matched and then push into lookahead
+          */
+          if(matched was an field_escape opening) {
+            parser.selected_exclusive_field_escape(matched open pair id);
+          }
 
+          if(results.prefix().matched()) {
+            parser.push_lookahead(std::make_pair(ID,SEQ));
+            // set lvalp to prefix data
+            return TEXTDATA;
+          }
 
+          // no prefix, set lvalp to prefix data
+          return WHICHEVER WAS THE MATCH;
+        }
 
-      // just textdata
-      ++(llocp->last_column);
-      scanner.getc(); // ignore return, already know it doesn't end textdata
+      }
     }
+
+    // no matches---all is regular textdata, should be at EOF
+    if(we actually read something) {
+      // set lvalp to input
+      return TEXTDATA;
+    }
+
+    return 0; // EOF
   }
 }
 

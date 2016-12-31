@@ -2,10 +2,10 @@ master_suite=$(top_srcdir)/tests/master_suite.cc
 
 additional_test_cppflags= \
 	-arch x86_64 -pedantic -Wno-long-long -ansi -Wall -std=c++11\
-        -I$(top_srcdir) \
-        -I$(top_srcdir)/libdsv/src \
+	-I$(top_srcdir) \
+	-I$(top_srcdir)/libdsv/src \
 	-DTESTDATA_DIR='$(srcdir)/data' \
-        $(BOOST_CPPFLAGS)
+	$(BOOST_CPPFLAGS)
 
 additional_test_libs= \
 	$(BOOST_REGEX_LIBS) \
@@ -13,18 +13,30 @@ additional_test_libs= \
 	$(BOOST_SYSTEM_LIBS) \
 	$(BOOST_FILESYSTEM_LIBS)
 
+additional_perf_test_libs= \
+	$(BOOST_REGEX_LIBS) \
+	$(BOOST_SYSTEM_LIBS) \
+	$(BOOST_FILESYSTEM_LIBS)
+
 libdsv_test_ldflags=\
-        $(top_builddir)/libdsv/src/libdsv.la
+	$(top_builddir)/libdsv/src/libdsv.la
 
 additional_test_ldflags=\
-        $(BOOST_LDFLAGS) \
-        $(BOOST_REGEX_LDFLAGS) \
-        $(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
+	$(BOOST_LDFLAGS) \
+	$(BOOST_REGEX_LDFLAGS) \
+	$(BOOST_UNIT_TEST_FRAMEWORK_LDFLAGS) \
+	$(BOOST_SYSTEM_LDFLAGS) \
+	$(BOOST_FILESYSTEM_LDFLAGS)
+
+additional_perf_test_ldflags=\
+	$(BOOST_LDFLAGS) \
+	$(BOOST_REGEX_LDFLAGS) \
 	$(BOOST_SYSTEM_LDFLAGS) \
 	$(BOOST_FILESYSTEM_LDFLAGS)
 
 check_PROGRAMS= \
 	scanner_test \
+	scanner_perf_test \
 	equiv_bytesequence_test \
 	read_bytes_test \
 	api_parser_low_object_suite \
@@ -38,10 +50,17 @@ check_PROGRAMS= \
 
 scanner_test_SOURCES=$(master_suite) \
 	test_detail.h \
-        scanner_test.cc
+	scanner_test.cc
 scanner_test_CPPFLAGS=$(additional_test_cppflags)
 scanner_test_LDADD=$(additional_test_libs)
 scanner_test_LDFLAGS=
+
+scanner_perf_test_SOURCES= \
+	test_detail.h \
+        scanner_perf_test.cc
+scanner_perf_test_CPPFLAGS=$(additional_test_cppflags)
+scanner_perf_test_LDADD=$(additional_perf_test_libs)
+scanner_perf_test_LDFLAGS=
 
 equiv_bytesequence_test_SOURCES=$(master_suite) \
 	test_detail.h \
@@ -131,6 +150,7 @@ api_alt_delimiter_test_LDFLAGS=\
 
 TESTS=\
 	scanner_test \
+	scanner_perf_test \
 	equiv_bytesequence_test \
 	read_bytes_test \
 	api_parser_low_object_suite \
@@ -145,6 +165,8 @@ TESTS=\
 CLEANFILES=\
 	scanner_test.log \
 	scanner_test.trs \
+	scanner_perf_test.log \
+	scanner_perf_test.trs \
 	equiv_bytesequence_test.log \
 	equiv_bytesequence_test.trs \
 	read_bytes_test.log \
