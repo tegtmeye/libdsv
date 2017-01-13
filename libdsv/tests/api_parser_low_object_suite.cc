@@ -2,16 +2,13 @@
 
 #include <dsv_parser.h>
 #include "test_detail.h"
+#include "api_detail.h"
 
 
 
 /** \file
  *  \brief Unit tests for dsv parser low level interface
  */
-
-namespace dsv {
-namespace test {
-
 
 
 BOOST_AUTO_TEST_SUITE( api_parser_low_object_suite )
@@ -51,101 +48,140 @@ BOOST_AUTO_TEST_CASE( parser_create_and_destroy )
 
 
 // RECORD DELIMITER PARAMETER CHECKS
-BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_byte_check )
+BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_check )
 {
   dsv_parser_t parser;
   BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  unsigned char bytesequence[] = {'\n'};
-  const unsigned char *equiv_byteseq[] = {bytesequence};
-  size_t byteseq_size[] = {1};
-  int byteseq_repeat[] = {0};
-  size_t size = 1;
-  int repeatflag = 0;
-  int exclusiveflag = 0;
-
-  int iresult = dsv_parser_set_equiv_record_delimiters(parser,
-    equiv_byteseq,byteseq_size,byteseq_repeat,1,0,0);
+  int iresult = dsv_parser_set_record_delimiters(parser,0,0,0);
 
   BOOST_REQUIRE_MESSAGE(iresult == 0,
     "unexpected exit code: " << iresult
       << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
 
-  size_t sresult = dsv_parser_num_equiv_record_delimiters(parser);
-
-  BOOST_REQUIRE_MESSAGE(sresult == size,
-    "number of record delimiters " << sresult << " != " << size);
-
-  iresult = dsv_parser_get_equiv_record_delimiters_repeatflag(parser);
-
-  BOOST_REQUIRE_MESSAGE(iresult == repeatflag,
-    "record delimiters repeatflag " << iresult << " != " << repeatflag);
-
-  iresult = dsv_parser_get_equiv_record_delimiters_exclusiveflag(parser);
-
-  BOOST_REQUIRE_MESSAGE(iresult == exclusiveflag,
-    "record delimiters exclusiveflag " << iresult << " != " << exclusiveflag);
-
-  // get bytesequence size
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,0,0,0);
-
-  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
-    "bytesequence size " << sresult << " != " << byteseq_size[0]);
-
-  // get bytesequence size with repeatflag
-  int flag = 42;
-
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,0,0,&flag);
-
-  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
-    "bytesequence size " << sresult << " != " << byteseq_size[0]);
-
-  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
-    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
-
-
-  // get invalid bytesequence size
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,size,0,0,0);
+  size_t sresult = dsv_parser_get_record_delimiters(parser,0,0);
 
   BOOST_REQUIRE_MESSAGE(sresult == 0,
-    "unexpected bytesequence size " << sresult << " != " << 0);
+    "delimiters expression size " << sresult << " != 0");
 
-  static const size_t bufsize = 5;
-  unsigned char buf[bufsize];
-  unsigned char sentry_buf[bufsize] = {'X','X','X','X','X'};
-  unsigned char check_buf[bufsize] = {bytesequence[0],'X','X','X','X'};
+  iresult = dsv_parser_get_record_delimiter_exclusiveflag(parser);
 
-  // check for returned bytesequence of exact buff size
-  std::copy(sentry_buf,sentry_buf+bufsize,buf);
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,1,0);
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "delimiters exclusiveflag " << iresult << " != 0");
 
-  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
-    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+  char bad_buff[100];
+  /*
+    SIZE_MAX is equivalent to std::basic_string<> npos which throws a
+    std::length error exception. There really isn't a good way to check for
+    a memory allocation failure with the exception of maybe an embedded system.
+    It is just a possible return value for correctness.
+  */
+  iresult = dsv_parser_set_record_delimiters(parser,bad_buff,SIZE_MAX,0);
 
-  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+  BOOST_REQUIRE_MESSAGE(iresult == ENOMEM,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
 
-  // check for returned bytesequence of larger buff size
-  std::copy(sentry_buf,sentry_buf+bufsize,buf);
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,bufsize,0);
+  std::string expr = "Fancy Expression";
 
-  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
-    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+  iresult = dsv_parser_set_record_delimiters(parser,expr.data(),expr.size(),1);
 
-  BOOST_REQUIRE(std::equal(buf,buf+bufsize,check_buf));
+  BOOST_REQUIRE_MESSAGE(iresult == 0,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
 
-  // check for returned bytesequence of zero buff size and valid repeatflag
-  std::copy(sentry_buf,sentry_buf+bufsize,buf);
-  sresult = dsv_parser_get_equiv_record_delimiter(parser,0,buf,0,&flag);
+  sresult = dsv_parser_get_record_delimiters(parser,0,0);
 
-  BOOST_REQUIRE_MESSAGE(sresult == byteseq_size[0],
-    "unexpected bytesequence size " << sresult << " != " << byteseq_size[0]);
+  BOOST_REQUIRE_MESSAGE(sresult == expr.size(),
+    "delimiters expression size " << sresult << " != " << expr.size());
 
-  BOOST_REQUIRE(std::equal(buf,buf+bufsize,sentry_buf));
+  // buff is filled with '*' chars
+  // check buff is filled with '*' chars with exp in the middle
+  std::vector<char> buff(expr.size()*3,'*');
+  std::vector<char> check_buff = buff;
+  std::copy(expr.begin(),expr.end(),check_buff.begin()+expr.size());
 
-  BOOST_REQUIRE_MESSAGE(flag == repeatflag,
-    "unexpected bytesequence repetflag " << flag << " != " << repeatflag);
+  sresult = dsv_parser_get_record_delimiters(parser,buff.data()+expr.size(),
+    sresult);
+
+  BOOST_REQUIRE_MESSAGE(sresult == expr.size(),
+    "delimiters expression size " << sresult << " != " << expr.size());
+
+  BOOST_REQUIRE_MESSAGE(std::equal(buff.begin(),buff.end(),check_buff.begin()),
+    "failed to copy correct values. expected '" << check_buff << "' received '"
+    << buff );
+
+  // reset buff
+  std::fill(buff.begin(),buff.end(),'*');
+
+  // check for larger then expr size
+  sresult = dsv_parser_get_record_delimiters(parser,buff.data()+expr.size(),
+    expr.size()*2); // note 2 since offset by expr.size()
+
+  BOOST_REQUIRE_MESSAGE(sresult == expr.size(),
+    "delimiters expression size " << sresult << " != " << expr.size());
+
+  BOOST_REQUIRE_MESSAGE(std::equal(buff.begin(),buff.end(),check_buff.begin()),
+    "failed to copy correct values. expected '" << check_buff << "' received '"
+    << buff );
+
+  // CHECK FOR BAD REGEX
+  std::string bad_expr = "[*"; // bad expression
+  iresult = dsv_parser_set_record_delimiters(parser,bad_expr.data(),
+    bad_expr.size(),0);
+
+  BOOST_REQUIRE_MESSAGE(iresult == EINVAL,
+    "unexpected exit code: " << iresult
+      << " (ENOMEM = " << ENOMEM << ", EINVAL = " << EINVAL);
+
+  // check to make sure the old value is still there
+  std::fill(buff.begin(),buff.end(),'*');
+
+  sresult = dsv_parser_get_record_delimiters(parser,buff.data()+expr.size(),
+    sresult);
+
+  BOOST_REQUIRE_MESSAGE(sresult == expr.size(),
+    "delimiters expression size " << sresult << " != " << expr.size());
+
+  BOOST_REQUIRE_MESSAGE(std::equal(buff.begin(),buff.end(),check_buff.begin()),
+    "failed to copy correct values. expected '" << check_buff << "' received '"
+    << buff );
+
+  iresult = dsv_parser_get_record_delimiter_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 1,
+    "delimiters exclusiveflag " << iresult << " != 1");
+
+
+
+  // reset buff
+  std::fill(buff.begin(),buff.end(),'*');
+  check_buff = buff;
+
+  // check for smaller then expr size
+  std::copy(expr.begin(),expr.begin()+expr.size()/2,
+    check_buff.begin()+expr.size());
+
+  sresult = dsv_parser_get_record_delimiters(parser,buff.data()+expr.size(),
+    expr.size()/2);
+
+  BOOST_REQUIRE_MESSAGE(sresult == expr.size()/2,
+    "delimiters expression size " << sresult << " != " << expr.size()/2);
+
+  BOOST_REQUIRE_MESSAGE(std::equal(buff.begin(),buff.end(),check_buff.begin()),
+    "failed to copy correct values. expected '" << check_buff << "' received '"
+    << buff );
+
+  iresult = dsv_parser_get_record_delimiter_exclusiveflag(parser);
+
+  BOOST_REQUIRE_MESSAGE(iresult == 1,
+    "delimiters exclusiveflag " << iresult << " != 1");
+
+
 }
+
+#if 0
 
 
 BOOST_AUTO_TEST_CASE( set_equiv_record_delimiters_multibyte_check )
@@ -1779,7 +1815,7 @@ BOOST_AUTO_TEST_CASE( field_escape_pair_complex_check )
 
 }
 
+#endif
+
 BOOST_AUTO_TEST_SUITE_END()
 
-}
-}

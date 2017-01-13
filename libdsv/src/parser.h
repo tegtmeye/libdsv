@@ -33,7 +33,6 @@
 
 
 #include "dsv_parser.h"
-#include "equiv_bytesequence.h"
 
 #include <list>
 #include <vector>
@@ -45,25 +44,6 @@
 #include <iostream>
 
 namespace detail {
-
-// delete me
-inline void print_packed(const std::vector<detail::byte_chunk> &packed_vec)
-{
-  for(std::size_t i=0; i<packed_vec.size(); ++i) {
-    std::cerr << "Data @ " << i << ":\n"
-      << "  Byte: " << char(packed_vec[i].byte)
-      << "  Accept: " << int(packed_vec[i].accept)
-      << "  Pass off: " << packed_vec[i].pass_skip
-        << " (" << i+packed_vec[i].pass_skip << ")"
-      << "  Fail off: " << packed_vec[i].fail_skip
-        << " (";
-    if(packed_vec[i].fail_skip==0)
-      std::cerr << "reject";
-    else
-      std::cerr << i+packed_vec[i].fail_skip;
-    std::cerr << ")\n\n";
-  }
-}
 
 
 class log_description {
@@ -126,19 +106,11 @@ class parser {
     typedef std::basic_string<char_type> expression_type;
     typedef std::basic_regex<char_type> regex_type;
 
-    typedef std::vector<
-      std::pair<expression_type,char_sequence_type> > replacement_sequence_type;
+    class escaped_replacement_desc;
+    class escaped_field_desc;
 
-    struct escaped_field_desc {
-      expression_type open_expression;
-      expression_type close_expression;
-      replacement_sequence_type escaped_field_escape_replacements;
-      bool open_exclusive;
-      bool close_exclusive;
-      bool replacement_exlusive;
-    };
-
-    typedef std::vector<escaped_field_desc> escaped_field_desc_seq_type;
+    typedef std::vector<escaped_replacement_desc> escaped_replacement_desc_seq;
+    typedef std::vector<escaped_field_desc> escaped_field_desc_seq;
 
     typedef log_list_type::const_iterator const_log_iterator;
 
@@ -165,45 +137,42 @@ class parser {
     /* RECORD COMPLETION DELIMITER */
     void record_delimiters(const expression_type &exp);
     const expression_type & record_delimiters(void) const;
+    const regex_type & record_delimiters_regex(void) const;
     void exclusive_record_delimiter(const char_sequence_type &seq);
     const char_sequence_type & exclusive_record_delimiter(void) const;
+
+    void exclusive_record_delimiter_flag(bool flag);
+    bool exclusive_record_delimiter_flag(void) const;
 
     /* FIELD COMPLETION DELIMITER */
     void field_delimiters(const expression_type &exp);
     const expression_type & field_delimiters(void) const;
-    void exclusive_field_delimiters(const char_sequence_type &seq);
-    const char_sequence_type & exclusive_field_delimiters(void) const;
+    const regex_type & field_delimiter_regex(void) const;
+    void exclusive_field_delimiter(const char_sequence_type &seq);
+    const char_sequence_type & exclusive_field_delimiter(void) const;
+
+    void exclusive_field_delimiter_flag(bool flag);
+    bool exclusive_field_delimiter_flag(void) const;
 
     /* FIELD ESCAPES */
-    void field_escapes(const escaped_field_desc_seq_type &seq);
-    const escaped_field_desc_seq_type & field_escapes(void) const;
+    void field_escapes(const escaped_field_desc_seq &seq);
+    const escaped_field_desc_seq & field_escapes(void) const;
+    void exclusive_field_escape_pair(size_t pairi);
+    size_t exclusive_field_escape_pair(void) const;
 
-    // if true, then a particular field escape pair should be selected as
-    // exclusive if seen.
     void exclusive_field_escape(bool flag);
     bool exclusive_field_escape(void) const;
 
-    // These set exclusivity within each escaped field pair
-    void exclusive_open_field_escape(std::size_t pair_idx,
-      const char_sequence_type &seq);
-    const char_sequence_type &
-      exclusive_open_field_escape(std::size_t pair_idx) const;
+    void escape_field_escapes(size_t pairi,
+      const escaped_replacement_desc_seq &replacement_desc);
 
-    void exclusive_close_field_escape(std::size_t pair_idx,
-      const char_sequence_type &seq);
-    const char_sequence_type &
-      exclusive_close_field_escape(std::size_t pair_idx) const;
+    const escaped_replacement_desc_seq &
+      escape_field_escapes(size_t pairi) const;
 
-    void exclusive_escaped_field_escape(std::size_t pair_idx,
-      const char_sequence_type &seq, std::size_t replace_idx);
-    const char_sequence_type &
-      exclusive_escaped_field_escape(std::size_t pair_idx) const;
-    const char_sequence_type &
-      exclusive_escaped_field_escape_replacement(std::size_t pair_idx) const;
 
     /* FIELD COLUMNS */
-    bool restrict_field_columns(bool flag);
-    bool restrict_field_columns(void) const;
+    std::size_t restrict_field_columns(void) const;
+    void restrict_field_columns(std::size_t n);
 
 
     /*
@@ -229,13 +198,6 @@ class parser {
       escaped_field_escape_replacement_subexp_idx(std::size_t pair_idx) const;
 
 
-    bool has_lookahead(void) const;
-    std::pair<int,std::shared_ptr<char_sequence_type> >
-      pop_lookahead(void) const;
-    void push_lookahead(
-      const std::pair<int,std::shared_ptr<char_sequence_type> > &val);
-
-
 
     /* STATE MAINTENANCE */
 
@@ -250,10 +212,8 @@ class parser {
     int selected_exclusive_field_escape(void) const;
 
     /* EFFECTIVE FIELD COLUMNS */
-    // If \c num_cols is negative, then restrict_field_columns is true but a
-    // full column count has not been calculated yet
-    void effective_field_columns(int num_cols);
-    int effective_field_columns(void) const;
+    void effective_field_columns(std::size_t num_cols);
+    std::size_t effective_field_columns(void) const;
 
 
 
@@ -265,42 +225,106 @@ class parser {
 
 
   private:
-    struct escaped_field_exlusive_desc {
-      char_sequence_type open_exlusive_sequence;
-      char_sequence_type close_exlusive_sequence;
-      char_sequence_type replacement_exlusive_sequence;
-      std::size_t replacement_exlusive_index;
-    };
-
-    typedef std::vector<escaped_field_exlusive_desc>
-      escaped_field_exclusive_desc_seq_type;
-
     log_callback_t _log_callback;
     void *_log_context;
     dsv_log_level _log_level;
 
     log_list_type log_list;
 
+    // RECORD DELIMITERS
     expression_type _record_delimiters;
+    regex_type _record_delimiters_regex;
     char_sequence_type _exclusive_record_delimiter;
+    bool _exclusive_record_delimiter_flag;
 
+    // FIELD DELIMITERS
     expression_type _field_delimiters;
+    regex_type _field_delimiters_regex;
     char_sequence_type _exclusive_field_delimiter;
+    bool _exclusive_field_delimiter_flag;
 
-    escaped_field_desc_seq_type _field_escapes;
-    escaped_field_exclusive_desc_seq_type _exclusive_field_escapes;
-    int _selected_exclusive_field_escape;
+    // FIELD ESCAPES
+    escaped_field_desc_seq _field_escapes;
     bool _exclusive_field_escape;
 
-    int _effective_field_columns;
-    bool _restrict_field_columns;
+    // FIELD COLUMN MANAGEMENT
+    std::size_t _restrict_field_columns;
+    std::size_t _effective_field_columns;
 };
 
 template<typename CharT>
+class parser<CharT>::escaped_replacement_desc {
+  public:
+    escaped_replacement_desc(const expression_type &exp,
+      const char_sequence_type &rep);
+
+    const expression_type & expression(void) const;
+    const regex_type & regex(void) const;
+    const char_sequence_type & replacement(void) const;
+
+  private:
+    expression_type _expression;
+    regex_type _regex;
+    char_sequence_type _replacement;
+};
+
+
+
+
+template<typename CharT>
+class parser<CharT>::escaped_field_desc {
+  public:
+    escaped_field_desc(const expression_type &open, bool open_excl,
+      const expression_type &close, bool close_excl);
+
+    const expression_type & open_expression(void) const;
+    const regex_type & open_regex(void) const;
+    bool open_exclusive(void) const;
+
+    const expression_type & close_expression(void) const;
+    const regex_type & close_regex(void) const;
+    bool close_exclusive(void) const;
+
+    const escaped_replacement_desc_seq & replacement_desc_seq(void) const;
+    void replacement_desc_seq(const escaped_replacement_desc_seq &seq);
+
+  private:
+    expression_type _open_expression;
+    regex_type _open_regex;
+    char_sequence_type _open_exclusive_seq;
+    bool _open_exclusive;
+
+    expression_type _close_expression;
+    regex_type _close_regex;
+    char_sequence_type _close_exclusive_seq;
+    bool _close_exclusive;
+
+    escaped_replacement_desc_seq _replacement_desc_seq;
+};
+
+template<typename CharT>
+inline parser<CharT>::escaped_field_desc::escaped_field_desc(
+  const expression_type &open, bool open_excl,
+  const expression_type &close, bool close_excl)
+    :_open_expression(open), _open_regex(open), _open_exclusive(open_excl),
+      _close_expression(close), _close_regex(close),
+        _close_exclusive(close_excl)
+{
+}
+
+
+
+
+
+
+
+
+
+
+
+template<typename CharT>
 inline parser<CharT>::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none), _selected_exclusive_field_escape(-1),
-  _exclusive_field_escape(false), _effective_field_columns(-1),
-  _restrict_field_columns(false)
+  _log_level(dsv_log_none)
 {
 }
 
@@ -371,9 +395,89 @@ parser<CharT>::append_log(dsv_log_level level, const log_description &desc)
 }
 
 template<typename CharT>
+inline void parser<CharT>::record_delimiters(const expression_type &exp)
+{
+  // construction may throw regex_error, don't set values unless we know it
+  // succeeds
+  regex_type tmp_regex(exp);
+
+  _record_delimiters = exp;
+  std::swap(_record_delimiters_regex,tmp_regex);
+
+  // trigger recompile of derived
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::expression_type &
+parser<CharT>::record_delimiters(void) const
+{
+  return _record_delimiters;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::record_delimiters_regex(void) const
+{
+  return _record_delimiters_regex;
+}
+
+template<typename CharT>
+inline void
+parser<CharT>::exclusive_record_delimiter(const char_sequence_type &seq)
+{
+  _exclusive_record_delimiter = seq;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::char_sequence_type &
+parser<CharT>::exclusive_record_delimiter(void) const
+{
+  return _exclusive_record_delimiter;
+}
+
+template<typename CharT>
+inline void parser<CharT>::exclusive_record_delimiter_flag(bool flag)
+{
+  _exclusive_record_delimiter_flag = flag;
+}
+
+template<typename CharT>
+inline bool parser<CharT>::exclusive_record_delimiter_flag(void) const
+{
+  return _exclusive_record_delimiter_flag;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+template<typename CharT>
 inline void parser<CharT>::reset(void)
 {
-// todo fix me
+
+  // fix me
 }
 
 }

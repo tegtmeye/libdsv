@@ -49,12 +49,15 @@ namespace bs = boost::system;
 
 extern "C" {
 
+typedef detail::parser<char> parser_type;
+typedef detail::basic_scanner<char> scanner_type;
+
 int dsv_parser_create(dsv_parser_t *_parser)
 {
   int err = 0;
 
   try {
-    _parser->p = new detail::parser;
+    _parser->p = new parser_type;
   }
   catch (std::bad_alloc &) {
     err = ENOMEM;
@@ -66,10 +69,10 @@ int dsv_parser_create(dsv_parser_t *_parser)
   return err;
 }
 
-void dsv_parser_destroy(dsv_parser_t parser)
+void dsv_parser_destroy(dsv_parser_t _parser)
 {
   try {
-     delete static_cast<detail::parser*>(parser.p);
+     delete static_cast<parser_type*>(_parser.p);
   }
   catch(...) {
     abort();
@@ -77,375 +80,216 @@ void dsv_parser_destroy(dsv_parser_t parser)
 }
 
 // todo, cause the exclusive to carry over and have reset API
-int dsv_parser_set_equiv_record_delimiters(dsv_parser_t _parser,
-  const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
-  const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag)
+int dsv_parser_set_record_delimiters(dsv_parser_t _parser,
+  const char *utf8_regex, size_t regex_size, int exclusiveflag)
 {
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  if(!size)
-    return EINVAL;
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   int err = 0;
 
   try {
-    parser.record_delimiters(equiv_bytesequence_type(equiv_byteseq,
-      byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
-  }
-  catch(std::bad_alloc &) {
-    // todo, bug
-    // apparantly calling reserve with an argument of
-    // numeric_limits<size_t>::max() (which is arguably > vector.max_size())
-    // produces a bad_alloc instead of length_error for at least the LLVM
-    // implementation of vector. The allocate method of vector seems to throw
-    // length_error but since what we actually get is a bad_alloc, something
-    // else is going on. For now, just return EINVAL as a correctly implemented
-    // version of libdsv should only produce an EINVAL for incorrect arguments
-    // as of 6/16.
-    // err = ENOMEM;
-    err = EINVAL;
+    if(regex_size)
+      parser.record_delimiters(
+        parser_type::expression_type(utf8_regex,regex_size));
+    else
+      parser.record_delimiters(parser_type::expression_type());
+
+    // must be after as expressions may throw regex_error
+    parser.exclusive_record_delimiter_flag(exclusiveflag);
   }
   catch(std::length_error &) {
-    err = EINVAL;
-  }
-  catch(...) {
-    abort();
-  }
-
-  return err;
-}
-
-size_t dsv_parser_num_equiv_record_delimiters(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  try {
-    result = parser.record_delimiters().byteseq_desc_vec().size();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_get_equiv_record_delimiters_repeatflag(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    result = parser.record_delimiters().repeatflag();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_get_equiv_record_delimiters_exclusiveflag(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    result = parser.record_delimiters().exclusiveflag();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t _parser, size_t n,
-  unsigned char *buf, size_t bufsize, int *repeatflag)
-{
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  const equiv_bytesequence_type &bytesequence = parser.record_delimiters();
-
-  try {
-    if(n < bytesequence.byteseq_desc_vec().size()) {
-      const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
-
-      if(bufsize == 0)
-        result = delim.base_seq_bytes.size();
-      else {
-        while(result < delim.base_seq_bytes.size() && result < bufsize) {
-          buf[result] = delim.base_seq_bytes[result];
-          ++result;
-        }
-      }
-
-      if(repeatflag)
-        *repeatflag = delim.repeat;
-    }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-
-
-
-void dsv_parser_set_field_columns(dsv_parser_t _parser, size_t num_cols)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  try {
-    parser.field_columns(num_cols);
-  }
-  catch(...) {
-    abort();
-  }
-}
-
-size_t dsv_parser_get_field_columns(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result;
-
-  try {
-    result = parser.field_columns();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-// todo, cause the exclusive to carry over and have reset API
-int dsv_parser_set_equiv_field_delimiters(dsv_parser_t _parser,
-  const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
-  const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag)
-{
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  if(!size)
-    return EINVAL;
-
-  int err = 0;
-
-  try {
-    parser.field_delimiters(equiv_bytesequence_type(equiv_byteseq,
-      byteseq_size,byteseq_repeat,size,repeatflag,exclusiveflag));
-  }
-  catch(std::bad_alloc &) {
-    // todo, bug
-    // apparantly calling reserve with an argument of
-    // numeric_limits<size_t>::max() (which is arguably > vector.max_size())
-    // produces a bad_alloc instead of length_error for at least the LLVM
-    // implementation of vector. The allocate method of vector seems to throw
-    // length_error but since what we actually get is a bad_alloc, something
-    // else is going on. For now, just return EINVAL as a correctly implemented
-    // version of libdsv should only produce an EINVAL for incorrect arguments
-    // as of 6/16.
-    // err = ENOMEM;
-    err = EINVAL;
-  }
-  catch(std::length_error &) {
-    err = EINVAL;
-  }
-  catch(...) {
-    abort();
-  }
-
-  return err;
-}
-
-size_t dsv_parser_num_equiv_field_delimiters(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  try {
-    result = parser.field_delimiters().byteseq_desc_vec().size();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_get_equiv_field_delimiters_repeatflag(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    result = parser.field_delimiters().repeatflag();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_get_equiv_field_delimiters_exclusiveflag(dsv_parser_t _parser)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    result = parser.field_delimiters().exclusiveflag();
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-size_t dsv_parser_get_equiv_field_delimiter(dsv_parser_t _parser, size_t n,
-  unsigned char *buf, size_t bufsize, int *repeatflag)
-{
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  const equiv_bytesequence_type &bytesequence = parser.field_delimiters();
-
-  try {
-    if(n < bytesequence.byteseq_desc_vec().size()) {
-      const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
-
-      if(bufsize == 0)
-        result = delim.base_seq_bytes.size();
-      else {
-        while(result < delim.base_seq_bytes.size() && result < bufsize) {
-          buf[result] = delim.base_seq_bytes[result];
-          ++result;
-        }
-      }
-
-      if(repeatflag)
-        *repeatflag = delim.repeat;
-    }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_append_field_escape_pair(dsv_parser_t _parser,
-  const unsigned char *open_escape_seq[],
-  const size_t open_escape_seq_size[], const int open_escape_repeat[],
-  size_t open_size, int open_repeatflag, int open_exclusiveflag,
-  const unsigned char *close_escape_seq[],
-  const size_t close_escape_seq_size[], const int close_escape_repeat[],
-  size_t close_size, int close_repeatflag, int close_exclusiveflag)
-{
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  if(open_size == 0 || close_size == 0)
-    return EINVAL;
-
-  for(std::size_t i = 0; i < open_size; ++i) {
-    if(open_escape_seq_size[i] == 0)
-      return EINVAL;
-  }
-
-  for(std::size_t i = 0; i < close_size; ++i) {
-    if(close_escape_seq_size[i] == 0)
-      return EINVAL;
-  }
-
-  int err = 0;
-
-  try {
-    detail::parser::escaped_field_desc_seq_type escaped_field_seq;
-    escaped_field_seq.reserve(parser.field_escapes().size()+1);
-    escaped_field_seq.insert(escaped_field_seq.end(),
-      parser.field_escapes().begin(),parser.field_escapes().end());
-
-    escaped_field_seq.emplace_back(
-      detail::parser::escaped_field_desc {
-        equiv_bytesequence_type(open_escape_seq,open_escape_seq_size,
-          open_escape_repeat,open_size,open_repeatflag,open_exclusiveflag),
-        equiv_bytesequence_type(close_escape_seq,close_escape_seq_size,
-          close_escape_repeat,close_size,close_repeatflag,close_exclusiveflag)
-        }
-      );
-
-    parser.field_escapes(escaped_field_seq);
+    // thrown for basic_string<>(buff,-1)
+    err = ENOMEM;
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
+  }
+  catch(std::regex_error &) {
+    err = EINVAL;
+  }
+  catch(...) {
+    abort();
+  }
+
+  return err;
+}
+
+int dsv_parser_get_record_delimiter_exclusiveflag(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  int result;
+
+  try {
+    result = parser.exclusive_record_delimiter_flag();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+size_t dsv_parser_get_record_delimiters(dsv_parser_t _parser, char *buff,
+  size_t buffsize)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  size_t result = 0;
+
+  try {
+    std::size_t size = parser.record_delimiters().size();
+    if(buffsize == 0)
+      result = size;
+    else {
+      result = std::min(size,buffsize);
+
+      copy_n(parser.record_delimiters().begin(),result,buff);
+    }
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+// todo, cause the exclusive to carry over and have reset API
+int dsv_parser_set_field_delimiters(dsv_parser_t _parser,
+  const char *utf8_regex, size_t regex_size, int exclusiveflag)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  int err = 0;
+
+  try {
+    if(regex_size)
+      parser.field_delimiters(
+        parser_type::expression_type(utf8_regex,regex_size));
+    else
+      parser.field_delimiters(parser_type::expression_type());
+
+    // must be after as expressions may throw regex_error
+    parser.exclusive_field_delimiter_flag(exclusiveflag);
+  }
+  catch(std::length_error &) {
+    // thrown for basic_string<>(buff,-1)
+    err = ENOMEM;
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch(std::regex_error &) {
+    err = EINVAL;
+  }
+  catch(...) {
+    abort();
+  }
+
+  return err;
+}
+
+int dsv_parser_get_field_delimiter_exclusiveflag(dsv_parser_t _parser)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  int result;
+
+  try {
+    result = parser.exclusive_field_delimiter_flag();
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+size_t dsv_parser_get_field_delimiters(dsv_parser_t _parser, char *buff,
+  size_t buffsize)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  size_t result = 0;
+
+  try {
+    std::size_t size = parser.field_delimiters().size();
+    if(buffsize == 0)
+      result = size;
+    else {
+      result = std::min(size,buffsize);
+
+      copy_n(parser.field_delimiters().begin(),result,buff);
+    }
+  }
+  catch(...) {
+    abort();
+  }
+
+  return result;
+}
+
+
+int dsv_parser_set_field_escape_pair(dsv_parser_t _parser,
+  const char *open_utf8_regex[], const size_t open_regex_size[],
+  const int open_exclusiveflag[],
+  const char *close_utf8_regex[], const size_t close_regex_size[],
+  const int close_exclusiveflag[],
+  size_t pair_size, int pair_exclusiveflag)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  if(pair_size == 0) {
+    parser.field_escapes(parser_type::escaped_field_desc_seq());
+    return 0;
+  }
+
+  if(!(open_utf8_regex && open_regex_size && open_exclusiveflag
+    && close_utf8_regex && close_regex_size && close_exclusiveflag))
+  {
+    return EINVAL;
+  }
+
+  int err = 0;
+
+  try {
+    parser_type::escaped_field_desc_seq escaped_field_seq;
+
+    for(std::size_t i=0; i<pair_size; ++i) {
+      if(!(open_utf8_regex[i] && open_regex_size[i]
+        && close_utf8_regex[i] && close_regex_size[i]))
+      {
+        err = EINVAL;
+        break;
+      }
+
+      escaped_field_seq.emplace_back(parser_type::escaped_field_desc(
+        parser_type::expression_type(open_utf8_regex[i],open_regex_size[i]),
+          open_exclusiveflag[i],
+        parser_type::expression_type(close_utf8_regex[i],close_regex_size[i]),
+          close_exclusiveflag[i])
+        );
+    }
+  }
+  catch(std::bad_alloc &) {
+    err = ENOMEM;
+  }
+  catch(std::regex_error &) {
+    err = EINVAL;
   }
   catch(...) {
     abort();
@@ -458,7 +302,7 @@ size_t dsv_parser_num_field_escape_pairs(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   size_t result;
 
@@ -472,75 +316,23 @@ size_t dsv_parser_num_field_escape_pairs(dsv_parser_t _parser)
   return result;
 }
 
-int dsv_parser_get_field_escape_pair_open_repeatflag(dsv_parser_t _parser,
-  size_t i)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result;
-
-  try {
-    if(i >= parser.field_escapes().size())
-      result = -1;
-    else {
-      const escaped_field_desc &desc = parser.field_escapes()[i];
-      result = desc.open_equiv_bytesequence.repeatflag();
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_get_field_escape_pair_close_repeatflag(dsv_parser_t _parser,
-  size_t i)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result;
-
-  try {
-    if(i >= parser.field_escapes().size())
-      result = -1;
-    else {
-      const escaped_field_desc &desc = parser.field_escapes()[i];
-      result = desc.close_equiv_bytesequence.repeatflag();
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return result;
-}
-
 int dsv_parser_get_field_escape_pair_open_exclusiveflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   int result;
 
   try {
+    typedef parser_type::escaped_field_desc escaped_field_desc;
+
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const escaped_field_desc &desc = parser.field_escapes()[i];
-      result = desc.open_equiv_bytesequence.exclusiveflag();
+      const escaped_field_desc &desc = parser.field_escapes().at(i);
+      result = desc.open_exclusive();
     }
   }
   catch (...) {
@@ -553,20 +345,20 @@ int dsv_parser_get_field_escape_pair_open_exclusiveflag(dsv_parser_t _parser,
 int dsv_parser_get_field_escape_pair_close_exclusiveflag(dsv_parser_t _parser,
   size_t i)
 {
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   int result;
 
   try {
+    typedef parser_type::escaped_field_desc escaped_field_desc;
+
     if(i >= parser.field_escapes().size())
       result = -1;
     else {
-      const escaped_field_desc &desc = parser.field_escapes()[i];
-      result = desc.close_equiv_bytesequence.exclusiveflag();
+      const escaped_field_desc &desc = parser.field_escapes().at(i);
+      result = desc.close_exclusive();
     }
   }
   catch (...) {
@@ -576,64 +368,12 @@ int dsv_parser_get_field_escape_pair_close_exclusiveflag(dsv_parser_t _parser,
   return result;
 }
 
-size_t dsv_parser_num_field_escape_pair_open_sequences(dsv_parser_t _parser,
-  size_t pairi)
+size_t dsv_parser_get_field_escape_pair_open_expression(dsv_parser_t _parser,
+    size_t pairi, char *buff, size_t buffsize)
 {
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  try {
-    if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes()[pairi];
-      result = desc.open_equiv_bytesequence.byteseq_desc_vec().size();
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return result;
-}
-
-size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t _parser,
-  size_t pairi)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
-  try {
-    if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes()[pairi];
-      result = desc.close_equiv_bytesequence.byteseq_desc_vec().size();
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return result;
-}
-
-size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
-  size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   size_t result = 0;
 
@@ -642,29 +382,18 @@ size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
     if(pairi >= parser.field_escapes().size())
       result = 0;
     else {
-      const escaped_field_desc &desc = parser.field_escapes()[pairi];
-      const equiv_bytesequence_type &bytesequence =
-        desc.open_equiv_bytesequence;
+      const parser_type::escaped_field_desc &desc = parser.field_escapes().at(pairi);
 
-      if(n < bytesequence.byteseq_desc_vec().size()) {
-        const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
+      std::size_t expr_size = desc.open_expression().size();
 
-        if(bufsize == 0)
-          result = delim.base_seq_bytes.size();
-        else {
-          while(result < delim.base_seq_bytes.size() && result < bufsize) {
-            buf[result] = delim.base_seq_bytes[result];
-            ++result;
-          }
-        }
+      if(!buffsize)
+        result = expr_size;
+      else {
+        result = std::min(buffsize,expr_size);
 
-        if(repeatflag)
-          *repeatflag = delim.repeat;
+        std::copy_n(desc.open_expression().begin(),result,buff);
       }
     }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
   }
   catch(...) {
     abort();
@@ -673,16 +402,12 @@ size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t _parser,
   return result;
 }
 
-size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
-  size_t pairi, size_t n, unsigned char *buf, size_t bufsize, int *repeatflag)
+size_t dsv_parser_get_field_escape_pair_close_expression(dsv_parser_t _parser,
+    size_t pairi, char *buff, size_t buffsize)
 {
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   size_t result = 0;
 
@@ -691,59 +416,36 @@ size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t _parser,
     if(pairi >= parser.field_escapes().size())
       result = 0;
     else {
-      const escaped_field_desc &desc = parser.field_escapes()[pairi];
-      const equiv_bytesequence_type &bytesequence =
-        desc.close_equiv_bytesequence;
+      const parser_type::escaped_field_desc &desc = parser.field_escapes().at(pairi);
 
-      if(n < bytesequence.byteseq_desc_vec().size()) {
-        const byteseq_desc &delim = bytesequence.byteseq_desc_vec().at(n);
+      std::size_t expr_size = desc.close_expression().size();
 
-        if(bufsize == 0)
-          result = delim.base_seq_bytes.size();
-        else {
-          while(result < delim.base_seq_bytes.size() && result < bufsize) {
-            buf[result] = delim.base_seq_bytes[result];
-            ++result;
-          }
-        }
+      if(!buffsize)
+        result = expr_size;
+      else {
+        result = std::min(buffsize,expr_size);
 
-        if(repeatflag)
-          *repeatflag = delim.repeat;
+        std::copy_n(desc.close_expression().begin(),result,buff);
       }
     }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
   }
   catch(...) {
     abort();
   }
 
   return result;
-}
-
-void dsv_parser_clear_field_escape_pairs(dsv_parser_t _parser)
-{
-  typedef detail::parser::escaped_field_desc_seq_type escaped_field_desc_seq;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  parser.field_escapes(escaped_field_desc_seq());
-
 }
 
 int dsv_parser_get_field_escape_exclusiveflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   int result;
 
   try {
-    result = parser.field_escapes_exclusives();
+    result = parser.exclusive_field_escape();
   }
   catch (...) {
     abort();
@@ -756,10 +458,10 @@ void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t _parser, int flag)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   try {
-    parser.field_escapes_exclusives(flag);
+    parser.exclusive_field_escape(flag);
   }
   catch (...) {
     abort();
@@ -767,57 +469,51 @@ void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t _parser, int flag)
 }
 
 
-int dsv_parser_append_equiv_escaped_field_escapes(dsv_parser_t _parser,
-  size_t field_escape_pair, const unsigned char *equiv_byteseq[],
-  const size_t byteseq_size[], const int byteseq_repeat[],
-  size_t equiv_size, int repeatflag, int exclusiveflag,
-  const unsigned char replace_seq[], size_t replace_seq_size)
+int dsv_parser_set_escape_field_escapes(dsv_parser_t _parser,
+  size_t pairi, const char *utf8_regex[], const size_t regex_size[],
+  const char *replacement[], size_t replacement_size[], size_t nescapes)
 {
-  typedef detail::parser::bytesequence_type bytesequence_type;
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
-  if(equiv_byteseq == 0 || byteseq_size == 0 || byteseq_repeat == 0
-    || equiv_size == 0)
+  if(nescapes && !(utf8_regex && regex_size && replacement && replacement_size))
   {
     return EINVAL;
   }
 
-  if(parser.field_escapes().size() <= field_escape_pair)
-    return EINVAL;
-
-  for(std::size_t i = 0; i < equiv_size; ++i) {
-    if(!(equiv_byteseq[i] && byteseq_size[i]))
-      return EINVAL;
-  }
-
-
   int err = 0;
 
   try {
-    detail::parser::replacement_pair_seq_type replacement_pair_seq;
-    const detail::parser::escaped_field_desc &desc =
-      parser.field_escapes().at(field_escape_pair);
+    if(pairi >= parser.field_escapes().size())
+      err = -1;
+    else {
+      parser_type::escaped_replacement_desc_seq replacement_seq;
 
-    replacement_pair_seq.reserve(desc.escaped_field_escapes.size()+1);
-    replacement_pair_seq.insert(replacement_pair_seq.end(),
-      desc.escaped_field_escapes.begin(),desc.escaped_field_escapes.end());
+      for(std::size_t i=0; i<nescapes; ++i) {
+        if(!(utf8_regex[i] && regex_size[i] &&
+          (!replacement_size[i] || (replacement_size[i] && replacement[i]))))
+        {
+          err = EINVAL;
+          break;
+        }
 
-    replacement_pair_seq.emplace_back(
-      detail::parser::replacement_pair_type {
-        equiv_bytesequence_type(equiv_byteseq,byteseq_size,byteseq_repeat,
-          equiv_size,repeatflag,exclusiveflag),
-        bytesequence_type(replace_seq,replace_seq+replace_seq_size)
+        replacement_seq.emplace_back(
+          parser_type::escaped_replacement_desc(
+            parser_type::expression_type(utf8_regex[i],regex_size[i]),
+            parser_type::char_sequence_type(replacement[i],
+              replacement[i]+replacement_size[i]))
+          );
       }
-    );
 
-    parser.set_escaped_field_escapes(field_escape_pair,replacement_pair_seq);
+      parser.escape_field_escapes(pairi,replacement_seq);
+    }
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
+  }
+  catch(std::regex_error &) {
+    err = EINVAL;
   }
   catch (...) {
     abort();
@@ -828,123 +524,57 @@ int dsv_parser_append_equiv_escaped_field_escapes(dsv_parser_t _parser,
 
 
 
-int dsv_parser_clear_equiv_escaped_field_escapes(dsv_parser_t _parser,
-  size_t field_escape_pair)
+
+
+size_t dsv_parser_num_escape_field_escapes(dsv_parser_t _parser, size_t pairi)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
-  if(parser.field_escapes().size() <= field_escape_pair)
-    return EINVAL;
-
-  int err = 0;
-
-  try {
-    detail::parser::replacement_pair_seq_type replacement_pair_seq;
-
-    parser.set_escaped_field_escapes(field_escape_pair,replacement_pair_seq);
-  }
-  catch(std::bad_alloc &) {
-    err = ENOMEM;
-  }
-  catch (...) {
-    abort();
-  }
-
-  return err;
-}
-
-
-size_t dsv_parser_num_equiv_escaped_field_escapes(dsv_parser_t _parser,
-  size_t field_escape_pair)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t value = static_cast<size_t>(-1);
-
-  try {
-    if(field_escape_pair < parser.field_escapes().size()) {
-      const detail::parser::escaped_field_desc &desc =
-        parser.field_escapes().at(field_escape_pair);
-
-      value = desc.escaped_field_escapes.size();
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return value;
-}
-
-size_t dsv_parser_num_equiv_escaped_field_escapes_sequences(
-  dsv_parser_t _parser, size_t field_escape_pair, size_t equiv_escape_idx)
-{
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t value = static_cast<size_t>(-1);
-
-  try {
-    if(field_escape_pair < parser.field_escapes().size()) {
-      const detail::parser::escaped_field_desc &desc =
-        parser.field_escapes().at(field_escape_pair);
-
-      if(equiv_escape_idx < desc.escaped_field_escapes.size()) {
-        const detail::parser::escaped_field_desc &desc =
-          parser.field_escapes().at(field_escape_pair);
-
-        value = desc.escaped_field_escapes.size();
-      }
-    }
-  }
-  catch (...) {
-    abort();
-  }
-
-  return value;
-}
-
-size_t dsv_parser_get_equiv_escaped_field_escapes_replacement(
-  dsv_parser_t _parser, size_t pairi, size_t idx, unsigned char *buf,
-  size_t bufsize)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-  typedef detail::parser::bytesequence_type bytesequence_type;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  size_t result = 0;
-
+  size_t result = SIZE_MAX;
 
   try {
     if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+      result = parser.field_escapes().at(pairi).replacement_desc_seq().size();
+    }
+  }
+  catch (...) {
+    abort();
+  }
 
-      if(idx < desc.escaped_field_escapes.size()) {
-        const bytesequence_type &bytesequence =
-          desc.escaped_field_escapes.at(idx).second;
+  return result;
+}
 
-        if(bufsize == 0)
-          result = bytesequence.size();
-        else {
-          while(result < bytesequence.size() && result < bufsize) {
-            buf[result] = bytesequence[result];
-            ++result;
-          }
+size_t dsv_parser_get_escaped_field_escape_expression(dsv_parser_t _parser,
+    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize)
+{
+  assert(_parser.p);
+
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
+
+  size_t result = SIZE_MAX;
+
+  try {
+    if(pairi < parser.field_escapes().size()) {
+      const parser_type::escaped_field_desc &escaped_field =
+        parser.field_escapes().at(pairi);
+
+      if(idx < escaped_field.replacement_desc_seq().size()) {
+        const parser_type::escaped_replacement_desc &escape_desc =
+          escaped_field.replacement_desc_seq().at(idx);
+
+        std::size_t exp_size = escape_desc.expression().size();
+
+        if(buffsize == 0)
+          result = exp_size;
+        else if(buff) {
+          result = std::min(exp_size,buffsize);
+          std::copy_n(escape_desc.expression().begin(),result,buff);
         }
       }
     }
   }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
   catch(...) {
     abort();
   }
@@ -954,50 +584,35 @@ size_t dsv_parser_get_equiv_escaped_field_escapes_replacement(
 
 
 
-size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
-  dsv_parser_t _parser, size_t pairi, size_t idx, size_t n,
-  unsigned char *buf, size_t bufsize, int *repeatflag)
+size_t dsv_parser_get_escaped_field_escape_replacement(dsv_parser_t _parser,
+    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize)
 {
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-  typedef detail::parser::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef equiv_bytesequence_type::byteseq_desc byteseq_desc;
-
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
-  size_t result = 0;
-
+  size_t result = SIZE_MAX;
 
   try {
     if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
+      const parser_type::escaped_field_desc &escaped_field =
+        parser.field_escapes().at(pairi);
 
-      if(idx < desc.escaped_field_escapes.size()) {
-        const equiv_bytesequence_type &bytesequence =
-          desc.escaped_field_escapes.at(idx).first;
+      if(idx < escaped_field.replacement_desc_seq().size()) {
+        const parser_type::escaped_replacement_desc &escape_desc =
+          escaped_field.replacement_desc_seq().at(idx);
 
-        if(n < bytesequence.byteseq_desc_vec().size()) {
-          const byteseq_desc &seq = bytesequence.byteseq_desc_vec().at(n);
+        std::size_t exp_size = escape_desc.replacement().size();
 
-          if(bufsize == 0)
-            result = seq.base_seq_bytes.size();
-          else {
-            while(result < seq.base_seq_bytes.size() && result < bufsize) {
-              buf[result] = seq.base_seq_bytes[result];
-              ++result;
-            }
-          }
-
-          if(repeatflag)
-            *repeatflag = seq.repeat;
+        if(buffsize == 0)
+          result = exp_size;
+        else if(buff) {
+          result = std::min(exp_size,buffsize);
+          std::copy_n(escape_desc.replacement().begin(),result,buff);
         }
       }
     }
   }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
   catch(...) {
     abort();
   }
@@ -1005,105 +620,30 @@ size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
   return result;
 }
 
-int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
-  size_t pairi, size_t idx)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
-
-      if(idx < desc.escaped_field_escapes.size())
-        result = desc.escaped_field_escapes.at(idx).first.repeatflag();
-    }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t _parser,
-    size_t pairi, size_t idx, int flag)
+void dsv_parser_set_field_columns(dsv_parser_t _parser, size_t num_cols)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   try {
-    if(pairi < parser.field_escapes().size())
-      parser.set_escaped_field_escapes_repeat(pairi,idx,flag);
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
+    parser.restrict_field_columns(num_cols);
   }
   catch(...) {
     abort();
   }
-
-  return result;
 }
 
-
-
-
-int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
-  size_t pairi, size_t idx)
-{
-  typedef detail::parser::escaped_field_desc escaped_field_desc;
-
-  assert(_parser.p);
-
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
-
-  int result = -1;
-
-  try {
-    if(pairi < parser.field_escapes().size()) {
-      const escaped_field_desc &desc = parser.field_escapes().at(pairi);
-
-      if(idx < desc.escaped_field_escapes.size())
-        result = desc.escaped_field_escapes.at(idx).first.exclusiveflag();
-    }
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
-  }
-  catch(...) {
-    abort();
-  }
-
-  return result;
-}
-
-int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
-    size_t pairi, size_t idx, int flag)
+size_t dsv_parser_get_field_columns(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
-  int result = -1;
+  size_t result;
 
   try {
-    if(pairi < parser.field_escapes().size())
-      parser.set_escaped_field_escapes_exclusives(pairi,idx,flag);
-  }
-  catch(std::range_error &) {
-    abort(); // should never get here.
+    result = parser.restrict_field_columns();
   }
   catch(...) {
     abort();
@@ -1111,13 +651,6 @@ int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t _parser,
 
   return result;
 }
-
-
-
-
-
-
-
 
 
 
@@ -1303,7 +836,7 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
 {
   assert(_parser.p && _operations.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
   detail::parse_operations &operations =
     *static_cast<detail::parse_operations*>(_operations.p);
 
@@ -1312,8 +845,8 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   try {
     //parser_debug = 1;
 
-    detail::basic_scanner<unsigned char> scanner(location_str,stream);
-    std::unique_ptr<detail::scanner_state> base_ctx;
+    scanner_type scanner(location_str,stream);
+    std::unique_ptr<scanner_type> base_ctx;
 
     parser.reset();
     int err = parser_parse(scanner,parser,operations,base_ctx);
@@ -1351,7 +884,7 @@ log_callback_t dsv_get_logger_callback(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   log_callback_t result = 0;
 
@@ -1375,7 +908,7 @@ void * dsv_get_logger_context(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   void *result = 0;
 
@@ -1393,7 +926,7 @@ dsv_log_level dsv_get_log_level(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   dsv_log_level result;
 
@@ -1417,7 +950,7 @@ dsv_log_level dsv_get_log_level(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
-  detail::parser &parser = *static_cast<detail::parser*>(_parser.p);
+  parser_type &parser = *static_cast<parser_type*>(_parser.p);
 
   try {
     parser.log_callback(fn);

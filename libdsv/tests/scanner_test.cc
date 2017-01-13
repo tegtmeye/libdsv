@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_test )
     "cache_size: did not return 0 for empty file");
 
   // should not crash
-  scanner.clear_cache(0);
+  scanner.cache_erase(0);
 
   fs::remove(filepath);
 }
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE( scanner_empty_eof_fn_test )
     "file");
 
   // should not crash
-  scanner.clear_cache(0);
+  scanner.cache_erase(0);
 
   BOOST_REQUIRE_MESSAGE(scanner.eof(),
     "getc: scanner did not return EOF after accepting empty token and empty "
@@ -282,7 +282,7 @@ BOOST_AUTO_TEST_CASE( scanner_single_getc_putback_test )
   BOOST_REQUIRE_MESSAGE(scanner.at_cache(0) == 'a',
     "at_cache: scanner did not return 'a' for single char file");
 
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE( scanner_minimal_refill_getc_test )
   BOOST_REQUIRE_MESSAGE(scanner.at_cache(1) == 'b',
     "at_cache: scanner did not return 'a' for single char file");
 
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
     "cache_size: scanner did not return a cache_size of 1");
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
     "cache_size: scanner did not return a cache_size of 1");
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
 
@@ -390,7 +390,7 @@ BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
     "cache_size: scanner did not return a cache_size of 1");
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
 
@@ -400,7 +400,7 @@ BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
     "cache_size: scanner did not return a cache_size of 1");
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
 
@@ -410,7 +410,7 @@ BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 1,
     "cache_size: scanner did not return a cache_size of 1");
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
 
@@ -488,7 +488,7 @@ BOOST_AUTO_TEST_CASE( scanner_cache_test )
     "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
 
-  scanner.clear_cache(0);
+  scanner.cache_erase(0);
 
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 4,
@@ -511,7 +511,7 @@ BOOST_AUTO_TEST_CASE( scanner_cache_test )
     "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
 
-  scanner.clear_cache(1);
+  scanner.cache_erase(1);
 
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 3,
@@ -530,7 +530,7 @@ BOOST_AUTO_TEST_CASE( scanner_cache_test )
     "at_cache: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
 
-  scanner.clear_cache(3);
+  scanner.cache_erase(3);
 
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
@@ -588,7 +588,7 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_compaction_test )
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
 
-  scanner.clear_cache(4);
+  scanner.cache_erase(4);
   // front of buffer is now empty
 
   // start accumulating cache.
@@ -692,7 +692,7 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_compaction_test )
     "fgetc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
 
-  scanner.clear_cache(8);
+  scanner.cache_erase(8);
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
@@ -744,7 +744,7 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_expand_test )
     "getc: unexpected '" << detail::ascii(val) << "', expected 'd'");
 
 
-  scanner.clear_cache(3);
+  scanner.cache_erase(3);
   // front of buffer is now has a single char
 
   // start accumulating cache.
@@ -856,7 +856,7 @@ BOOST_AUTO_TEST_CASE( scanner_putback_refill_expand_test )
     "fgetc: unexpected '" << detail::ascii(val) << "', expected 'EOF'");
 
 
-  scanner.clear_cache(9);
+  scanner.cache_erase(9);
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");

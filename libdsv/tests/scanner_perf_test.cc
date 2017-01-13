@@ -37,7 +37,16 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <iomanip>
 #include <chrono>
+#include <algorithm>
+
+// turn assert back on
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
+#include <cassert>
 
 namespace d=detail;
 
@@ -80,14 +89,26 @@ int main(int argc, char *argv[])
 
   assert(in);
 
+  std::size_t output_factor = 1000000;
+  double output_total = double(total_bytes)/output_factor;
+  std::string output_total_base = "MBytes";
+  std::cout.setf(std::ios::fixed, std::ios::floatfield);
+  std::cout.setf(std::ios::showpoint);
+  std::cout.precision(2);
+
   volatile int val;
 
   std::chrono::time_point<std::chrono::high_resolution_clock> start;
   std::chrono::time_point<std::chrono::high_resolution_clock> end;
   std::chrono::duration<double> total_seconds;
+  double elapsed_average;
+
+  std::cout << "Created a random file of " << output_total << " "
+    << output_total_base << "\n\n";
 
   // check baseline
-  std::cout << "Warming up the cache and setting baseline\n";
+  std::cout << "Reading using getc(FILE *) to warm up the cache and to "
+    "set baseline\n";
 
   total_seconds = std::chrono::duration<double>(0);
 
@@ -109,11 +130,14 @@ int main(int argc, char *argv[])
 
     rewind(in.get());
   }
-  std::cout << "Warm up elapsed " << total_seconds.count()/3 << "s\n";
+  elapsed_average = total_seconds.count()/3;
+  std::cout << "Average elapsed " << elapsed_average << "s or "
+    << output_total/elapsed_average << " " << output_total_base << "/s\n";
 
 
 
-  std::cout << "\nTesting read of entire contents (likely best case)\n";
+  std::cout << "\nTesting read of entire contents at once and looping over "
+    "data (likely best case)\n";
 
   buff = std::vector<unsigned char>(total_bytes);
 
@@ -139,7 +163,9 @@ int main(int argc, char *argv[])
 
     rewind(in.get());
   }
-  std::cout << "Full buffer read elapsed " << total_seconds.count()/3 << "s\n";
+  elapsed_average = total_seconds.count()/3;
+  std::cout << "Average elapsed " << elapsed_average << "s or "
+    << output_total/elapsed_average << " " << output_total_base << "/s\n";
 
 
   std::cout << "\nTesting scanner getc with full buffer & keep cache\n";
@@ -162,8 +188,9 @@ int main(int argc, char *argv[])
 
     rewind(in.get());
   }
-  std::cout << "Scanner full buffer getc elapsed "
-    << total_seconds.count()/3 << "s\n";
+  elapsed_average = total_seconds.count()/3;
+  std::cout << "Average elapsed " << elapsed_average << "s or "
+    << output_total/elapsed_average << " " << output_total_base << "/s\n";
 
 
 
@@ -178,7 +205,7 @@ int main(int argc, char *argv[])
     std::size_t count;
     val = scanner.getc();
     for(count=0; val != EOF; ++count) {
-      scanner.clear_cache(1);
+      scanner.cache_erase(1);
       val = scanner.getc();
     }
 
@@ -191,14 +218,16 @@ int main(int argc, char *argv[])
 
     rewind(in.get());
   }
-  std::cout << "Scanner getc elapsed " << total_seconds.count()/3 << "s\n";
+  elapsed_average = total_seconds.count()/3;
+  std::cout << "Average elapsed " << elapsed_average << "s or "
+    << output_total/elapsed_average << " " << output_total_base << "/s\n";
 
-
+  std::vector<double> results(24);
   for(std::size_t read_factor = 2; read_factor < 24; ++read_factor) {
 
     std::size_t read_size = (2 << read_factor);
     std::cout << "\nTesting scanner getc with read_size " << read_size
-      << " bytes\n";
+      << " (" << "2^" << read_factor << ") bytes\n";
 
     total_seconds = std::chrono::duration<double>(0);
     for(int i = 0; i<3; ++i) {
@@ -209,7 +238,7 @@ int main(int argc, char *argv[])
       std::size_t count;
       val = scanner.getc();
       for(count=0; val != EOF; ++count) {
-        scanner.clear_cache(1);
+        scanner.cache_erase(1);
         val = scanner.getc();
       }
 
@@ -222,13 +251,29 @@ int main(int argc, char *argv[])
 
       rewind(in.get());
     }
+    elapsed_average = total_seconds.count()/3;
+
+    results[read_factor] = output_total/elapsed_average;
+
     std::cout
       << "------------------------------------------------------------\n"
-      << "Scanner getc with read_size " << read_size
-      << ", average time: "
-      << total_seconds.count()/3 << "s\n";
+      << "Average elapsed " << elapsed_average << "s or "
+      << output_total/elapsed_average << " " << output_total_base << "/s\n";
   }
 
+  std::vector<double>::iterator optimum =
+    std::max_element(results.begin(),results.end());
+  std::size_t optimum_factor = std::distance(results.begin(),optimum);
+  std::cout << "\n\nOptimum cache size: "  << (2 << optimum_factor)
+    << " (2^" << optimum_factor << ") bytes at " << *optimum << " "
+    << output_total_base << "/s\n";
+
+  for(std::size_t i=2; i<results.size(); ++i) {
+    std::cout << "  Cache size: 2^" << i << ": "
+      << results[i] - (*optimum) << " "
+      << output_total_base << "/s or "
+      << (1.0 - results[i] / (*optimum)) * 100 << "% difference\n";
+  }
 
   fs::remove(filepath);
 

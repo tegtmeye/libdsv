@@ -35,7 +35,7 @@
 #include <boost/iterator/iterator_facade.hpp>
 
 #include <string>
-#include <vector>
+#include <memory>
 #include <iterator>
 #include <cstdio>
 #include <system_error>
@@ -51,13 +51,24 @@
 
 namespace detail {
 
-template<typename CharT>
+template<typename CharT, typename Allocator = std::allocator<CharT> >
 class basic_scanner {
   public:
-    typedef CharT char_type;
+    typedef CharT                                               char_type;
+    typedef char_type &                                         reference;
+    typedef const char_type &                                   const_reference;
+    typedef Allocator                                           allocator_type;
+    typedef typename
+      std::allocator_traits<Allocator>::size_type               size_type;
+    typedef typename
+      std::allocator_traits<Allocator>::difference_type         difference_type;
+    typedef typename
+      std::allocator_traits<Allocator>::pointer                 pointer;
+    typedef typename
+      std::allocator_traits<Allocator>::const_pointer           const_pointer;
 
     basic_scanner(const char *path, FILE *in=0,
-      std::size_t read_size=DEFAULT_SCANNER_READ_SIZE);
+      size_type read_size=DEFAULT_SCANNER_READ_SIZE);
     basic_scanner(const basic_scanner &) = delete;
     ~basic_scanner(void);
 
@@ -73,35 +84,47 @@ class basic_scanner {
     */
     int getc(void);
 
-    const CharT & at_cache(std::size_t n) const;
+    const_pointer cache_begin(void) const;
+    const_pointer cache_end(void) const;
+    size_type cache_size(void) const;
 
-    std::size_t cache_size(void) const;
+    const_reference at_cache(size_type n) const;
 
-    void clear_cache(std::size_t n);
+    void cache_clear(void);
+    void cache_erase(size_type n);
+
+    int cache_id(int id) const;
 
   private:
+    typedef std::allocator_traits<Allocator> allocator_traits;
+
     friend class scanner_iterator;
 
-    typedef std::vector<CharT> buffer_type;
+    allocator_type _allocator;
 
     std::string _path;
     FILE *_stream;
 
-    buffer_type _buff;
-    std::size_t _start_offset;
-    std::size_t _read_offset;
-    std::size_t _end_offset;
+    pointer _buff;
+    size_type _buff_size;
+    size_type _start_offset;
+    size_type _read_offset;
+    size_type _end_offset;
     bool _eof;
 
-    std::size_t _read_size;
+    size_type _read_size;
     bool _should_close;
+
+    int _cache_id;
 
     bool refill(void);
 };
 
-template<typename CharT>
-basic_scanner<CharT>::basic_scanner(const char *str, FILE *in,
-    std::size_t read_size) :_stream(in), _buff(read_size,0),
+template<typename CharT, typename Allocator>
+basic_scanner<CharT,Allocator>::basic_scanner(const char *str, FILE *in,
+    size_type read_size) :_stream(in),
+    _buff(allocator_traits::allocate(_allocator,read_size)),
+    _buff_size(read_size),
     _start_offset(0),
     _read_offset(0),
     _end_offset(0),
@@ -121,28 +144,30 @@ basic_scanner<CharT>::basic_scanner(const char *str, FILE *in,
   }
 }
 
-template<typename CharT>
-inline basic_scanner<CharT>::~basic_scanner(void)
+template<typename CharT, typename Allocator>
+inline basic_scanner<CharT,Allocator>::~basic_scanner(void)
 {
   if(_should_close)
     fclose(_stream);
+
+  allocator_traits::deallocate(_allocator,_buff,_buff_size);
 }
 
 
-template<typename CharT>
-inline const std::string & basic_scanner<CharT>::path(void) const
+template<typename CharT, typename Allocator>
+inline const std::string & basic_scanner<CharT,Allocator>::path(void) const
 {
   return _path;
 }
 
-template<typename CharT>
-inline bool basic_scanner<CharT>::eof(void) const
+template<typename CharT, typename Allocator>
+inline bool basic_scanner<CharT,Allocator>::eof(void) const
 {
   return _eof;
 }
 
-template<typename CharT>
-inline int basic_scanner<CharT>::getc(void)
+template<typename CharT, typename Allocator>
+inline int basic_scanner<CharT,Allocator>::getc(void)
 {
   if(_read_offset == _end_offset && (std::feof(_stream) || !refill())) {
     _eof = true;
@@ -152,49 +177,74 @@ inline int basic_scanner<CharT>::getc(void)
   return _buff[_read_offset++];
 }
 
-template<typename CharT>
-inline const CharT & basic_scanner<CharT>::at_cache(std::size_t n) const
+template<typename CharT, typename Allocator>
+inline typename basic_scanner<CharT,Allocator>::const_pointer
+basic_scanner<CharT,Allocator>::cache_begin(void) const
+{
+  return _buff+_start_offset;
+}
+
+template<typename CharT, typename Allocator>
+inline typename basic_scanner<CharT,Allocator>::const_pointer
+basic_scanner<CharT,Allocator>::cache_end(void) const
+{
+  return _buff+_read_offset;
+}
+
+template<typename CharT, typename Allocator>
+inline typename basic_scanner<CharT,Allocator>::size_type
+basic_scanner<CharT,Allocator>::cache_size(void) const
+{
+  return (_read_offset - _start_offset);
+}
+
+template<typename CharT, typename Allocator>
+inline typename basic_scanner<CharT,Allocator>::const_reference
+basic_scanner<CharT,Allocator>::at_cache(size_type n) const
 {
   assert(n < (_read_offset-_start_offset));
 
   return _buff[_start_offset+n];
 }
 
-template<typename CharT>
-std::size_t basic_scanner<CharT>::cache_size(void) const
+template<typename CharT, typename Allocator>
+void basic_scanner<CharT,Allocator>::cache_clear(void)
 {
-  return (_read_offset - _start_offset);
+  _start_offset = _read_offset;
 }
 
-template<typename CharT>
-void basic_scanner<CharT>::clear_cache(std::size_t n)
+template<typename CharT, typename Allocator>
+void basic_scanner<CharT,Allocator>::cache_erase(size_type n)
 {
   assert(_start_offset+n <= _read_offset);
 
   _start_offset += n;
 }
 
-template<typename CharT>
-bool basic_scanner<CharT>::refill(void)
+template<typename CharT, typename Allocator>
+bool basic_scanner<CharT,Allocator>::refill(void)
 {
-  std::size_t content_size = (_end_offset-_start_offset);
+  typedef std::allocator_traits<Allocator> alloc_traits_type;
+
+  size_type content_size = (_end_offset-_start_offset);
   if(!content_size) {
   // if no cache, just skip to refill
     _start_offset = _read_offset = 0;
   }
-  else if(_buff.size() - _end_offset < _read_size) {
+  else if(_buff_size - _end_offset < _read_size) {
     // need to refill but not enough storage...
-    if(_buff.size()-content_size < _read_size) {
+    if(_buff_size - content_size < _read_size) {
       // not enough room to even with compaction, make new storage
-      buffer_type tmp(content_size+_read_size);
-      std::copy(_buff.begin()+_start_offset,_buff.begin()+_end_offset,
-        tmp.begin());
+      size_type tmp_buff_size = content_size + _read_size;
+      pointer tmp = alloc_traits_type::allocate(_allocator,tmp_buff_size);
+      std::copy(_buff+_start_offset,_buff+_end_offset,tmp);
       std::swap(tmp,_buff);
+      std::swap(tmp_buff_size,_buff_size);
+      alloc_traits_type::deallocate(_allocator,tmp,tmp_buff_size);
     }
     else {
       // just compact
-      std::move(_buff.begin()+_start_offset,_buff.begin()+_end_offset,
-        _buff.begin());
+      std::move(_buff+_start_offset,_buff+_end_offset,_buff);
     }
 
     _start_offset=0;
@@ -204,7 +254,7 @@ bool basic_scanner<CharT>::refill(void)
   // code adapted from flex non-posix fread
   errno=0;
   std::size_t len;
-  while ((len = std::fread(_buff.data()+_read_offset,1,_read_size,_stream))==0
+  while ((len = std::fread(_buff+_read_offset,1,_read_size,_stream))==0
     && std::ferror(_stream))
   {
     if(errno != EINTR) {
@@ -231,38 +281,42 @@ bool basic_scanner<CharT>::refill(void)
 
 
 
-template<typename CharT>
+template<typename CharT, typename Allocator=std::allocator<CharT> >
 class basic_scanner_iterator
-  :public boost::iterator_facade<basic_scanner_iterator<CharT>,
+  :public boost::iterator_facade<basic_scanner_iterator<CharT,Allocator>,
     const CharT,boost::bidirectional_traversal_tag>
 {
   public:
+    typedef basic_scanner<CharT,Allocator>          scanner_type;
+    typedef typename scanner_type::size_type        size_type;
+
     basic_scanner_iterator(void);
-    basic_scanner_iterator(basic_scanner<CharT> &scanner);
+    basic_scanner_iterator(basic_scanner<CharT,Allocator> &scanner);
 
     const CharT & dereference(void) const;
 
-    bool equal(const basic_scanner_iterator<CharT> &rhs) const;
+    bool equal(const basic_scanner_iterator<CharT,Allocator> &rhs) const;
 
     void increment(void);
 
     void decrement(void);
 
   private:
-    basic_scanner<CharT> *_scanner;
-    std::size_t _offset;
+    scanner_type *_scanner;
+    size_type _offset;
     CharT _value;
 };
 
-template<typename CharT>
-inline basic_scanner_iterator<CharT>::basic_scanner_iterator(void)
+template<typename CharT, typename Allocator>
+inline basic_scanner_iterator<CharT,Allocator>::basic_scanner_iterator(void)
   :_scanner(0), _offset(0), _value(0)
 {
 }
 
-template<typename CharT>
-inline basic_scanner_iterator<CharT>::basic_scanner_iterator(
-  basic_scanner<CharT> &scanner) :_scanner(&scanner), _offset(0), _value(0)
+template<typename CharT, typename Allocator>
+inline basic_scanner_iterator<CharT,Allocator>::basic_scanner_iterator(
+  basic_scanner<CharT,Allocator> &scanner) :_scanner(&scanner), _offset(0),
+    _value(0)
 {
   if(!(_scanner->cache_size() == 0 && _scanner->getc() == EOF)) {
     _offset = _scanner->cache_size()-1;
@@ -270,15 +324,16 @@ inline basic_scanner_iterator<CharT>::basic_scanner_iterator(
   }
 }
 
-template<typename CharT>
-inline const CharT & basic_scanner_iterator<CharT>::dereference(void) const
+template<typename CharT, typename Allocator>
+inline const CharT &
+basic_scanner_iterator<CharT,Allocator>::dereference(void) const
 {
   return _value;
 }
 
-template<typename CharT>
-inline bool basic_scanner_iterator<CharT>::equal(
-  const basic_scanner_iterator<CharT> &rhs) const
+template<typename CharT, typename Allocator>
+inline bool basic_scanner_iterator<CharT,Allocator>::equal(
+  const basic_scanner_iterator<CharT,Allocator> &rhs) const
 {
   bool val = ((_scanner == rhs._scanner) && (_offset == rhs._offset)) ||
     (_scanner == 0 && rhs._offset >= rhs._scanner->cache_size()) ||
@@ -298,35 +353,18 @@ inline bool basic_scanner_iterator<CharT>::equal(
     Dereferencing or incrementing the iterator once it equals the
     end-of-stream iterator invokes undefined behavior
 */
-template<typename CharT>
-inline void basic_scanner_iterator<CharT>::increment(void)
+template<typename CharT, typename Allocator>
+inline void basic_scanner_iterator<CharT,Allocator>::increment(void)
 {
   if(!(++_offset >= _scanner->cache_size() && _scanner->getc() == EOF))
     _value = _scanner->at_cache(_offset);
 }
 
-template<typename CharT>
-inline void basic_scanner_iterator<CharT>::decrement(void)
+template<typename CharT, typename Allocator>
+inline void basic_scanner_iterator<CharT,Allocator>::decrement(void)
 {
   _value = _scanner->at_cache(--_offset);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 }

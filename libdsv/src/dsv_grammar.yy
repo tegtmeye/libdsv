@@ -60,6 +60,9 @@
     char_buff_vec_ptr_type char_buf_vec_ptr;
   };
 
+  typedef detail::parser<char> parser_type;
+  typedef detail::basic_scanner<char> scanner_type;
+
 }
 
 
@@ -74,10 +77,9 @@
    *  These are always errors
    */
   void parser_error(YYLTYPE *llocp,
-    const detail::basic_scanner<unsigned char> &scanner,
-    detail::parser<unsigned char> &parser,
+    const scanner_type &scanner, parser_type &parser,
     const detail::parse_operations &operations,
-    const std::unique_ptr<detail::basic_scanner<unsigned char> > &context,
+    const std::unique_ptr<scanner_type> &context,
     const char *s)
   {
     log_callback_t logger = parser.log_callback();
@@ -101,10 +103,8 @@
     }
   }
 
-  bool column_count_message(const YYLTYPE &llocp,
-    const detail::basic_scanner<unsigned char> &scanner,
-    detail::parser<unsigned char> &parser, std::size_t rec_cols,
-    dsv_log_level level)
+  bool column_count_message(const YYLTYPE &llocp, const scanner_type &scanner,
+    parser_type &parser, std::size_t rec_cols, dsv_log_level level)
   {
 //     std::cerr << "Generating column_count_message: LOG LEVEL: "
 //       << parser.log_level() << "\n";
@@ -147,8 +147,7 @@
   }
 
   bool unexpected_binary(const YYLTYPE &llocp,
-    const detail::basic_scanner<unsigned char> &scanner,
-    detail::parser<unsigned char> &parser,
+    const scanner_type &scanner, parser_type &parser,
     const YYSTYPE::char_buff_type &char_buf, dsv_log_level level)
   {
     bool result = !(level & dsv_log_error);
@@ -198,9 +197,11 @@
   }
 
 
-  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
-    detail::basic_scanner<unsigned char> &scanner,
-    detail::parser<unsigned char> &parser);
+  /**
+      Forward declaration of lexer
+  */
+  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, scanner_type &scanner,
+    parser_type &parser);
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -210,8 +211,7 @@
      *  convenience declares
      */
     bool check_or_update_column_count(const YYLTYPE &llocp,
-      const detail::basic_scanner<unsigned char> &scanner,
-      detail::parser<unsigned char> &parser,
+      const scanner_type &scanner, parser_type &parser,
       const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr)
     {
 #if 0
@@ -321,13 +321,13 @@
 %debug
 %error-verbose
 
-%lex-param {detail::basic_scanner<unsigned char> &scanner}
-%lex-param {const detail::parser<unsigned char> &parser}
+%lex-param {scanner_type &scanner}
+%lex-param {parser_type &parser}
 
-%parse-param {detail::basic_scanner<unsigned char> &scanner}
-%parse-param {detail::parser<unsigned char> &parser}
+%parse-param {scanner_type &scanner}
+%parse-param {parser_type &parser}
 %parse-param {detail::parse_operations &operations}
-%parse-param {const std::unique_ptr<detail::basic_scanner<unsigned char> > &context}
+%parse-param {const std::unique_ptr<scanner_type> &context}
 
 %token END 0 "end-of-file"
 %token <char_buf_ptr> FIELD_DELIMITER "field delimiter"
@@ -593,15 +593,11 @@ std::string ascii(int c)
 /**
 
  */
-int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
-  detail::basic_scanner<unsigned char> &scanner,
-  detail::parser<unsigned char> &parser)
+int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, scanner_type &scanner,
+  parser_type &parser)
 {
-  typedef detail::parser<unsigned char> parser_type;
-  typedef parser_type::equiv_bytesequence_type equiv_bytesequence_type;
-  typedef parser_type::escaped_field_desc_seq_type escaped_field_desc_seq_type;
-
-  lvalp->char_buf_ptr.reset();
+  typedef detail::basic_scanner_iterator<scanner_type::char_type>
+    scanner_iterator;
 
   if(scanner.eof())
     return 0;
@@ -610,23 +606,29 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
   // last_column is always 1-past as is C
   llocp->first_column = llocp->last_column;
 
-  if(parser.has_lookahead()) {
-    std::pair<int,std::shared_ptr<parser::char_sequence_type> > lookahead =
-      parser.pop_lookahead();
-    // set lvalp to lookahead.second data
-    return lookahead.first;
+  if(scanner.cache_size()) {
+    // lookahead exists, copy it to lvalp, clear the cache, and return the ID
+    lvalp->char_buf_ptr->assign(scanner.cache_begin(),scanner.cache_end());
+    llocp->last_column += scanner.cache_size();
+    scanner.cache_clear();
+
+    return scanner.cache_id(0);
   }
 
 
-  std::cmatch results;
+  std::match_results<scanner_iterator> results;
 
-  if(parser.escaped_field()) {
+
+  if(false /*parser.escaped_field()*/) {
 
   }
   else {
     // we are starting or in a field
     // FREE FIELD SEARCHING
-    if(std::regex_search(in,parser.free_field_regex(),results)) {
+    if(std::regex_search(scanner_iterator(scanner),scanner_iterator(),
+      results,parser.free_field_regex()))
+    {
+#if 0
       // prefix holds normal textdata
       for(std::size_t i=0; i<results.size(); ++i) {
         if(results[i].matched()) {
@@ -648,14 +650,15 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
         }
 
       }
+#endif
     }
-
+#if 0
     // no matches---all is regular textdata, should be at EOF
     if(we actually read something) {
       // set lvalp to input
       return TEXTDATA;
     }
-
+#endif
     return 0; // EOF
   }
 }

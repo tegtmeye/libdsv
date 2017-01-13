@@ -48,8 +48,6 @@
 #define _QUOTEME(x) #x
 #define QUOTEME(x) _QUOTEME(x)
 
-#include <equiv_bytesequence.h>
-
 #include <iostream>
 #include <sstream>
 #include <ctime>
@@ -267,28 +265,6 @@ std::string print_byte(T byte)
   return out.str();
 }
 
-std::string output_packed(const std::vector<::detail::byte_chunk> &packed_vec)
-{
-  std::stringstream out;
-
-  for(std::size_t i=0; i<packed_vec.size(); ++i) {
-    out << "Data @ " << i << ":\n"
-      << "  Byte: " << char(packed_vec[i].byte)
-      << "  Accept: " << int(packed_vec[i].accept)
-      << "  Pass off: " << packed_vec[i].pass_skip
-        << " (" << i+packed_vec[i].pass_skip << ")"
-      << "  Fail off: " << packed_vec[i].fail_skip
-        << " (";
-    if(packed_vec[i].fail_skip==0)
-      out << "reject";
-    else
-      std::cerr << i+packed_vec[i].fail_skip;
-    out << ")\n\n";
-  }
-
-  return out.str();
-}
-
 
 }
 
@@ -297,10 +273,12 @@ std::string output_packed(const std::vector<::detail::byte_chunk> &packed_vec)
 }
 
 // In namespace std due to overload
+namespace std {
+
 std::ostream & operator<<(std::ostream &out,
-  const std::vector<unsigned char> &seq)
+  const std::vector<char> &seq)
 {
-  std::vector<unsigned char>::const_iterator cur = seq.begin();
+  std::vector<char>::const_iterator cur = seq.begin();
 
   while(cur != seq.end()) {
     if(*cur < 32 || *cur > 126)
@@ -314,5 +292,5 @@ std::ostream & operator<<(std::ostream &out,
   return out;
 }
 
-
+}
 #endif

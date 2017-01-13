@@ -53,19 +53,17 @@ extern "C" {
   } dsv_parser_t;
 
   /**
-   *  \brief Initialize a default dsv_parser_t object.
-   *
-   *  This parser is set up with the following default settings:
-   *    :dsv_newline_behavior = dsv_newline_permissive
-   *    :dsv_parser_set_field_columns(...,0)
-   *    :dsv_parser_set_field_delimiter(...,',')
-   *
-   *  \note You must eventually call dsv_parser_destroy.
-   *
-   *  \param[in,out] parser A pointer to a dsv_parser_t object to initialize
-   *    with default settings
-   *  \retval 0 success
-   *  \retval ENOMEM Could not allocate memory
+      \brief Initialize a default dsv_parser_t object.
+
+      This parser is set up with the following default settings:
+        //todo
+
+      \note You must eventually call dsv_parser_destroy.
+
+      \param[in,out] parser A pointer to a dsv_parser_t object to initialize
+        with default settings
+      \retval 0 success
+      \retval ENOMEM Could not allocate memory
    */
   int dsv_parser_create(dsv_parser_t *parser);
 
@@ -84,123 +82,53 @@ extern "C" {
 
   // LOW LEVEL INTERFACE
 
+  // todo add supported expression syntax
 
 
   /**
-    \brief Set equivalent, potentially repeating, and optionally
-    parse-exclusive multibyte record delimiters to be used for future parsing
-    with \c parser.
+    \brief Set a regular expression that represents a record delimiter.
+    If the the exclusive flag is set, only the exact sequence first
+    matched by the delimiter expression will be recognized in future
+    parser.
 
-    Equivalent delimiters are single or multibyte sequences such that if any
-    sequence is seen, it is considered an acceptable delimiter. For example,
-    in an RFC 4180-strict parser, a single non-repeating ASCII CRLF is the
-    only acceptable record delimiter. However, in other formats, a single LF
-    is an acceptable delimiter. Said another way, given some sequence
-    representing a delimiter \c DELIM, it is equivalent to the regular
-    expression DELIM. It is possible to set the delimiter as repeating on a
-    per-delimiter sequence basis. For example, given several sequences
-    representing equivalent delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is
-    equivalent to the regular expression (DELIM1*|DELIM2*|DELIM3*|...). It is
-    also possible to allow the entire equivalent delimiter set to repeat. That
-    is, for some delimiter sequence set \c {DELIM1,DELIM2,DELIM3,...} it is
-    equivalent to the regular expression \c (DELIM1|DELIM2|DELIM3|...)*. These
-    repeating flag can be mixed in arbitrary ways. For example, setting \c
-    DELIM1 and DELIM3 to repeat only along with the entire equivalent
-    delimiter set is equivalent to the regular expression
-    \c (DELIM1*|DELIM2|DELIM3*|...)*.
+    See the section on regular expressions regarding allowed
+    expressions.
 
-    Parse exclusivity means that the first equivalent byte sequence parsed as
-    a delimiter becomes the only acceptable delimiter for the remainder of the
-    parsing.
+    The sequence \c utf8_regex is interpreted as an UTF8 string and is
+    compatible with an ASCII string.
 
-    Setting a single delimiter sequence to repeat is equivalent to setting the
-    entire delimiter set consisting of a single delimiter to repeat but the
-    parser achieves the same result in different ways. That is \c (DELIM*)
-    achieves the same result as \c (DELIM)*. It is also possible to enable
-    parse-level exclusivity. That is, once one of the given delimiters is
-    parsed, it becomes the only valid delimiter for the remainder of the parse
-    operation.
+    \c regex_size may be zero. If this is the case, then there will be exactly
+    one record in the parsed output.
 
-    \note If unlimited repeating delimiter sequences is enabled, it becomes
-    impossible to represent an empty record based solely on repeating the
-    delimiter. For example, given the default delimiter of an ASCII CRLF,
-    two consecutive CRLF would represent an empty record. That is:
+    Parse exclusivity means that the first matched byte sequence parsed
+    as a delimiter becomes the only acceptable delimiter for the
+    remainder of the parsing.
 
-    fooCRLF
-    CRLF
-    CRLF
-    barCRLF
-
-    would have four records; one named 'foo', two empty records, and one named
-    'bar'. If, for example. repeating CRLF is set as the delimiter, the
-    previous input would have two records; 'foo' and 'bar'.
-
-    The default delimiter is the single, non-repeating, and exclusive ASCII
-    sequence: carriage-return (CR) immediately followed by a linefeed (LF).
-
-    Multibyte sequences can be used to support other character encodings such
-    as UTF-8
-
-    This delimiter is used to separate both headers and records depending on
-    the settings
-
-    \note There must always be a record delimiter. That is, setting \c size to
-    zero is invalid.
+    This delimiter is used to separate both headers and records
+    depending on the settings
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \param[in] equiv_byteseq An array of length \c size such that the ith
-      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
-    \param[in] byteseq_size An array of length \c size such that the ith element
-      is the size of the ith sequence of bytes pointed to by
-      \c equiv_byteseq[i].
-    \param[in] byteseq_repeat An array of length \c size such that if the ith
-      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
-      repeated indefinitely.
-    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
-      \c byteseq_repeat. If \c size is zero, this call has no effect on the
-      previous parsing state.
-    \param[in] repeatflag If nonzero, any bytesequence chosen from
-      \c equiv_byteseq my be repeated an indefinite number of times.
-    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
-      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
-      is encountered, it becomes the only valid bytesequence for the remainder
-      of the parser operation.
+
+    \param[in] utf8_regex A character sequence of length \c regex_size
+      representing a well-formed UTF8-encoded regular expression
+
+    \param[in] utf8_regex The size of the character sequence \c utf8_regex. May
+      be zero to indicate no record delimiter.
+
+    \param[in] exclusiveflag If nonzero, then when the first bytesequence
+      matched by \c utf8_regex is encountered, it becomes the only valid
+      bytesequence for the remainder of the parser operation.
+
     \retval 0 success
+
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero or
-      greater than available storage
+
+    \retval EINVAL \c utf8_regex represents an ill-formed UTF8-encoded regular
+      expression
    */
-  int dsv_parser_set_equiv_record_delimiters(dsv_parser_t parser,
-    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
-    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
-
-  /**
-    \brief Obtain the number of record delimiters currently assigned to
-    \c parser
-
-    The returned values is the same as the \c size parameter in
-    \c dsv_parser_set_equiv_record_delimiters
-
-    \param[in] parser A pointer to a dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-    \retval The number of equivalent bytesequences set for \c parser
-   */
-  size_t dsv_parser_num_equiv_record_delimiters(dsv_parser_t parser);
-
-  /**
-    \brief Obtain whether or not the record delimiters assigned to \parser are
-    allowed to repeat indefinitely
-
-    The returned values is the same as the \c repeatflag parameter in
-    \c dsv_parser_set_equiv_record_delimiters
-
-    \param[in] parser A pointer to a dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-    \retval If nonzero, the currently assigned bytesequence to \c parser
-      is allowed to repeat indefinitely
-   */
-  int dsv_parser_get_equiv_record_delimiters_repeatflag(dsv_parser_t parser);
+  int dsv_parser_set_record_delimiters(dsv_parser_t parser,
+    const char *utf8_regex, size_t regex_size, int exclusiveflag);
 
   /**
     \brief Obtain whether or not the first parsed record delimiter assigned to
@@ -208,197 +136,96 @@ extern "C" {
     parsing
 
     The returned values is the same as the \c exclusiveflag parameter in
-    \c dsv_parser_set_equiv_record_delimiters
+    \c dsv_parser_set_record_delimiters
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \retval If nonzero, the first bytesequence parsed among the currently
-      assigned equivalent bytesequences in\c parser shall be the only
-      permitted bytesequence for the remainder of the parsing session.
+    \retval If nonzero, the first matched record bytesequence shall be the only
+      permitted record delimiter for the remainder of the parsing with
+      \c parser.
    */
-  int dsv_parser_get_equiv_record_delimiters_exclusiveflag(dsv_parser_t parser);
+  int dsv_parser_get_record_delimiter_exclusiveflag(dsv_parser_t parser);
 
   /**
     \brief Copy the \c n th record delimiter to be used for future parsing
-    with \c parser into the buffer \c buf of size \c bufsize and set the
+    with \c parser into the buffer \c buff of size \c buffsize and set the
     location pointed to by \c repeatflag as to if the delimiter was allowed to
     be repeated indefinitely.
 
     This delimiter is used to separate both headers and records depending on
     the settings.
 
-    If \c bufsize is zero, return the number of bytes needed to hold the
+    If \c buffsize is zero, return the number of bytes needed to hold the
     current set delimiter. This number is suitable for allocating memory for
-    \c buf. If \c bufsize is nonzero, copy the bytes representing the
-    delimiter or \c bufsize whichever is smaller and return this value. If \c
-    bufsize is zero, \c buf is not referenced and may be zero for the call.
+    \c buf. If \c buffsize is nonzero, copy the bytes representing the
+    delimiter or \c buffsize whichever is smaller and return this value. If \c
+    buffsize is zero, \c buff is not referenced and may be zero for the call.
 
     If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
     the repeat value of the \c n th delimiter regardless of the value of \c
-    buf and \c buffsize
+    buff and \c buffsize
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
     \param[in] n The bytesequence number to return.
-    \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
-      size \bufsize to which the current bytesequence will be copied into.
-      N.B. since the sequence of bytes contained in \c buf may not represent a
+    \param[in,out] buff If \c buffsize is nonzero, an unsigned char buffer of
+      size \buffsize to which the current bytesequence will be copied into.
+      N.B. since the sequence of bytes contained in \c buff may not represent a
       string, no null terminator will be added to the end of the bytes.
-    \param [in] bufsize The size of the unsigned char buffer pointed to
+    \param [in] buffsize The size of the unsigned char buffer pointed to
       by \c buf.
     \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
       pointed to by \c repeatflag to a value if nonzero indicates that the
       \c nth bytesequence can be repeated indefinitely.
-    \retval If \c bufsize is zero, return the number of bytes needed to hold
-      the current bytesequence. If \c bufsize is nonzero, return the number of
-      bytes copied to \c buf which is not necessarily the same size as \c
-      bufsize.
+    \retval If \c buffsize is zero, return the number of bytes needed to hold
+      the current bytesequence. If \c buffsize is nonzero, return the number of
+      bytes copied to \c buff which is not necessarily the same size as \c
+      buffsize.
     \retval 0 \c n is greater than the number of equivalent bytesequences
       currently set for \c parser
    */
-  size_t dsv_parser_get_equiv_record_delimiter(dsv_parser_t parser, size_t n,
-    unsigned char *buf, size_t bufsize, int *repeatflag);
-
-
-
+  size_t dsv_parser_get_record_delimiters(dsv_parser_t parser, char *buff,
+    size_t buffsize);
 
   /**
-     \brief Set the required number of fields for future parsing with \c parser
-     or allow a non-uniform number.
+    \brief Set a regular expression that represents a field delimiter.
+    If the the exclusive flag is set, only the exact sequence first
+    matched by the delimiter expression will be recognized in future
+    parser.
 
-     If the behavior specified by \c dsv_parser_set_field_columns is
-     violated, dsv_parse will immediately return a nonzero value and an error
-     message will be logged with the code: \c dsv_column_count_error.
+    See the section on regular expressions regarding allowed
+    expressions.
 
-     The default value is 0. This value is also appropriate for RFC4180-strict
-     processing
+    The sequence \c utf8_regex is interpreted as an UTF8 string and is
+    compatible with an ASCII string.
 
-     \param[in] parser A pointer to a dsv_parser_t object previously
-       initialized with one of the \c dsv_parser_create* functions
-     \param[in] num_cols \parblock
-       If > 0, the number of columns expected during future
-       parsing. If during parsing, a row with less than \c num_cols is
-       encountered, dsv_parse will immediately return with a nonzero value. If
-       \c num_cols == 0, the parser will set the required number of columns
-        based on the first row encountered. For example, if the first header
-       row contains 5 columns, all subsequent rows must contain 5 columns
-       otherwise the dsv_parse will immediately return a nonzero value. If
-       \c num_cols == (size_t)-1, no restriction will be placed on the number of
-       columns. This also means that rows with zero columns are acceptable. In
-       this case, any registered callback will still be called.
-     \endparblock
-   */
-  void dsv_parser_set_field_columns(dsv_parser_t parser, size_t num_cols);
+    Parse exclusivity means that the first matched byte sequence parsed
+    as a delimiter becomes the only acceptable delimiter for the
+    remainder of the parsing.
 
-  /**
-   *  \brief Get the required number of fields associated with future parsing
-   *    with \c parser
-   *
-   *  See \c dsv_parser_set_field_columns for an explanation of the return
-   *    values
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *
-   *  \retval num_cols The number of columns required for future parsing of \c
-   *    parser
-   */
-  size_t dsv_parser_get_field_columns(dsv_parser_t parser);
+    This delimiter is used to separate both headers and records fields
+    depending on the settings
 
-
-
-
-
-
-  /**
-    \brief Set equivalent, potentially repeating, and optionally
-    parse-exclusive multibyte field delimiters to be used for future parsing
-    with \c parser.
-
-    Equivalent delimiters are single or multibyte sequences such that if any
-    sequence is seen, it is considered an acceptable delimiter. For example,
-    in an RFC 4180-strict parser, a single non-repeating ASCII comma is the
-    only acceptable delimiter. However, in other formats, any single or
-    repeating sequence of white spaces are considered in whole as an
-    acceptable delimiter. For example, repeating ASCII space or tab
-    characters. Said another way, given some sequence representing a delimiter
-    \c DELIM, it is equivalent to the regular expression DELIM*. It is
-    possible to set the delimiter as repeating on a per-delimiter sequence
-    basis. For example, given several sequences representing equivalent
-    delimiters \c {DELIM1,DELIM2,DELIM3,...}, it is equivalent to the regular
-    expression (DELIM1*|DELIM2*|DELIM3*|...). It is also possible to allow the
-    entire equivalent delimiter set to repeat. That is, for some delimiter
-    sequence set \c {DELIM1,DELIM2,DELIM3,...} it is equivalent to the regular
-    expression \c (DELIM1|DELIM2|DELIM3|...)*. These repeating flag can be
-    mixed in arbitrary ways. For example, setting \c DELIM1 and DELIM3 to
-    repeat only along with the entire equivalent delimiter set is equivalent
-    to the regular expression \c (DELIM1*|DELIM2|DELIM3*|...)*.
-
-    Parse exclusivity means that the first equivalent byte sequence parsed as
-    a delimiter becomes the only acceptable delimiter for the remainder of the
-    parsing.
-
-    Setting a single delimiter sequence to repeat is equivalent to setting the
-    entire delimiter set consisting of a single delimiter to repeat but the
-    parser achieves the same result in different ways. That is \c (DELIM*)
-    achieves the same result as \c (DELIM)*. It is also possible to enable
-    parse-level exclusivity. That is, once one of the given delimiters is
-    parsed, it becomes the only valid delimiter for the remainder of the parse
-    operation.
-
-    \note If unlimited repeating delimiter sequences is enabled, it becomes
-    impossible to represent an empty field based solely on repeating the
-    delimiter. For example, given the default delimiter of an ASCII comma ',',
-    two consecutive commas would represent an empty field. That is:
-
-      "foo",,"bar"
-
-    would have three fields, "foo", [[empty]], and "bar". If, for example.
-    repeating whitespace is set as the delimiter, the input "foo" and "bar"
-    separated by two spaces:
-
-      "foo"  "bar"
-
-    represents two fields "foo" and "bar"
-
-    The default delimiter is a single, non-repeating ASCII comma ','
-
-    Multibyte sequences can be used to support other character encodings such
-    as UTF-8
-
-    This delimiter is used to separate both headers and fields depending on
-    the settings
-
-    \note There must always be a field delimiter. That is, setting \c size to
-    zero is invalid.
+    \note There must always be either a record delimiter or a field
+    delimiter. That is, setting \c size to zero is invalid if the record
+    delimiter size is also zero.
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
-    \param[in] equiv_byteseq An array of length \c size such that the ith
-      element is a pointer to a sequence of bytes of size \c byteseq_size[i]
-    \param[in] byteseq_size An array of length \c size such that the ith element
-      is the size of the ith sequence of bytes pointed to by
-      \c equiv_byteseq[i].
-    \param[in] byteseq_repeat An array of length \c size such that if the ith
-      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
-      repeated indefinitely.
-    \param[in] size The size of each arrays \c equiv_byteseq, \c byteseq_size,
-      \c byteseq_repeat. If \c size is zero, this call has no effect on the
-      previous parsing state.
-    \param[in] repeatflag If nonzero, any bytesequence chosen from
-      \c equiv_byteseq my be repeated an indefinite number of times.
-    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
-      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
-      is encountered, it becomes the only valid bytesequence for the remainder
-      of the parser operation.
+    \param[in] utf8_regex A character sequence of length \c regex_size
+      representing a well-formed UTF8-encoded regular expression
+    \param[in] utf8_regex The size of the character sequence \c utf8_regex
+    \param[in] exclusiveflag If nonzero, then when the first bytesequence
+      matched by \c utf8_regex is encountered, it becomes the only valid
+      bytesequence for the remainder of the parser operation.
     \retval 0 success
     \retval ENOMEM Could not allocate memory
-    \retval EINVAL Either \c size or an element of byteseq_size is zero or
-      greater than available storage
+    \retval EINVAL Either \c regex_size is zero or it represents an ill-formed
+      UTF8-encoded regular expression
    */
-  int dsv_parser_set_equiv_field_delimiters(dsv_parser_t parser,
-    const unsigned char *equiv_byteseq[], const size_t byteseq_size[],
-    const int byteseq_repeat[], size_t size, int repeatflag, int exclusiveflag);
+  int dsv_parser_set_field_delimiters(dsv_parser_t parser,
+    const char *utf8_regex, size_t regex_size, int exclusiveflag);
+
 
   /**
    *  \brief Obtain the number of field delimiters currently assigned to
@@ -445,43 +272,43 @@ extern "C" {
 
   /**
    *  \brief Copy the \c n th field delimiter to be used for future parsing with
-   *  \c parser into the buffer \c buf of size \c bufsize and set the location
+   *  \c parser into the buffer \c buff of size \c buffsize and set the location
    *  pointed to by \c repeatflag as to if the delimiter was allowed to be
    *  repeated indefinitely.
    *
    *  This delimiter is used to separate both headers and fields depending on
    *  the settings.
    *
-   *  If \c bufsize is zero, return the number of bytes needed to hold the
+   *  If \c buffsize is zero, return the number of bytes needed to hold the
    *  current set delimiter. This number is suitable for allocating memory for
-   *  \c buf. If \c bufsize is nonzero, copy the bytes representing the
-   *  delimiter or \c bufsize whichever is smaller and return this value. If \c
-   *  bufsize is zero, \c buf is not referenced and may be zero for the call.
+   *  \c buf. If \c buffsize is nonzero, copy the bytes representing the
+   *  delimiter or \c buffsize whichever is smaller and return this value. If \c
+   *  buffsize is zero, \c buff is not referenced and may be zero for the call.
    *
    *  If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
    *  the repeat value of the \c n th delimiter regardless of the value of \c
-   *  buf and \c buffsize
+   *  buff and \c buffsize
    *
    *  \param[in] parser A pointer to a dsv_parser_t object previously
    *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in,out] buf If \c bufsize is nonzero, an unsigned char buffer of
-   *    size \bufsize to which the current field delimiter will be copied into.
-   *    N.B. since the sequence of bytes contained in \c buf may not represent a
+   *  \param[in,out] buff If \c buffsize is nonzero, an unsigned char buffer of
+   *    size \buffsize to which the current field delimiter will be copied into.
+   *    N.B. since the sequence of bytes contained in \c buff may not represent a
    *    string, no null terminator will be added to the end of the bytes.
-   *  \param [in] bufsize The size of the unsigned char buffer pointed to
+   *  \param [in] buffsize The size of the unsigned char buffer pointed to
    *    by \c buf.
    *  \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
    *    pointed to by \c repeatflag to a value if nonzero indicates that the
    *    \c th delimiter can be repeated indefinitely.
-   *  \retval If \c bufsize is zero, return the number of bytes needed to hold
-   *    the current delimiter. If \c bufsize is nonzero, return the number of
-   *    bytes copied to \c buf which is not necessarily the same size as \c
-   *    bufsize.
+   *  \retval If \c buffsize is zero, return the number of bytes needed to hold
+   *    the current delimiter. If \c buffsize is nonzero, return the number of
+   *    bytes copied to \c buff which is not necessarily the same size as \c
+   *    buffsize.
    * \retval 0 \c n is greater than the number of field delimiters currently set
    *    for \c parser
    */
   size_t dsv_parser_get_equiv_field_delimiter(dsv_parser_t parser, size_t n,
-    unsigned char *buf, size_t bufsize, int *repeatflag);
+    unsigned char *buff, size_t buffsize, int *repeatflag);
 
 
 
@@ -497,18 +324,21 @@ extern "C" {
       for example, a comma to be part of the field and not be considered a
       field delimiter.
 
-      The library supports a wide variety of simple to very complex field
-      delimiter scenarios. At the core, there are a pair of opening and closing
-      equivalent bytesequences that enclose a field. In the above example, the
-      double quote '"' is both the opening and closing. Another example could be
-      an opening '<' and a closing '>'. Because each opening and closing escape
-      is an equivalent bytesequence, equivalent opening and closing values are
-      possible. For example, an opening '<' OR '[' and a closing '>' OR ']'.
+      The library supports a wide variety of simple to very complex
+      field escapes scenarios. At the core, there are a pair of
+      opening and closing bytesequences matched by independent regular
+      expressions that enclose a field. In the above example, the double
+      quote '"' is both the opening and closing. Another example could
+      be an opening '<' and a closing '>'. Because each opening and
+      closing field escape has an independant regular expression,
+      equivalent opening and closing values are possible. For example,
+      an opening '<' OR '[' and a closing '>' OR ']' indicated by "<|["
+      and ">|]" respectively not including the quotes.
 
       Suppose however that if an opening '<' is seen, the parser should only
       accept a closing '>' but if an opening '[' is seen, it should only accept
-      a closing ']'. This is where multiple equivalence pairs come in. In this
-      case, there are two pairs of equivalent bytesequences, the first has the
+      a closing ']'. This is where multiple field escape pairs come in. In this
+      example, there are two pairs of expressions, the first has the
       opening '<' and closing '>' and the second has the opening '[' and the
       closing ']'. The only bytesequence accepted for the closing field escape
       will be the pair associated with the escape that opened the field.
@@ -522,159 +352,135 @@ extern "C" {
         - one to any
         - one to one
 
-      Where 'any' means multiple equivalent sequences and 'one' means a single
-      byte sequence. For each of these possibilities, multiple pairings can
-      exist. For example, suppose we have an opening set A that if scanned must
-      be closed by a sequence in closing set B or (A -> B). We can also have
-      another pairing from opening set C that must be closed by a sequence
-      contained in set D or (C -> D), etc. Each of these pairings are
-      contained in the field escapes pair list.
+      Where 'any' means multiple equivalent sequences and 'one' means a
+      single byte sequence. For each of these possibilities, multiple
+      pairings can exist. For example, suppose we have an opening
+      sequence set A that if scanned must be closed by a sequence in
+      closing set B or (A -> B). We can also have another pairing from
+      opening sequence set C that must be closed by a sequence contained
+      in set D or (C -> D), etc. Each of these pairings are contained in
+      the field escapes pair list.
 
       Pair exclusivity is another supported possibility. That is, given
       the mappings above, if once a sequence from opening set A is seen, then
       a sequence from A and a sequence from the closing set B is the only valid
       opening and closing sequence for the remainder of the file.
 
-      An even higher level of granularity is also supported.
-      Suppose that the equivalent opening escaped field set A contains
-      sequences {l,m,n,o}, then if sequence 'm' is seen, it is the only valid
-      opening sequence for the remainder of the parse. Optionally, then suppose
-      that the paired set B contains sequences {p,q,r,s}, then whichever
-      closing sequence is scanned (suppose 'q'), it becomes the only valid
-      closing sequence for the remainder of the file. That is to say;
-      'm' opens and 'q' closes for the rest of the file. Note that open and
-      close exclusivity can be independently enabled for each open and close
-      equivalent sequence set. That is, if both the mappings A -> B and C -> D
-      are set as exclusive but if the individual bytesequence for each of
-      C and D are also set, then if a bytesequence from A is scanned first, then
-      any subsequent sequence from A is the only valid open sequence and any
-      sequence from B is the only valid closing sequence for the rest of
-      of the file. However if a sequence from C, 'm', is scanned first, and
-      a corresponding closing sequence from D, 'q', is scanned, then 'm' and 'q'
-      are the only valid opening and closing sequences for the rest of the file.
+      An even higher level of granularity is also supported. Suppose
+      that the equivalent opening escaped field set A contains the
+      expression "l|m|n|o", then if sequence 'm' is seen, it is the only
+      valid opening sequence for the remainder of the parse. Optionally,
+      then suppose that the paired set B contains sequences "p|q|r|s",
+      then whichever closing sequence is scanned (suppose 'q'), it
+      becomes the only valid closing sequence for the remainder of the
+      file. That is to say; 'm' opens and 'q' closes for the rest of the
+      file. Note that open and close exclusivity can be independently
+      enabled for each open and close equivalent sequence set. That is,
+      if both the mappings A -> B and C -> D are set as exclusive but if
+      the individual bytesequence for each of C and D are also set, then
+      if a bytesequence from A is scanned first, then any subsequent
+      sequence from A is the only valid open sequence and any sequence
+      from B is the only valid closing sequence for the rest of of the
+      file. However if a sequence from C, 'm', is scanned first, and a
+      corresponding closing sequence from D, 'q', is scanned, then 'm'
+      and 'q' are the only valid opening and closing sequences for the
+      rest of the file.
 
       \c field escapes manipulation functions get and appends pairs of
-      equiv_bytesequences where each pair corresponds to an equivalent opening
-      and closing set. That is, the A -> B example above. If one individual
-      should be exclusive for each set then set the \c exclusiveflag in each
-      equiv_bytesequences. That is, the \c m in the \c {l,m,n,o} example above.
+      expressions where each pair corresponds to an opening and closing
+      set. That is, the A -> B example above. If one individual should
+      be exclusive for each set then set the the associated \c
+      exclusiveflag.
 
-      \c field_escape_exclusiveflag gets and set a flag that indicates whether
-      or not the first equiv_bytesequence_pair is considered exclusive for the
-      remainder of the file. If so, the individual effective_bytesequence
-      should be used to determine if it is the exclusive permanent bytesequence
-      for the rest of the file.
+      \c field_escape_exclusiveflag gets and set a flag that indicates
+      whether or not the first opening expression matched causes the
+      pair to be considered exclusive for the remainder of the file.
 
-      N.B. It is possible that an individual bytesequence for a set can be
+      N.B. It is possible that an individual expression for a set can be
       exclusive for the remainder of the file without the set being
       exclusive for the remainder of the file. That is:
       field_escapes_exclusives == false. In this case, if \c m is seen and set
       to exclusive but field_escapes_exclusives is set to false, then only it
       will be considered when considering A before moving on to B.
-
-      The default opening and closing bytesequence is the single ASCII double
-      quote or \c "
    */
 
-
   /**
-      \brief Append a matching opening and closing set of bytesequences to the
-      current list of equivalent opening and closing pairs for future parsing
-      with \c parser.
+      \brief Assign the matching opening and closing field escape expressions and the associated exclusivity for future parsing with \c parser
 
       See Field Delimiters for a complete description of what a field delimiter
       is and how it is used.
 
-      A 13 parameter function call is less that ideal but the alternative would
-      be either error-prone or involve many function calls that present a
-      verbose and clunky interface. For example, an opening bytesequence
-      without the corresponding closing bytesequence doesn't make sense but
-      a more granular interface would syntactically allow it thus requiring
-      some sort of pre-parse invalid state if the interface was used incorrectly
+      An 8 parameter function call is less that ideal but the
+      alternative would be either error-prone or involve many function
+      calls that present a verbose and clunky interface or worse, leave
+      the parser in an invalid state if used incorrectly.
 
       \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] open_escape_seq \parablock
-        An array of length \c open_size such that the ith element is a pointer
-        to a sequence of bytes of size \c open_escape_seq_size[i] to be used as
+      \param[in] open_utf8_regex \parablock
+        An array of length \c pair_size such that the ith element is a pointer
+        to a character sequence of length \c open_regex_size[i]
+        representing a well-formed UTF8-encoded regular expression used to match
         an open field escape.
       \endparblock
 
-      \param[in] open_escape_seq_size \parablock
-        An array of length \c open_size such that the ith element is the size of
-        the ith sequence of bytes pointed to by \c open_escape_seq[i].
+      \param[in] open_regex_size \parablock
+        An array of length \c pair_size such that the ith element is the size of
+        the ith sequence of bytes pointed to by \c open_utf8_regex[i].
       \endparblock
-
-      \param[in] open_escape_repeat \parablock
-        An array of length \c open_size such that if the ith element is nonzero,
-        the ith sequence of bytes in \c open_escape_seq may be repeated
-        indefinitely.
-      \endparblock
-
-      \param[in] open_size The size of each arrays \c open_escape_seq, \c
-      open_escape_seq_size, \c open_escape_repeat. If \c open_size is zero, this
-      call has no effect on the previous field escape state.
-
-      \param[in] open_repeatflag If nonzero, any field escape chosen from the
-      list pointed to by \c open_escape_seq my be repeated an indefinite number
-      of times.
 
       \param[in] open_exclusiveflag \parblock
-        If nonzero, then the first open field escape sequence represented by \c
-        open_escape_seq according to the repeat rules set in
-        \c open_escape_repeat is encountered, it becomes the only valid open
-        field escape sequence for the remainder of the parser operation. This is
-        reset when a new parse operation begins.
+        An array of length \c pair_size such that if the ith element is
+        nonzero, the bytesequence matched by open_utf8_regex[i] becomes
+        the only matched open field escape sequence for the remainder of
+        the parser operation.
       \endparblock
 
-
-      \param[in] close_escape_seq \parablock
-        An array of length \c close_size such that the ith element is a pointer
-        to a sequence of bytes of size \c close_escape_seq_size[i] to be used as
+      \param[in] close_utf8_regex \parablock
+        An array of length \c pair_size such that the ith element is a pointer
+        to a character sequence of length \c close_regex_size[i]
+        representing a well-formed UTF8-encoded regular expression used to match
         an close field escape.
       \endparblock
 
-      \param[in] close_escape_seq_size \parablock
-        An array of length \c close_size such that the ith element is the size
-        of the ith sequence of bytes pointed to by \c close_escape_seq[i].
+      \param[in] close_regex_size \parablock
+        An array of length \c pair_size such that the ith element is the size of
+        the ith sequence of bytes pointed to by \c close_utf8_regex[i].
       \endparblock
-
-      \param[in] close_escape_repeat \parablock
-        An array of length \c close_size such that if the ith element is
-        nonzero, the ith sequence of bytes in \c close_escape_seq may be
-        repeated indefinitely.
-      \endparblock
-
-      \param[in] close_size The size of each arrays \c close_escape_seq, \c
-      close_escape_seq_size, \c close_escape_repeat. If \c close_size is zero,
-      this call has no effect on the previous field escape state.
-
-      \param[in] close_repeatflag If nonzero, any field escape chosen from the
-      list pointed to by \c close_escape_seq my be repeated an indefinite number
-      of times.
 
       \param[in] close_exclusiveflag \parblock
-        If nonzero, then the first close field escape sequence represented by \c
-        close_escape_seq according to the repeat rules set in
-        \c close_escape_repeat is encountered, it becomes the only valid close
-        field escape sequence for the remainder of the parser operation. This is
-        reset when a new parse operation begins.
+        An array of length \c pair_size such that if the ith element is
+        nonzero, the bytesequence matched by close_utf8_regex[i] becomes
+        the only matched closing field escape sequence for the remainder of
+        the parser operation.
       \endparblock
+
+      \param[in] pair_size The length of each of \c open_utf8_regex,
+        \c open_regex_size, \c open_exclusiveflag, \c close_utf8_regex,
+        \c close_regex_size, \c close_exclusiveflag. If \c pair_size is zero,
+        then no field escapes will be matched during parser.
+
+      \param[in] pair_exclusiveflag If nonzero, the first bytesequence pair
+        matched according becomes the only pair to be considered for future
+        parsing with \c parser
 
       \retval 0 success
       \retval ENOMEM Could not allocate memory
-      \retval EINVAL Either \c open_size, \c close_size or an element of
-        \c open_escape_seq_size is or \c close_escape_seq_size is zero
+      \retval EINVAL The value of \c open_utf8_regex, \c open_regex_size,
+        \c open_exclusiveflag, \c close_utf8_regex, \c close_regex_size, or
+        \c close_exclusiveflag
+      \retval EINVAL An element of \c open_utf8_regex, \c open_regex_size,
+        \c close_utf8_regex, or \c close_regex_size is zero
+      \retval EINVAL A regular expression pointed to by an element of
+        \c open_utf8_regex or \c close_utf8_regex is invalid.
    */
-  int dsv_parser_append_field_escape_pair(dsv_parser_t parser,
-    const unsigned char *open_escape_seq[],
-    const size_t open_escape_seq_size[], const int open_escape_repeat[],
-    size_t open_size, int open_repeatflag, int open_exclusiveflag,
-    const unsigned char *close_escape_seq[],
-    const size_t close_escape_seq_size[], const int close_escape_repeat[],
-    size_t close_size, int close_repeatflag, int close_exclusiveflag);
-
+  int dsv_parser_set_field_escape_pair(dsv_parser_t parser,
+    const char *open_utf8_regex[], const size_t open_regex_size[],
+    const int open_exclusiveflag[],
+    const char *close_utf8_regex[], const size_t close_regex_size[],
+    const int close_exclusiveflag[],
+    size_t pair_size, int pair_exclusiveflag);
 
 
   /**
@@ -690,55 +496,15 @@ extern "C" {
 
   /**
       \brief Return whether or not the \c ith open escape sequence associated
-      with \c parser has the repeat flag enabled.
-
-      This value is the same as the \c open_repeatflag parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c ith pair
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] i A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
-
-      \retval negative means i does not point to a valid pair
-      \retval 0 The open_repeatflag is NOT set
-      \retval positive The open_repeatflag IS set
-  */
-  int dsv_parser_get_field_escape_pair_open_repeatflag(dsv_parser_t parser,
-    size_t i);
-
-  /**
-      \brief Return whether or not the \c ith close escape sequence associated
-      with \c parser has the repeat flag enabled.
-
-      This value is the same as the \c close_repeatflag parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c ith pair
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] i A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
-
-      \retval negative means i does not point to a valid pair
-      \retval 0 The close_repeatflag is NOT set
-      \retval positive The close_repeatflag IS set
-  */
-  int dsv_parser_get_field_escape_pair_close_repeatflag(dsv_parser_t parser,
-    size_t i);
-
-  /**
-      \brief Return whether or not the \c ith open escape sequence associated
       with \c parser has the exclusive flag enabled.
 
       This value is the same as the \c open_exclusiveflag parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c ith pair
+      \c dsv_parser_set_field_escape_pair for the \c ith pair
 
       \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] i A nonzero value smaller than the return value of
+      \param[in] i A value smaller than the return value of
       \c dsv_parser_num_field_escape_pairs
 
       \retval negative means i does not point to a valid pair
@@ -753,12 +519,12 @@ extern "C" {
       with \c parser has the exclusive flag enabled.
 
       This value is the same as the \c close_exclusiveflag parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c ith pair
+      \c dsv_parser_set_field_escape_pair for the \c ith pair
 
       \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] i A nonzero value smaller than the return value of
+      \param[in] i A value smaller than the return value of
       \c dsv_parser_num_field_escape_pairs
 
       \retval negative means i does not point to a valid pair
@@ -769,139 +535,79 @@ extern "C" {
     dsv_parser_t parser, size_t i);
 
   /**
-      \brief Return the number of equivalent bytesequences associated with the
-      \c pairi-th open field escape
-
-      This value is the same as the \c open_size parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c pairi-th pair
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
-
-      \retval 0 pairi does not point to a valid escape pair
-      \retval positive The number of equivalent bytesequences associated with
-      the \c pairi-th open escape sequence pair.
-  */
-  size_t dsv_parser_num_field_escape_pair_open_sequences(dsv_parser_t parser,
-    size_t pairi);
-
-  /**
-      \brief Return the number of equivalent bytesequences associated with the
-      \c pairi-th close field escape
-
-      This value is the same as the \c close_size parameter provided in
-      \c dsv_parser_append_field_escape_pair for the \c pairi-th pair
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
-
-      \retval 0 pairi does not point to a valid escape pair
-      \retval positive The number of equivalent bytesequences associated with
-      the \c pairi-th close escape sequence pair.
-  */
-  size_t dsv_parser_num_field_escape_pair_close_sequences(dsv_parser_t parser,
-    size_t pairi);
-
-
-
-
-
-
-  /**
-      \brief Get the equivalent open field escape bytesequences associated
-      with \c parser.
+      \brief Get the open expression associated with the ith field escape
+      pair in with \c parser.
 
 
       \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
+        initialized with one of the \c dsv_parser_create* functions
 
       \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
+        \c dsv_parser_num_field_escape_pairs
 
-      \param[in] n A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pair_open_sequences
+      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+        buffsize bytes to be overwritten by the first \c buffsize bytes of
+        \c pairi field escape pair open expression. NB The expression is
+        assumed to be UTF8 encoded. The buffer is filled with bytes, not
+        characters. Although if the expression contains only ASCII
+        characters these are the same, there are no checks to ensure if a
+        \c buffsize smaller then the number of bytes necessary to hold the
+        complete expresion does not split a multibyte character if UTF8
+        encoded.
 
-      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
-      to be overwritten by the \c nth bytesequence associated with the \c pairi
-      open pair.
-
-      \param[in] buffsize If nonzero, the size of the buffer pointed to by
-      \c buf. If zero, return the size of the \c nth bytesequence associated
-      with the \c pairi open pair.
-
-      \param[in,out] repeatflag If nonzero, a pointer to an integer that will be
-      overwritten with a nonzero value to indicate that the repeatflag was set
-      for the \c nth bytesequence associated with the \c pairi open pair.
+      \param[in] buffsize If nonzero, the size of the buffer pointed to
+        by \c buff. If zero, return the number of bytes needed to hold the
+        complete expression associated with the \c pairi open pair.
 
       \retval 0 If \c pairi is not smaller than the value returned by \c
-      dsv_parser_num_field_escape_pairs OR \c n is not smaller than the value
-      returned by \c dsv_parser_num_field_escape_pair_open_sequences
+        dsv_parser_num_field_escape_pairs
 
-      \retval nonnegative If buffsize is zero, then return the the number of
-      bytes needed to store the \c nth bytesequence associated with the \c
-      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
-      bytesequence associated with the \c pairi-th pair.
+      \retval nonnegative If \c buffsize is zero, then return the the number of
+        bytes needed to store the expression associated with the
+        \c pairi-th pair. If \c buffsize is nonzero, copy the first
+        \c buffsize bytes of the expression associated with the \c pairi-th
+        open pair.
   */
-  size_t dsv_parser_get_field_escape_pair_open_sequence(dsv_parser_t parser,
-    size_t pairi, size_t n, unsigned char *buf, size_t bufsize,
-    int *repeatflag);
+  size_t dsv_parser_get_field_escape_pair_open_expression(dsv_parser_t parser,
+    size_t pairi, char *buff, size_t buffsize);
 
   /**
-      \brief Get the equivalent close field escape bytesequences associated
-      with \c parser.
+      \brief Get the close expression associated with the ith field escape
+      pair in with \c parser.
 
 
       \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
+        initialized with one of the \c dsv_parser_create* functions
 
       \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
+        \c dsv_parser_num_field_escape_pairs
 
-      \param[in] n A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pair_close_sequences
+      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+        buffsize bytes to be overwritten by the first \c buffsize bytes of
+        \c pairi field escape pair close expression. NB The expression is
+        assumed to be UTF8 encoded. The buffer is filled with bytes, not
+        characters. Although if the expression contains only ASCII
+        characters these are the same, there are no checks to ensure if a
+        \c buffsize smaller then the number of bytes necessary to hold the
+        complete expresion does not split a multibyte character if UTF8
+        encoded.
 
-      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
-      to be overwritten by the \c nth bytesequence associated with the \c pairi
-      close pair.
-
-      \param[in] buffsize If nonzero, the size of the buffer pointed to by
-      \c buf. If zero, return the size of the \c nth bytesequence associated
-      with the \c pairi close pair.
-
-      \param[in,out] repeatflag If nonzero, a pointer to an integer that will be
-      overwritten with a nonzero value to indicate that the repeatflag was set
-      for the \c nth bytesequence associated with the \c pairi close pair.
+      \param[in] buffsize If nonzero, the size of the buffer pointed to
+        by \c buff. If zero, return the number of bytes needed to hold the
+        complete expression associated with the \c pairi close pair.
 
       \retval 0 If \c pairi is not smaller than the value returned by \c
-      dsv_parser_num_field_escape_pairs OR \c n is not smaller than the value
-      returned by \c dsv_parser_num_field_escape_pair_close_sequences
+        dsv_parser_num_field_escape_pairs
 
-      \retval nonnegative If buffsize is zero, then return the the number of
-      bytes needed to store the \c nth bytesequence associated with the \c
-      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
-      bytesequence associated with the \c pairi-th pair.
+      \retval nonnegative If \c buffsize is zero, then return the the number of
+        bytes needed to store the expression associated with the
+        \c pairi-th pair. If \c buffsize is nonzero, copy the first
+        \c buffsize bytes of the expression associated with the \c pairi-th
+        close pair.
   */
-  size_t dsv_parser_get_field_escape_pair_close_sequence(dsv_parser_t parser,
-    size_t pairi, size_t n, unsigned char *buf, size_t bufsize,
-    int *repeatflag);
+  size_t dsv_parser_get_field_escape_pair_close_expression(dsv_parser_t parser,
+    size_t pairi, char *buff, size_t buffsize);
 
-  /**
-      \brief Clear all field escape open and close pairs and escaped field
-      escapes associated with \c parser.
-
-      N.B. If new pairs are not set, then it is impossible to have field or
-      record delimiters represented in a field
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-  */
-  void dsv_parser_clear_field_escape_pairs(dsv_parser_t parser);
 
   /**
       \brief Return whether or not the parser will only accept future occurances
@@ -929,42 +635,17 @@ extern "C" {
   void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t parser, int flag);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   /**
-    \brief Append the equivalent, potentially repeating, and optionally
-    parse-exclusive multibyte escaped field escapes with replacement to be
-    used with the chosen field escape pair for future parsing with \c parser.
+    \brief Set the escaped field escapes with replacement to be used
+    with the chosen field escape pair for future parsing with \c parser.
 
     An escaped field escape is a bytesequence used inside of an escaped
     field to indicate that the sequence is part of the field
     bytesequence rather than the field closing escape sequence.
-    Equivalent escaped escapes are single or multibyte sequences such
-    that if any sequence is seen, it is considered an acceptable escape
-    escape.
 
     For example, in an RFC 4180-strict parser, a single non-repeating
     ASCII double quote \c " is the only valid field escape sequence and
-    a twice repeating double quote \c "" is the only valid field escaped
+    a twice repeating double quote \c "" is the only valid escape field
     escape sequence. For example the field \c "foo bar" contains seven
     characters, \c 'foo' and 'bar' separated by a space character. If
     one wanted the field to actually contain the quotes, the field would
@@ -976,184 +657,133 @@ extern "C" {
     field by a single \c ", and the final \c " to close the field (also
     not part of the nine).
 
-    Like other equivalent bytesequences in this library, it is possible
-    to specify multiple, equivalent bytesequences to mean the same
-    thing. For example, suppose some fictional format allows the use of
-    either two double quotes \c "" OR the hex representation of the
-    single double quote---ie \c 0x22. To which a valid version of the
-    previous example would be \c """foo bar0x22". Specifying each of
-    these as valid sequences is possible along with optional
-    functionality to repeat the sequence or enable parse
-    exclusivity---that is, the first valid bytesequence of an equivalent
-    bytesequence set becomes the only valid bytesequence for the rest of
-    the file.
+    Like other places in this library, it is possible to specify
+    multiple, equivalent bytesequences to mean the same thing. For
+    example, suppose some fictional format allows the use of either two
+    double quotes \c "" OR the hex representation of the single double
+    quote---ie \c 0x22. To which a valid version of the previous example
+    would be \c """foo bar0x22". Specifying each of these as valid
+    sequences is possible.
 
-    For each equivalent bytesequence representing valid escaped field escapes
-    there is a replacement bytesequence that will be substituted
-    for the parsed escaped field escape. For example, in an RFC 4180-strict
-    parser a twice repeating double quote \c "" is replaced by the single
-    double quote in the field. That is, if the raw field contains
-    \c "foo""bar", the parsed field field contains \c 'foo"bar' without the
-    single tics. Turning again to the previous fictional example, if a valid
-    escaped field escape is two double quotes OR the string '0x22' which
-    corresponds to ASCII representation of the double quote both would map
-    a replacement to a single double quote. That is, for the raw field
-    \c """foo bar0x22" the parsed value would be \c '"foo bar"' without the
-    single tics.
+    For each expression representing valid escaped field escapes there
+    is a replacement bytesequence that will be substituted for the
+    parsed escaped field escape. For example, in an RFC 4180-strict
+    parser a twice repeating double quote \c "" is replaced by the
+    single double quote in the field. That is, if the raw field contains
+    \c "foo""bar", the parsed field field contains \c 'foo"bar' without
+    the single tics. Turning again to the previous fictional example, if
+    a valid escaped field escape is two double quotes OR the string
+    '0x22' which corresponds to ASCII representation of the double quote
+    both would map a replacement to a single double quote. That is, for
+    the raw field \c """foo bar0x22" the parsed value would be \c '"foo
+    bar"' without the single tics.
 
-    By allowing multiple equivalent bytesequence -> replacement mappings,
-    this matches the flexibility in the field escape pairs. For example it is
-    possible to have a field opened and closed by a single tic; \c ' OR a double
-    quote; \c " and have each be twice repeating to be an escaped field escape.
-    That is, support the raw sequence \c "foo""bar" and \c 'foo''bar' as parsed
-    fields \c foo"bar and \c foo'bar respectively in the same file. This is
-    done by assigning a escaped field escape to a particular open and closing
+    By allowing multiple equivalent bytesequence -> replacement
+    mappings, this matches the flexibility in the field escape pairs.
+    For example it is possible to have a field opened and closed by a
+    single tic; \c ' OR a double quote; \c " and have each be twice
+    repeating to be an escaped field escape. That is, support the raw
+    sequence \c "foo""bar" and \c 'foo''bar' as parsed fields \c foo"bar
+    and \c foo'bar respectively in the same file. This is done by
+    assigning a escaped field escape to a particular open and closing
     field escape. For the previous example, there is a open and closing
-    field escape pair for a double quote ("foo") with a escaped field escape of
-    two double quotes ("") ie "foo""bar" is parsed as the 7 characters foo"bar
-    and another open and closing field escape pair for the single quote ('foo')
-    with and escaped field escape of two single quotes ('') ie 'foo''bar' is
-    parsed as the 7 characters foo'bar.
+    field escape pair for a double quote ("foo") with a escaped field
+    escape of two double quotes ("") ie "foo""bar" is parsed as the 7
+    characters foo"bar and another open and closing field escape pair
+    for the single quote ('foo') with and escaped field escape of two
+    single quotes ('') ie 'foo''bar' is parsed as the 7 characters
+    foo'bar.
 
-    N.B. It is not required that a field escape pair has an escaped field
-    escape but is is illegal to have more escaped field escapes equivalent
-    bytesequences than there are field escape pairs. It is also legal to map
-    an escape field escape to multiple field escape pairs. For example, two
-    double quotes \c "" -> \c " can be mapped to every set field escape pair.
+    N.B. It is not required that a field escape pair has an escaped
+    field escape. It is also legal to map an escape field escape to
+    multiple field escape pairs. For example, two double quotes \c "" ->
+    \c " can be mapped to every set field escape pair. Additionally, it
+    is not required that a escape field has a replacement. In this case,
+    the matched escape expression will be removed from the field value.
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-    \para,[in] field_escape_pair The field escape pair to associate this
+    \para,[in] pairi The field escape pair to associate this
       escaped field escape with. If the return value of
       dsv_parser_num_field_escape_pairs is less than \c field_escape_pair,
       the function returns EINVAL and no changes are made.
 
-    \param[in] equiv_byteseq An array of length \c equiv_size such that the ith
-      element is a pointer to a sequence of bytes of size \c byteseq_size[i].
-      If any sequence of \c equiv_byteseq is parsed, it is replaced by the
-      contents of replace_seq in the stored field.
+    \param[in] utf8_regex \parablock
+      An array of length \c nescapes such that the ith element is a pointer
+      to a character sequence of length \c regex_size[i]
+      representing a well-formed UTF8-encoded regular expression used to match
+      an escape field escape.
+    \endparblock
 
-    \param[in] byteseq_size An array of length \c equiv_size such that the ith
-      element is the size of the ith sequence of bytes pointed to by
-      \c equiv_byteseq[i].
+    \param[in] regex_size \parablock
+      An array of length \c nescapes such that the ith element is the size of
+      the ith sequence of bytes pointed to by \c utf8_regex[i].
+    \endparblock
 
-    \param[in] byteseq_repeat An array of length \c size such that if the ith
-      element is nonzero, the ith bytesequence in \c equiv_byteseq may be
-      repeated indefinitely.
+    \param[in] replacement \parablock
+      An array of length \c nescapes such that the ith element is a
+      pointer to a character sequence of length \c replacement_size[i]
+      that will be wholly substituted in place of the matched expression
+      contained in utf8_regex[i]
+    \endparblock
 
-    \param[in] equiv_size The size of each arrays \c equiv_byteseq,
-      \c byteseq_size, \c byteseq_repeat. If \c equiv_size is zero,
-      the function returns EINVAL and no changes are made.
+    \param[in] replacement_size \parablock
+      An array of length \c nescapes such that the ith element is the size of
+      the ith sequence of bytes pointed to by \c replacement[i].
+    \endparblock
 
-    \param[in] repeatflag If nonzero, any bytesequence chosen from
-      \c equiv_byteseq my be repeated an indefinite number of times.
-
-    \param[in] exclusiveflag If nonzero, then the first bytesequence represented
-      by \c equiv_byteseq according to the repeat rules set in \c byteseq_repeat
-      is encountered, it becomes the only valid bytesequence from this
-      equiv_byteseq for the remainder of the parser operation.
-
-    \param[in] replace_seq A pointer to a sequence of bytes of size
-      \c replace_seq_size where the bytes will replace any parsed sequence
-      pointed to by equiv_byteseq. If zero, any parsed equiv_byteseq will be
-      stripped from the field.
-
-    \param[in] replace_seq_size The size of the sequence of bytes pointed to by
-      \c replace_seq. If zero, any parsed equiv_byteseq will be stripped
-      from the field.
+    \param[in] nescapes The size of each array \c utf8_regex, \c
+      regex_size, \c replacement, and \c replacement_size. If \c nescapes
+      is zero, all existing escape field escapes will be removed for the
+      indicated escape field pair.
 
 
     \retval 0 success
 
-    \retval ENOMEM Could not allocate memory
-
-    \retval EINVAL Either \c field_escape_pair does not index a valid
-      field escape pair or the arguments or any element of:
-      equiv_byteseq, byteseq_size, or byteseq_repeat is zero
-  */
-  int dsv_parser_append_equiv_escaped_field_escapes(dsv_parser_t parser,
-    size_t field_escape_pair, const unsigned char *equiv_byteseq[],
-    const size_t byteseq_size[], const int byteseq_repeat[],
-    size_t equiv_size, int repeatflag, int exclusiveflag,
-    const unsigned char replace_seq[], size_t replace_seq_size);
-
-
-  /**
-    \brief Clear all escaped field escapes and replacement associated with
-    the indicated field escape pair for future parsing with \c parser.
-
-    \param[in] parser A pointer to a dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-    \para,[in] field_escape_pair The field escape pair to clear all escaped
-      field escapes from. If the return value of
-      dsv_parser_num_field_escape_pairs is less than \c field_escape_pair,
-      the function returns EINVAL and no changes are made.
-
-    \retval 0 success
+    \retval negative If \c pairi is not smaller than the value returned by \c
+      dsv_parser_num_field_escape_pairs
 
     \retval ENOMEM Could not allocate memory
 
-    \retval EINVAL Either \c field_escape_pair does not index a valid
-      field escape pair
-  */
-  int dsv_parser_clear_equiv_escaped_field_escapes(dsv_parser_t parser,
-    size_t field_escape_pair);
+    \retval EINVAL nescapes is nonzero and any of \c utf8_regex, \c
+      regex_size, \c replacement, and \c replacement_size is zero
 
+    \retval EINVAL An element of \c utf8_regex or \c regex_size is zero
+
+    \retval EINVAL An element of \c replacement is zero and the corresponding
+      element of replacement_size is nonzero
+
+    \retval EINVAL A regular expression pointed to by an element of
+      \c open_utf8_regex or \c close_utf8_regex is invalid.
+  */
+  int dsv_parser_set_escape_field_escapes(dsv_parser_t parser,
+    size_t pairi, const char *utf8_regex[], const size_t regex_size[],
+    const char *replacement[], size_t replacement_size[], size_t nescapes);
 
   /**
-    \brief Obtain the number of escaped field escapes and replacement
+    \brief Obtain the number of escaped field escapes and replacements
     associated with the indicated field escape pair
 
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-    \para,[in] field_escape_pair The field escape pair to query. If the return
+    \param[in] pairi The field escape pair to query. If the return
       value of dsv_parser_num_field_escape_pairs is less than
-      \c field_escape_pair, the function returns (size_t)(-1)
+      \c field_escape_pair, the function returns SIZE_MAX
 
-    \retval nonnegative number of escaped field escapes and replacements
-      associated with \c field_escape_pair
+    \retval number of escaped field escapes and replacements
+      associated with the \c pairi-th field escape pair
 
-    \retval (size_t)(-1) \c field_escape_pair does not index a valid
+    \retval SIZE_MAX \c field_escape_pair does not index a valid
       field escape pair
   */
-  size_t dsv_parser_num_equiv_escaped_field_escapes(dsv_parser_t parser,
-    size_t field_escape_pair);
-
-
-  /**
-    \brief Obtain the number of escaped field escapes equivalent bytesequences
-    associated with the indicated field escape pair and equiv escape index
-
-    \param[in] parser A pointer to a dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-    \para,[in] field_escape_pair The field escape pair to query. If the return
-      value of dsv_parser_num_field_escape_pairs is less than
-      \c field_escape_pair, the function returns (size_t)(-1)
-
-    \para,[in] equiv_escape_idx The equivalent escaped field escape to query.
-      If the return value of dsv_parser_num_equiv_escaped_field_escapes is less
-       than \c equiv_escape_idx, the function returns (size_t)(-1)
-
-    \retval nonnegative number of equivalent bytesequences associated with the
-      \c field_escape_pair escaped field escapes and \c equiv_escape_idx
-      equivalent bytesequence
-
-    \retval ENOMEM Could not allocate memory
-
-    \retval (size_t)(-1) \c field_escape_pair or equiv_escape_idx does not
-      index a valid field escape pair or equivalent bytesequence
-  */
-  size_t dsv_parser_num_equiv_escaped_field_escapes_sequences(
-    dsv_parser_t parser, size_t field_escape_pair, size_t equiv_escape_idx);
-
+  size_t dsv_parser_num_escape_field_escapes(dsv_parser_t parser,
+    size_t pairi);
 
   /**
-      \brief Obtain the replacement bytesequence
-      associated with the indicated field escape pair and equiv escape index
+      \brief Obtain the \c nth escaped field escape expression
+      associated with the indicated field escape pair and escape index
 
 
       \param[in] parser A dsv_parser_t object previously
@@ -1163,33 +793,42 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
 
       \param[in] idx A nonzero value smaller than the return value of
-      \c dsv_parser_num_equiv_escaped_field_escapes
+      \c dsv_parser_num_escape_field_escapes
 
-      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
-      to be overwritten by the \c nth bytesequence associated with the \c pairi
-      close pair.
+      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+        buffsize bytes to be overwritten by the first \c buffsize bytes of
+        \c pairi escaped field escape expression. NB The expression is
+        assumed to be UTF8 encoded. The buffer is filled with bytes, not
+        characters. Although if the expression contains only ASCII
+        characters these are the same, there are no checks to ensure if a
+        \c buffsize smaller then the number of bytes necessary to hold the
+        complete expresion does not split a multibyte character if UTF8
+        encoded.
 
       \param[in] buffsize If nonzero, the size of the buffer pointed to by
-      \c buf. If zero, return the size of the \c nth bytesequence associated
-      with the \c pairi close pair.
+        \c buff. If zero, return the size of the \c idx-th expression
+        associated with the \c pairi escaped field.
 
-      \retval 0 If \c pairi is not smaller than the value returned by \c
-      dsv_parser_num_field_escape_pairs OR \c idx is not smaller than the value
-      returned by \c dsv_parser_num_equiv_escaped_field_escapes
+      \retval SIZE_MAX If \c pairi is not smaller than the value
+        returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
+        not smaller than the value returned by
+        \c dsv_parser_num_escape_field_escapes
 
-      \retval nonnegative If buffsize is zero, then return the the number of
-      bytes needed to store the \c nth bytesequence associated with the \c
-      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
-      bytesequence associated with the \c pairi-th pair.
+      \retval SIZE_MAX If buffsize is nonzero and buff is zero
+
+      \retval nonnegative If buffsize is zero, then the number of
+        bytes needed to store the \c idx-th expression associated with
+        the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
+        of the \c idx-th expression associated with the \c pairi-th pair
+        and return the lesser of buffsize and the maximum number of
+        bytes needed to hold the expression.
   */
-  size_t dsv_parser_get_equiv_escaped_field_escapes_replacement(
-    dsv_parser_t parser, size_t pairi, size_t idx, unsigned char *buf,
-    size_t bufsize);
-
+  size_t dsv_parser_get_escaped_field_escape_expression(dsv_parser_t parser,
+    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize);
 
   /**
-      \brief Obtain the \c nth escaped field escapes equivalent bytesequence
-      associated with the indicated field escape pair and equiv escape index
+      \brief Obtain the \c nth escaped field escape replacement
+      associated with the indicated field escape pair and escape index
 
 
       \param[in] parser A dsv_parser_t object previously
@@ -1199,127 +838,76 @@ extern "C" {
       \c dsv_parser_num_field_escape_pairs
 
       \param[in] idx A nonzero value smaller than the return value of
-      \c dsv_parser_num_equiv_escaped_field_escapes
+      \c dsv_parser_num_escape_field_escapes
 
-      \param[in] n A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pair_close_sequences
-
-      \param[in,out] buf If \c bufsize is nonzero, a pointer to \c bufsize bytes
-      to be overwritten by the \c nth bytesequence associated with the \c pairi
-      close pair.
+      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+        buffsize bytes to be overwritten by the first \c buffsize bytes
+        of \c pairi escaped field escape replacement. NB the replacement
+        value may be empty
 
       \param[in] buffsize If nonzero, the size of the buffer pointed to by
-      \c buf. If zero, return the size of the \c nth bytesequence associated
-      with the \c pairi close pair.
+        \c buff. If zero, return the size of the \c idx-th replacement
+        associated with the \c pairi escaped field.
 
-      \param[in,out] repeatflag If nonzero, a pointer to an integer that will be
-      overwritten with a nonzero value to indicate that the repeatflag was set
-      for the \c nth bytesequence associated with the \c pairi close pair.
+      \retval SIZE_MAX If \c pairi is not smaller than the value
+        returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
+        not smaller than the value returned by
+        \c dsv_parser_num_escape_field_escapes
 
-      \retval 0 If \c pairi is not smaller than the value returned by \c
-      dsv_parser_num_field_escape_pairs OR \c idx is not smaller than the value
-      returned by \c dsv_parser_num_equiv_escaped_field_escapes OR
-      \c n is not less than the value returned by
-      \c dsv_parser_num_equiv_escaped_field_escapes_sequences
+      \retval SIZE_MAX If buffsize is nonzero and buff is zero
 
-      \retval nonnegative If buffsize is zero, then return the the number of
-      bytes needed to store the \c nth bytesequence associated with the \c
-      pairi-th pair. If nonzero, copy the first \bufsize bytes of the \c nth
-      bytesequence associated with the \c pairi-th pair.
+      \retval nonnegative If buffsize is zero, then the number of
+        bytes needed to store the \c idx-th replacement associated with
+        the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
+        of the \c idx-th replacement associated with the \c pairi-th pair
+        and return the lesser of buffsize and the maximum number of
+        bytes needed to hold the replacement.
   */
-  size_t dsv_parser_get_equiv_escaped_field_escapes_sequence(
-    dsv_parser_t parser, size_t pairi, size_t idx, size_t n,
-    unsigned char *buf, size_t bufsize, int *repeatflag);
-
+  size_t dsv_parser_get_escaped_field_escape_replacement(dsv_parser_t parser,
+    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize);
 
   /**
-      \brief Return whether or not the parser will accept repeated occurrences
-      of any escaped field escape associated with the \c pairi
-      escape pair seen with \c parser.
+     \brief Set the required number of fields for future parsing with \c parser
+     or allow a non-uniform number.
 
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
+     If the behavior specified by \c dsv_parser_set_field_columns is
+     violated, dsv_parse will immediately return a nonzero value and an error
+     message will be logged with the code: \c dsv_column_count_error.
 
-      \retval nonnegative If repeated occurrences of any escaped field escape
-      associated with the \c pairi escape pair
+     The default value is 0. This value is also appropriate for RFC4180-strict
+     processing
 
-      \retval negative If \c pairi is not smaller than the value returned by
-      \c dsv_parser_num_field_escape_pairs
-  */
-  int dsv_parser_get_escaped_field_escapes_repeatflag(dsv_parser_t parser,
-    size_t pairi, size_t idx);
-
-
-  /**
-      \brief Set whether or not the parser will accept repeated occurrences
-      of any escaped field escape associated with the \c pairi
-      escape pair seen with \c parser.
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] flag Nonnegative indicates repeated occurrences of any
-      escaped field escape associated with the \c pairi escape pair for future
-      parsing with \c parser
-
-      \retval 0 success
-
-      \retval negative If \c pairi is not smaller than the value returned by
-      \c dsv_parser_num_field_escape_pairs
-  */
-  int dsv_parser_set_escaped_field_escapes_repeatflag(dsv_parser_t parser,
-    size_t pairi, size_t idx, int flag);
-
+     \param[in] parser A pointer to a dsv_parser_t object previously
+       initialized with one of the \c dsv_parser_create* functions
+     \param[in] num_cols \parblock
+       If > 0, the number of columns expected during future
+       parsing. If during parsing, a row with less than \c num_cols is
+       encountered, dsv_parse will immediately return with a nonzero value. If
+       \c num_cols == 0, the parser will set the required number of columns
+        based on the first row encountered. For example, if the first header
+       row contains 5 columns, all subsequent rows must contain 5 columns
+       otherwise the dsv_parse will immediately return a nonzero value. If
+       \c num_cols == (size_t)-1, no restriction will be placed on the number of
+       columns. This also means that rows with zero columns are acceptable. In
+       this case, any registered callback will still be called.
+     \endparblock
+   */
+  void dsv_parser_set_field_columns(dsv_parser_t parser, size_t num_cols);
 
   /**
-      \brief Return whether or not the parser will only accept future occurances
-      of the first escaped field escape associated with the \c pairi
-      escape pair seen with \c parser.
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \retval nonnegative If the first occurrence of a particular field escape
-      pair will be the only valid pair for the remainder of the parsing.
-
-      \retval negative If \c pairi is not smaller than the value returned by
-      \c dsv_parser_num_field_escape_pairs
-  */
-  int dsv_parser_get_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
-    size_t pairi, size_t idx);
-
-  /**
-      \brief Set whether or not the parser will only accept future occurances
-      of the first escaped field escape associated with the \c pairi
-      escape pair seen with \c parser.
-
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
-
-      \param[in] flag Nonnegative indicates the first occurrence of a particular
-      field escape pair will be the only valid pair for the remainder of the
-      parsing.
-
-      \retval 0 success
-
-      \retval negative If \c pairi is not smaller than the value returned by
-      \c dsv_parser_num_field_escape_pairs
-  */
-  int dsv_parser_set_escaped_field_escapes_exclusiveflag(dsv_parser_t parser,
-    size_t pairi, size_t idx, int flag);
-
-
-
-
-
-
-
-
-
-
-
-
-
+   *  \brief Get the required number of fields associated with future parsing
+   *    with \c parser
+   *
+   *  See \c dsv_parser_set_field_columns for an explanation of the return
+   *    values
+   *
+   *  \param[in] parser A pointer to a dsv_parser_t object previously
+   *    initialized with one of the \c dsv_parser_create* functions
+   *
+   *  \retval num_cols The number of columns required for future parsing of \c
+   *    parser
+   */
+  size_t dsv_parser_get_field_columns(dsv_parser_t parser);
 
 
 
@@ -1998,6 +1586,17 @@ extern "C" {
    */
   int dsv_parser_set_field_wdelimiters(dsv_parser_t parser,
     const unsigned char *delim, size_t size);
+
+
+
+
+
+
+
+
+
+
+
 
 
 
