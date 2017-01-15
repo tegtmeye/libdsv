@@ -1,32 +1,33 @@
 /*
- Copyright (c) 2014, Mike Tegtmeyer
- All rights reserved.
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
 
- Redistribution and use in source and binary forms, with or without modification,
- are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
 
- 1. Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
 
- 2. Redistributions in binary form must reproduce the above copyright notice,
- this list of conditions and the following disclaimer in the documentation
- and/or other materials provided with the distribution.
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
 
- 3. Neither the name of the copyright holder nor the names of its contributors
- may be used to endorse or promote products derived from this software without
- specific prior written permission.
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 /**
     \file This file is used to provide convenience functions across test cases
@@ -58,17 +59,13 @@
 
 #include <boost/filesystem.hpp>
 
-namespace dsv {
-namespace test {
-
-
 namespace detail {
 
 
 namespace fs=boost::filesystem;
 
 
-typedef std::vector<unsigned char> field_storage_type;
+typedef std::vector<char> field_storage_type;
 
 
 static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
@@ -154,35 +151,12 @@ static const unsigned char space = ' ';
 static const unsigned char tab = '\t';
 static const unsigned char underscore = '_';
 
-static const unsigned char *ws_delimiters[] = {&space,&tab};
-static const std::size_t ws_delimiters_sizes[] = {1,1};
-static const std::size_t num_ws_delimiters = 2;
-
-static const unsigned char *ascii_delimiters[] = {&space,&underscore};
-static const std::size_t ascii_delimiters_sizes[] = {1,1};
-static const std::size_t num_ascii_delimiters = 2;
 
 
-static const unsigned char seq1_delimiter[] = {'<','!','>'};
-static const unsigned char seq2_delimiter[] = {'/','?','\\'};
-
-static const unsigned char *seq_delimiters[] =
-  {seq1_delimiter,seq2_delimiter};
-static const std::size_t seq_delimiters_sizes[] = {3,3};
-static const std::size_t num_seq_delimiters = 2;
-
-
-static const unsigned char pal_delimiter[] = {'!','*','!'};
-
-static const unsigned char *pal_delimiters[] = {pal_delimiter};
-static const std::size_t pal_delimiters_sizes[] = {3};
-static const std::size_t num_pal_delimiters = 1;
-
-
-
-std::string to_string(const field_storage_type &buf)
+template<typename CharT>
+std::basic_string<CharT> to_string(const std::vector<CharT> &buf)
 {
-  std::stringstream out;
+  std::basic_stringstream<CharT> out;
 
   for(std::size_t i=0; i<buf.size(); ++i) {
     if(buf[i] > 32 && buf[i] < 126)
@@ -195,7 +169,7 @@ std::string to_string(const field_storage_type &buf)
   return out.str();
 }
 
-std::string ascii(int c)
+inline std::string ascii(int c)
 {
   std::stringstream out;
 
@@ -253,9 +227,9 @@ inline fs::path gen_testfile(const std::vector<unsigned char> &contents,
 
 
 template<typename T>
-std::string print_byte(T byte)
+std::basic_string<T> print_byte(T byte)
 {
-  std::stringstream out;
+  std::basic_stringstream<T> out;
 
   if(byte < 32 || byte > 126)
     out << int(byte);
@@ -269,16 +243,14 @@ std::string print_byte(T byte)
 }
 
 
-}
-}
-
 // In namespace std due to overload
 namespace std {
 
-std::ostream & operator<<(std::ostream &out,
-  const std::vector<char> &seq)
+template<typename CharT>
+std::basic_ostream<CharT> & operator<<(std::basic_ostream<CharT> &out,
+  const std::vector<CharT> &seq)
 {
-  std::vector<char>::const_iterator cur = seq.begin();
+  typename std::vector<CharT>::const_iterator cur = seq.begin();
 
   while(cur != seq.end()) {
     if(*cur < 32 || *cur > 126)

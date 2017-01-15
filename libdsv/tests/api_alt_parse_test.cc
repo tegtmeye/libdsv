@@ -1,3 +1,34 @@
+/*
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include <boost/test/unit_test.hpp>
 
 #include <boost/filesystem.hpp>
@@ -201,7 +232,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_rfc4180_charset_lf )
   out << "\n";
 
   BOOST_REQUIRE_MESSAGE(result != 0,
-    "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: " 
+    "dsv_parse incorrectly accepted a non-quoted linefeed when set to be RFC4180-strict: "
       << filename << ". Received '" << out.str() << "'");
 }
 
@@ -240,7 +271,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_POSIX_charset_lf )
 
 // todo, update this when logging gets worked out
 /** \test Attempt to parse an named file with a single field consisting of the
- *    the POSIX character set terminated with a carriage return and line feed. When the 
+ *    the POSIX character set terminated with a carriage return and line feed. When the
  *    parser is set to be LF strict, this is an error.
  */
 BOOST_AUTO_TEST_CASE( parse_named_single_field_POSIX_charset_crlf )
@@ -272,7 +303,7 @@ BOOST_AUTO_TEST_CASE( parse_named_single_field_POSIX_charset_crlf )
   out << "\n";
 
   BOOST_REQUIRE_MESSAGE(result != 0,
-    "dsv_parse incorrectly accepted a CRLF when set to be LF-strict: " 
+    "dsv_parse incorrectly accepted a CRLF when set to be LF-strict: "
       << filename << ". Received '" << out.str() << "'");
 }
 

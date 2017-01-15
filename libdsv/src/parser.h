@@ -1,32 +1,33 @@
 /*
- Copyright (c) 2014, Mike Tegtmeyer
- All rights reserved.
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
 
- Redistribution and use in source and binary forms, with or without modification,
- are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
 
- 1. Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
 
- 2. Redistributions in binary form must reproduce the above copyright notice,
- this list of conditions and the following disclaimer in the documentation
- and/or other materials provided with the distribution.
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
 
- 3. Neither the name of the copyright holder nor the names of its contributors
- may be used to endorse or promote products derived from this software without
- specific prior written permission.
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #ifndef LIBDSV_PARSER_H
 #define LIBDSV_PARSER_H
@@ -147,7 +148,7 @@ class parser {
     /* FIELD COMPLETION DELIMITER */
     void field_delimiters(const expression_type &exp);
     const expression_type & field_delimiters(void) const;
-    const regex_type & field_delimiter_regex(void) const;
+    const regex_type & field_delimiters_regex(void) const;
     void exclusive_field_delimiter(const char_sequence_type &seq);
     const char_sequence_type & exclusive_field_delimiter(void) const;
 
@@ -157,8 +158,6 @@ class parser {
     /* FIELD ESCAPES */
     void field_escapes(const escaped_field_desc_seq &seq);
     const escaped_field_desc_seq & field_escapes(void) const;
-    void exclusive_field_escape_pair(size_t pairi);
-    size_t exclusive_field_escape_pair(void) const;
 
     void exclusive_field_escape(bool flag);
     bool exclusive_field_escape(void) const;
@@ -268,6 +267,33 @@ class parser<CharT>::escaped_replacement_desc {
     char_sequence_type _replacement;
 };
 
+template<typename CharT>
+inline parser<CharT>::escaped_replacement_desc::escaped_replacement_desc(
+  const expression_type &exp, const char_sequence_type &rep) :_expression(exp),
+    _regex(exp), _replacement(rep)
+{
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::expression_type &
+parser<CharT>::escaped_replacement_desc::expression(void) const
+{
+  return _expression;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::escaped_replacement_desc::regex(void) const
+{
+  return _regex;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::char_sequence_type &
+parser<CharT>::escaped_replacement_desc::replacement(void) const
+{
+  return _replacement;
+}
 
 
 
@@ -279,10 +305,14 @@ class parser<CharT>::escaped_field_desc {
 
     const expression_type & open_expression(void) const;
     const regex_type & open_regex(void) const;
+    const char_sequence_type & open_exclusive_seq(void) const;
+    void open_exclusive_seq(const char_sequence_type &seq);
     bool open_exclusive(void) const;
 
     const expression_type & close_expression(void) const;
     const regex_type & close_regex(void) const;
+    const char_sequence_type & close_exclusive_seq(void) const;
+    void close_exclusive_seq(const char_sequence_type &seq);
     bool close_exclusive(void) const;
 
     const escaped_replacement_desc_seq & replacement_desc_seq(void) const;
@@ -312,8 +342,87 @@ inline parser<CharT>::escaped_field_desc::escaped_field_desc(
 {
 }
 
+template<typename CharT>
+inline const typename parser<CharT>::expression_type &
+parser<CharT>::escaped_field_desc::open_expression(void) const
+{
+  return _open_expression;
+}
 
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::escaped_field_desc::open_regex(void) const
+{
+  return _open_regex;
+}
 
+template<typename CharT>
+inline const typename parser<CharT>::char_sequence_type &
+parser<CharT>::escaped_field_desc::open_exclusive_seq(void) const
+{
+  return _open_exclusive_seq;
+}
+
+template<typename CharT>
+inline void parser<CharT>::escaped_field_desc::open_exclusive_seq(
+  const char_sequence_type &seq)
+{
+  _open_exclusive_seq = seq;
+}
+
+template<typename CharT>
+inline bool parser<CharT>::escaped_field_desc::open_exclusive(void) const
+{
+  return _open_exclusive;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::expression_type &
+parser<CharT>::escaped_field_desc::close_expression(void) const
+{
+  return _close_expression;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::escaped_field_desc::close_regex(void) const
+{
+  return _close_regex;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::char_sequence_type &
+parser<CharT>::escaped_field_desc::close_exclusive_seq(void) const
+{
+  return _close_exclusive_seq;
+}
+
+template<typename CharT>
+inline void parser<CharT>::escaped_field_desc::close_exclusive_seq(
+  const char_sequence_type &seq)
+{
+  _close_exclusive_seq = seq;
+}
+
+template<typename CharT>
+inline bool parser<CharT>::escaped_field_desc::close_exclusive(void) const
+{
+  return _close_exclusive;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::escaped_replacement_desc_seq &
+parser<CharT>::escaped_field_desc::replacement_desc_seq(void) const
+{
+  return _replacement_desc_seq;
+}
+
+template<typename CharT>
+inline void parser<CharT>::escaped_field_desc::replacement_desc_seq(
+  const escaped_replacement_desc_seq &seq)
+{
+  _replacement_desc_seq = seq;
+}
 
 
 
@@ -324,7 +433,9 @@ inline parser<CharT>::escaped_field_desc::escaped_field_desc(
 
 template<typename CharT>
 inline parser<CharT>::parser(void) :_log_callback(0), _log_context(0),
-  _log_level(dsv_log_none)
+  _log_level(dsv_log_none), _exclusive_record_delimiter_flag(0),
+  _exclusive_field_delimiter_flag(0), _exclusive_field_escape(0),
+  _restrict_field_columns(0)
 {
 }
 
@@ -447,13 +558,113 @@ inline bool parser<CharT>::exclusive_record_delimiter_flag(void) const
   return _exclusive_record_delimiter_flag;
 }
 
+template<typename CharT>
+inline void parser<CharT>::field_delimiters(const expression_type &exp)
+{
+  // construction may throw regex_error, don't set values unless we know it
+  // succeeds
+  regex_type tmp_regex(exp);
+
+  _field_delimiters = exp;
+  std::swap(_field_delimiters_regex,tmp_regex);
+
+  // trigger recompile of derived
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::expression_type &
+parser<CharT>::field_delimiters(void) const
+{
+  return _field_delimiters;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::field_delimiters_regex(void) const
+{
+  return _field_delimiters_regex;
+}
+
+template<typename CharT>
+inline void
+parser<CharT>::exclusive_field_delimiter(const char_sequence_type &seq)
+{
+  _exclusive_field_delimiter = seq;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::char_sequence_type &
+parser<CharT>::exclusive_field_delimiter(void) const
+{
+  return _exclusive_field_delimiter;
+}
+
+template<typename CharT>
+inline void parser<CharT>::exclusive_field_delimiter_flag(bool flag)
+{
+  _exclusive_field_delimiter_flag = flag;
+}
+
+template<typename CharT>
+inline bool parser<CharT>::exclusive_field_delimiter_flag(void) const
+{
+  return _exclusive_field_delimiter_flag;
+}
 
 
 
 
+template<typename CharT>
+inline void parser<CharT>::field_escapes(const escaped_field_desc_seq &seq)
+{
+  _field_escapes = seq;
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::escaped_field_desc_seq &
+parser<CharT>::field_escapes(void) const
+{
+  return _field_escapes;
+}
+
+template<typename CharT>
+inline void parser<CharT>::exclusive_field_escape(bool flag)
+{
+  _exclusive_field_escape = flag;
+}
+
+template<typename CharT>
+inline bool parser<CharT>::exclusive_field_escape(void) const
+{
+  return _exclusive_field_escape;
+}
+
+template<typename CharT>
+inline void parser<CharT>::escape_field_escapes(size_t pairi,
+  const escaped_replacement_desc_seq &replacement_desc)
+{
+  _field_escapes[pairi].replacement_desc_seq(replacement_desc);
+}
+
+template<typename CharT>
+inline const typename parser<CharT>::escaped_replacement_desc_seq &
+parser<CharT>::escape_field_escapes(size_t pairi) const
+{
+  return _field_escapes[pairi].replacement_desc_seq();
+}
 
 
+template<typename CharT>
+inline std::size_t parser<CharT>::restrict_field_columns(void) const
+{
+  return _restrict_field_columns;
+}
 
+template<typename CharT>
+inline void parser<CharT>::restrict_field_columns(std::size_t n)
+{
+  _restrict_field_columns = n;
+}
 
 
 

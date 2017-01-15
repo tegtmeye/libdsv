@@ -1,31 +1,32 @@
 /*
-Copyright (c) 2014, Mike Tegtmeyer
-All rights reserved.
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
 
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software without
-specific prior written permission.
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef LIBDSV_DSV_PARSER_H
@@ -39,42 +40,42 @@ extern "C" {
 #endif
 
   /**
-   * \file dsv_parser.h
-   * \brief The main header file for the Delimited Seperated Values library
-   *
-   *
+    \file dsv_parser.h
+    \brief The main header file for the Delimited Seperated Values library
    */
 
   /**
-   *  \brief An opaque handle for a dsv parser object
+    \brief An opaque handle for a dsv parser object
    */
   typedef struct {
     void *p;
   } dsv_parser_t;
 
   /**
-      \brief Initialize a default dsv_parser_t object.
+    \brief Initialize a default dsv_parser_t object.
 
-      This parser is set up with the following default settings:
-        //todo
+    This parser is set up with the following default settings:
+      //todo
 
-      \note You must eventually call dsv_parser_destroy.
+    \note You must eventually call dsv_parser_destroy.
 
-      \param[in,out] parser A pointer to a dsv_parser_t object to initialize
-        with default settings
-      \retval 0 success
-      \retval ENOMEM Could not allocate memory
+    \param[in,out] parser A pointer to a dsv_parser_t object to initialize
+      with default settings
+
+    \retval 0 success
+
+    \retval ENOMEM Could not allocate memory
    */
   int dsv_parser_create(dsv_parser_t *parser);
 
   /**
-   *  \brief Destroy the obj_parser_t object.
-   *
-   *  \post using \c parser with any function other than \c dsv_parser_create
-   *    is undefined
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with \c dsv_parser_create*
+    \brief Destroy the obj_parser_t object.
+
+    \post using \c parser with any function other than
+    \c dsv_parser_create is undefined
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with \c dsv_parser_create*
    */
   void dsv_parser_destroy(dsv_parser_t parser);
 
@@ -144,7 +145,7 @@ extern "C" {
       permitted record delimiter for the remainder of the parsing with
       \c parser.
    */
-  int dsv_parser_get_record_delimiter_exclusiveflag(dsv_parser_t parser);
+  int dsv_parser_get_record_delimiters_exclusiveflag(dsv_parser_t parser);
 
   /**
     \brief Copy the \c n th record delimiter to be used for future parsing
@@ -226,89 +227,61 @@ extern "C" {
   int dsv_parser_set_field_delimiters(dsv_parser_t parser,
     const char *utf8_regex, size_t regex_size, int exclusiveflag);
 
+  /**
+    \brief Obtain whether or not the first parsed field delimiter assigned to
+    \parser is the only permitted subsequent delimiter for the remainder of
+    parsing
+
+    The returned values is the same as the \c exclusiveflag parameter in
+    \c dsv_parser_set_field_delimiters
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+     initialized with one of the \c dsv_parser_create* functions
+    \retval If nonzero, the first delimiter parsed among the currently
+     assigned field delimiters in\c parser shall be the only permitted
+     delimiter for the remainder of the parsing session.
+   */
+  int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t parser);
 
   /**
-   *  \brief Obtain the number of field delimiters currently assigned to
-   *  \c parser
-   *
-   *  The returned values is the same as the \c size parameter in
-   *  \c dsv_parser_set_equiv_field_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval The number of field delimiters set for \c parser
-   */
-  size_t dsv_parser_num_equiv_field_delimiters(dsv_parser_t parser);
+     \brief Copy the \c n th field delimiter to be used for future parsing with
+     \c parser into the buffer \c buff of size \c buffsize and set the location
+     pointed to by \c repeatflag as to if the delimiter was allowed to be
+     repeated indefinitely.
 
-  /**
-   *  \brief Obtain whether or not the field delimiters assigned to \parser are
-   *  allowed to repeat indefinitely
-   *
-   *  The returned values is the same as the \c repeatflag parameter in
-   *  \c dsv_parser_set_equiv_field_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval If nonzero, the currently assigned field delimiters to \c parser
-   *    are allowed to repeat indefinitely
-   */
-  int dsv_parser_get_equiv_field_delimiters_repeatflag(dsv_parser_t parser);
+     This delimiter is used to separate both headers and fields depending on
+     the settings.
 
-  /**
-   *  \brief Obtain whether or not the first parsed field delimiter assigned to
-   *  \parser is the only permitted subsequent delimiter for the remainder of
-   *  parsing
-   *
-   *  The returned values is the same as the \c exclusiveflag parameter in
-   *  \c dsv_parser_set_equiv_field_delimiters
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \retval If nonzero, the first delimiter parsed among the currently
-   *    assigned field delimiters in\c parser shall be the only permitted
-   *    delimiter for the remainder of the parsing session.
-   */
-  int dsv_parser_get_equiv_field_delimiters_exclusiveflag(dsv_parser_t parser);
+     If \c buffsize is zero, return the number of bytes needed to hold the
+     current set delimiter. This number is suitable for allocating memory for
+     \c buf. If \c buffsize is nonzero, copy the bytes representing the
+     delimiter or \c buffsize whichever is smaller and return this value. If \c
+     buffsize is zero, \c buff is not referenced and may be zero for the call.
 
-  /**
-   *  \brief Copy the \c n th field delimiter to be used for future parsing with
-   *  \c parser into the buffer \c buff of size \c buffsize and set the location
-   *  pointed to by \c repeatflag as to if the delimiter was allowed to be
-   *  repeated indefinitely.
-   *
-   *  This delimiter is used to separate both headers and fields depending on
-   *  the settings.
-   *
-   *  If \c buffsize is zero, return the number of bytes needed to hold the
-   *  current set delimiter. This number is suitable for allocating memory for
-   *  \c buf. If \c buffsize is nonzero, copy the bytes representing the
-   *  delimiter or \c buffsize whichever is smaller and return this value. If \c
-   *  buffsize is zero, \c buff is not referenced and may be zero for the call.
-   *
-   *  If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
-   *  the repeat value of the \c n th delimiter regardless of the value of \c
-   *  buff and \c buffsize
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *  \param[in,out] buff If \c buffsize is nonzero, an unsigned char buffer of
-   *    size \buffsize to which the current field delimiter will be copied into.
-   *    N.B. since the sequence of bytes contained in \c buff may not represent a
-   *    string, no null terminator will be added to the end of the bytes.
-   *  \param [in] buffsize The size of the unsigned char buffer pointed to
-   *    by \c buf.
-   *  \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
-   *    pointed to by \c repeatflag to a value if nonzero indicates that the
-   *    \c th delimiter can be repeated indefinitely.
-   *  \retval If \c buffsize is zero, return the number of bytes needed to hold
-   *    the current delimiter. If \c buffsize is nonzero, return the number of
-   *    bytes copied to \c buff which is not necessarily the same size as \c
-   *    buffsize.
-   * \retval 0 \c n is greater than the number of field delimiters currently set
-   *    for \c parser
+     If \c n is a valid value, and \c repeatflag is nonzero, it will be set to
+     the repeat value of the \c n th delimiter regardless of the value of \c
+     buff and \c buffsize
+
+     \param[in] parser A pointer to a dsv_parser_t object previously
+       initialized with one of the \c dsv_parser_create* functions
+     \param[in,out] buff If \c buffsize is nonzero, an unsigned char buffer of
+       size \buffsize to which the current field delimiter will be copied into.
+       N.B. since the sequence of bytes contained in \c buff may not represent a
+       string, no null terminator will be added to the end of the bytes.
+     \param [in] buffsize The size of the unsigned char buffer pointed to
+       by \c buf.
+     \param [in,out] repeatflag If \c repeatflag is nonzero, set the location
+       pointed to by \c repeatflag to a value if nonzero indicates that the
+       \c th delimiter can be repeated indefinitely.
+     \retval If \c buffsize is zero, return the number of bytes needed to hold
+       the current delimiter. If \c buffsize is nonzero, return the number of
+       bytes copied to \c buff which is not necessarily the same size as \c
+       buffsize.
+    \retval 0 \c n is greater than the number of field delimiters currently set
+       for \c parser
    */
-  size_t dsv_parser_get_equiv_field_delimiter(dsv_parser_t parser, size_t n,
-    unsigned char *buff, size_t buffsize, int *repeatflag);
+  size_t dsv_parser_get_field_delimiters(dsv_parser_t parser, char *buff,
+    size_t buffsize);
 
 
 
@@ -469,7 +442,7 @@ extern "C" {
       \retval ENOMEM Could not allocate memory
       \retval EINVAL The value of \c open_utf8_regex, \c open_regex_size,
         \c open_exclusiveflag, \c close_utf8_regex, \c close_regex_size, or
-        \c close_exclusiveflag
+        \c close_exclusiveflag is zero
       \retval EINVAL An element of \c open_utf8_regex, \c open_regex_size,
         \c close_utf8_regex, or \c close_regex_size is zero
       \retval EINVAL A regular expression pointed to by an element of
@@ -572,65 +545,65 @@ extern "C" {
     size_t pairi, char *buff, size_t buffsize);
 
   /**
-      \brief Get the close expression associated with the ith field escape
-      pair in with \c parser.
+    \brief Get the close expression associated with the ith field escape
+    pair in with \c parser.
 
 
-      \param[in] parser A dsv_parser_t object previously
-        initialized with one of the \c dsv_parser_create* functions
+    \param[in] parser A dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] pairi A nonzero value smaller than the return value of
-        \c dsv_parser_num_field_escape_pairs
+    \param[in] pairi A nonzero value smaller than the return value of
+      \c dsv_parser_num_field_escape_pairs
 
-      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
-        buffsize bytes to be overwritten by the first \c buffsize bytes of
-        \c pairi field escape pair close expression. NB The expression is
-        assumed to be UTF8 encoded. The buffer is filled with bytes, not
-        characters. Although if the expression contains only ASCII
-        characters these are the same, there are no checks to ensure if a
-        \c buffsize smaller then the number of bytes necessary to hold the
-        complete expresion does not split a multibyte character if UTF8
-        encoded.
+    \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+      buffsize bytes to be overwritten by the first \c buffsize bytes of
+      \c pairi field escape pair close expression. NB The expression is
+      assumed to be UTF8 encoded. The buffer is filled with bytes, not
+      characters. Although if the expression contains only ASCII
+      characters these are the same, there are no checks to ensure if a
+      \c buffsize smaller then the number of bytes necessary to hold the
+      complete expresion does not split a multibyte character if UTF8
+      encoded.
 
-      \param[in] buffsize If nonzero, the size of the buffer pointed to
-        by \c buff. If zero, return the number of bytes needed to hold the
-        complete expression associated with the \c pairi close pair.
+    \param[in] buffsize If nonzero, the size of the buffer pointed to
+      by \c buff. If zero, return the number of bytes needed to hold the
+      complete expression associated with the \c pairi close pair.
 
-      \retval 0 If \c pairi is not smaller than the value returned by \c
-        dsv_parser_num_field_escape_pairs
+    \retval 0 If \c pairi is not smaller than the value returned by \c
+      dsv_parser_num_field_escape_pairs
 
-      \retval nonnegative If \c buffsize is zero, then return the the number of
-        bytes needed to store the expression associated with the
-        \c pairi-th pair. If \c buffsize is nonzero, copy the first
-        \c buffsize bytes of the expression associated with the \c pairi-th
-        close pair.
+    \retval nonnegative If \c buffsize is zero, then return the the number of
+      bytes needed to store the expression associated with the
+      \c pairi-th pair. If \c buffsize is nonzero, copy the first
+      \c buffsize bytes of the expression associated with the \c pairi-th
+      close pair.
   */
   size_t dsv_parser_get_field_escape_pair_close_expression(dsv_parser_t parser,
     size_t pairi, char *buff, size_t buffsize);
 
 
   /**
-      \brief Return whether or not the parser will only accept future occurances
-      of the first open and close escape pair seen with \c parser.
+    \brief Return whether or not the parser will only accept future occurances
+    of the first open and close escape pair seen with \c parser.
 
-      \param[in] parser A dsv_parser_t object previously
+    \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-      \retval nonnegative If the first occurrence of a particular field escape
+    \retval nonnegative If the first occurrence of a particular field escape
       pair will be the only valid pair for the remainder of the parsing.
   */
   int dsv_parser_get_field_escape_exclusiveflag(dsv_parser_t parser);
 
   /**
-      \brief Set whether or not the parser will only accept future occurances
-      of the first open and close escape pair seen with \c parser.
+    \brief Set whether or not the parser will only accept future occurances
+    of the first open and close escape pair seen with \c parser.
 
-      \param[in] parser A dsv_parser_t object previously
+    \param[in] parser A dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] flag Nonnegative indicates the first occurrence of a particular
-      field escape pair will be the only valid pair for the remainder of the
-      parsing.
+    \param[in] flag Nonnegative indicates the first occurrence of a
+      particular field escape pair will be the only valid pair for the
+      remainder of the parsing.
   */
   void dsv_parser_set_field_escape_exclusiveflag(dsv_parser_t parser, int flag);
 
@@ -765,6 +738,11 @@ extern "C" {
     \brief Obtain the number of escaped field escapes and replacements
     associated with the indicated field escape pair
 
+     N.B. Using SIZE_MAX to indicate an error condition could be
+     considered a syntactic misdirection but its use is preferred when
+     representing the count of items in memory. If using SIZE_MAX really
+     bothers you, ((size_t)-1) is also well defined by the C standard.
+
     \param[in] parser A pointer to a dsv_parser_t object previously
       initialized with one of the \c dsv_parser_create* functions
 
@@ -782,130 +760,152 @@ extern "C" {
     size_t pairi);
 
   /**
-      \brief Obtain the \c nth escaped field escape expression
-      associated with the indicated field escape pair and escape index
+    \brief Obtain the \c nth escaped field escape expression
+    associated with the indicated field escape pair and escape index
 
 
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
+    N.B. Using SIZE_MAX to indicate an error condition could be
+    considered a syntactic misdirection but its use is preferred when
+    representing the count of items in memory. If using SIZE_MAX really
+    bothers you, ((size_t)-1) is also well defined by the C standard.
 
-      \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
+    \param[in] parser A dsv_parser_t object previously
+    initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] idx A nonzero value smaller than the return value of
+    \param[in] pairi A nonzero value smaller than the return value of
+    \c dsv_parser_num_field_escape_pairs
+
+    \param[in] idx A nonzero value smaller than the return value of
+    \c dsv_parser_num_escape_field_escapes
+
+    \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+      buffsize bytes to be overwritten by the first \c buffsize bytes of
+      \c pairi escaped field escape expression. NB The expression is
+      assumed to be UTF8 encoded. The buffer is filled with bytes, not
+      characters. Although if the expression contains only ASCII
+      characters these are the same, there are no checks to ensure if a
+      \c buffsize smaller then the number of bytes necessary to hold the
+      complete expresion does not split a multibyte character if UTF8
+      encoded.
+
+    \param[in] buffsize If nonzero, the size of the buffer pointed to by
+      \c buff. If zero, return the size of the \c idx-th expression
+      associated with the \c pairi escaped field.
+
+    \retval SIZE_MAX If \c pairi is not smaller than the value
+      returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
+      not smaller than the value returned by
       \c dsv_parser_num_escape_field_escapes
 
-      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
-        buffsize bytes to be overwritten by the first \c buffsize bytes of
-        \c pairi escaped field escape expression. NB The expression is
-        assumed to be UTF8 encoded. The buffer is filled with bytes, not
-        characters. Although if the expression contains only ASCII
-        characters these are the same, there are no checks to ensure if a
-        \c buffsize smaller then the number of bytes necessary to hold the
-        complete expresion does not split a multibyte character if UTF8
-        encoded.
+    \retval SIZE_MAX If buffsize is nonzero and buff is zero
 
-      \param[in] buffsize If nonzero, the size of the buffer pointed to by
-        \c buff. If zero, return the size of the \c idx-th expression
-        associated with the \c pairi escaped field.
-
-      \retval SIZE_MAX If \c pairi is not smaller than the value
-        returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
-        not smaller than the value returned by
-        \c dsv_parser_num_escape_field_escapes
-
-      \retval SIZE_MAX If buffsize is nonzero and buff is zero
-
-      \retval nonnegative If buffsize is zero, then the number of
-        bytes needed to store the \c idx-th expression associated with
-        the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
-        of the \c idx-th expression associated with the \c pairi-th pair
-        and return the lesser of buffsize and the maximum number of
-        bytes needed to hold the expression.
+    \retval nonnegative If buffsize is zero, then the number of
+      bytes needed to store the \c idx-th expression associated with
+      the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
+      of the \c idx-th expression associated with the \c pairi-th pair
+      and return the lesser of buffsize and the maximum number of
+      bytes needed to hold the expression.
   */
   size_t dsv_parser_get_escaped_field_escape_expression(dsv_parser_t parser,
-    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize);
+    size_t pairi, size_t idx,  char *buff, size_t buffsize);
 
   /**
-      \brief Obtain the \c nth escaped field escape replacement
-      associated with the indicated field escape pair and escape index
+    \brief Obtain the \c nth escaped field escape replacement
+    associated with the indicated field escape pair and escape index
 
+    N.B. Using SIZE_MAX to indicate an error condition could be
+    considered a syntactic misdirection but its use is preferred when
+    representing the count of items in memory. If using SIZE_MAX really
+    bothers you, ((size_t)-1) is also well defined by the C standard.
 
-      \param[in] parser A dsv_parser_t object previously
-      initialized with one of the \c dsv_parser_create* functions
+    \param[in] parser A dsv_parser_t object previously
+    initialized with one of the \c dsv_parser_create* functions
 
-      \param[in] pairi A nonzero value smaller than the return value of
-      \c dsv_parser_num_field_escape_pairs
+    \param[in] pairi A nonzero value smaller than the return value of
+    \c dsv_parser_num_field_escape_pairs
 
-      \param[in] idx A nonzero value smaller than the return value of
+    \param[in] idx A nonzero value smaller than the return value of
+    \c dsv_parser_num_escape_field_escapes
+
+    \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
+      buffsize bytes to be overwritten by the first \c buffsize bytes
+      of \c pairi escaped field escape replacement. NB the replacement
+      value may be empty
+
+    \param[in] buffsize If nonzero, the size of the buffer pointed to by
+      \c buff. If zero, return the size of the \c idx-th replacement
+      associated with the \c pairi escaped field.
+
+    \retval SIZE_MAX If \c pairi is not smaller than the value
+      returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
+      not smaller than the value returned by
       \c dsv_parser_num_escape_field_escapes
 
-      \param[in,out] buff If \c buffsize is nonzero, a pointer to \c
-        buffsize bytes to be overwritten by the first \c buffsize bytes
-        of \c pairi escaped field escape replacement. NB the replacement
-        value may be empty
+    \retval SIZE_MAX If buffsize is nonzero and buff is zero
 
-      \param[in] buffsize If nonzero, the size of the buffer pointed to by
-        \c buff. If zero, return the size of the \c idx-th replacement
-        associated with the \c pairi escaped field.
-
-      \retval SIZE_MAX If \c pairi is not smaller than the value
-        returned by \c dsv_parser_num_field_escape_pairs OR \c idx is
-        not smaller than the value returned by
-        \c dsv_parser_num_escape_field_escapes
-
-      \retval SIZE_MAX If buffsize is nonzero and buff is zero
-
-      \retval nonnegative If buffsize is zero, then the number of
-        bytes needed to store the \c idx-th replacement associated with
-        the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
-        of the \c idx-th replacement associated with the \c pairi-th pair
-        and return the lesser of buffsize and the maximum number of
-        bytes needed to hold the replacement.
+    \retval nonnegative If buffsize is zero, then the number of
+      bytes needed to store the \c idx-th replacement associated with
+      the \c pairi-th pair. If nonzero, copy the first \buffsize bytes
+      of the \c idx-th replacement associated with the \c pairi-th pair
+      and return the lesser of buffsize and the maximum number of
+      bytes needed to hold the replacement.
   */
   size_t dsv_parser_get_escaped_field_escape_replacement(dsv_parser_t parser,
-    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize);
+    size_t pairi, size_t idx,  char *buff, size_t buffsize);
 
   /**
-     \brief Set the required number of fields for future parsing with \c parser
-     or allow a non-uniform number.
+    \brief Set the required number of fields for future parsing with \c parser
+    or allow a non-uniform number.
 
-     If the behavior specified by \c dsv_parser_set_field_columns is
-     violated, dsv_parse will immediately return a nonzero value and an error
-     message will be logged with the code: \c dsv_column_count_error.
+    If the behavior specified by \c dsv_parser_set_field_columns is
+    violated, dsv_parse will immediately return a nonzero value and an error
+    message will be logged with the code: \c dsv_column_count_error.
 
-     The default value is 0. This value is also appropriate for RFC4180-strict
-     processing
+    The default value is 0.
 
-     \param[in] parser A pointer to a dsv_parser_t object previously
-       initialized with one of the \c dsv_parser_create* functions
-     \param[in] num_cols \parblock
-       If > 0, the number of columns expected during future
-       parsing. If during parsing, a row with less than \c num_cols is
-       encountered, dsv_parse will immediately return with a nonzero value. If
-       \c num_cols == 0, the parser will set the required number of columns
-        based on the first row encountered. For example, if the first header
-       row contains 5 columns, all subsequent rows must contain 5 columns
-       otherwise the dsv_parse will immediately return a nonzero value. If
-       \c num_cols == (size_t)-1, no restriction will be placed on the number of
-       columns. This also means that rows with zero columns are acceptable. In
-       this case, any registered callback will still be called.
-     \endparblock
+    N.B. Setting the field columns to SIZE_MAX really means
+    "unrestricted" instead of "maximum size" could be considered a
+    syntactic misdirection. Here three states are needed (-1, 0, >0).
+    If represented by a signed integer type, this halves the number of
+    maximum fields able to be parsed in the cases where the parser is
+    configured for only 1 record. For machines with a small maximum
+    integer width, embedded for example, this limitation can be
+    significant. Using size_t (SIZE_MAX, 0, >0) means that the full
+    machine capacity can be used however limited that may be. If using
+    SIZE_MAX really bothers you, ((size_t)-1) is also well defined by
+    the C standard.
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+      initialized with one of the \c dsv_parser_create* functions
+
+    \param[in] num_cols \parblock
+      If > 0, the number of columns expected during future parsing. If
+      during parsing, a row with less than \c num_cols is encountered,
+      dsv_parse will immediately return with a nonzero value. If \c
+      num_cols == 0, the parser will set the required number of columns
+      based on the first row encountered. For example, if the first
+      header row contains 5 columns, all subsequent rows must contain 5
+      columns otherwise the dsv_parse will immediately return a nonzero
+      value. If \c num_cols == SIZE_MAX, no restriction will be placed
+      on the number of columns and each row may be different. This also
+      means that rows with zero columns are acceptable. In this case,
+      any registered callback will still be called.
+    \endparblock
    */
   void dsv_parser_set_field_columns(dsv_parser_t parser, size_t num_cols);
 
   /**
-   *  \brief Get the required number of fields associated with future parsing
-   *    with \c parser
-   *
-   *  See \c dsv_parser_set_field_columns for an explanation of the return
-   *    values
-   *
-   *  \param[in] parser A pointer to a dsv_parser_t object previously
-   *    initialized with one of the \c dsv_parser_create* functions
-   *
-   *  \retval num_cols The number of columns required for future parsing of \c
-   *    parser
+    \brief Get the required number of fields associated with future parsing
+     with \c parser
+
+    See \c dsv_parser_set_field_columns for an explanation of the return
+    values
+
+    \param[in] parser A pointer to a dsv_parser_t object previously
+       initialized with one of the \c dsv_parser_create* functions
+
+    \retval num_cols The number of columns required for future parsing of \c
+       parser
    */
   size_t dsv_parser_get_field_columns(dsv_parser_t parser);
 

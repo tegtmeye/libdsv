@@ -1,32 +1,33 @@
 /*
- Copyright (c) 2014, Mike Tegtmeyer
- All rights reserved.
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
 
- Redistribution and use in source and binary forms, with or without modification,
- are permitted provided that the following conditions are met:
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
 
- 1. Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
 
- 2. Redistributions in binary form must reproduce the above copyright notice,
- this list of conditions and the following disclaimer in the documentation
- and/or other materials provided with the distribution.
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
 
- 3. Neither the name of the copyright holder nor the names of its contributors
- may be used to endorse or promote products derived from this software without
- specific prior written permission.
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include "dsv_parser.h"
 #include "parser.h"
@@ -116,7 +117,7 @@ int dsv_parser_set_record_delimiters(dsv_parser_t _parser,
   return err;
 }
 
-int dsv_parser_get_record_delimiter_exclusiveflag(dsv_parser_t _parser)
+int dsv_parser_get_record_delimiters_exclusiveflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -197,7 +198,7 @@ int dsv_parser_set_field_delimiters(dsv_parser_t _parser,
   return err;
 }
 
-int dsv_parser_get_field_delimiter_exclusiveflag(dsv_parser_t _parser)
+int dsv_parser_get_field_delimiters_exclusiveflag(dsv_parser_t _parser)
 {
   assert(_parser.p);
 
@@ -273,8 +274,7 @@ int dsv_parser_set_field_escape_pair(dsv_parser_t _parser,
       if(!(open_utf8_regex[i] && open_regex_size[i]
         && close_utf8_regex[i] && close_regex_size[i]))
       {
-        err = EINVAL;
-        break;
+        return EINVAL;
       }
 
       escaped_field_seq.emplace_back(parser_type::escaped_field_desc(
@@ -284,6 +284,8 @@ int dsv_parser_set_field_escape_pair(dsv_parser_t _parser,
           close_exclusiveflag[i])
         );
     }
+
+    parser.field_escapes(escaped_field_seq);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -491,11 +493,10 @@ int dsv_parser_set_escape_field_escapes(dsv_parser_t _parser,
       parser_type::escaped_replacement_desc_seq replacement_seq;
 
       for(std::size_t i=0; i<nescapes; ++i) {
-        if(!(utf8_regex[i] && regex_size[i] &&
-          (!replacement_size[i] || (replacement_size[i] && replacement[i]))))
+        if(!utf8_regex[i] || !regex_size[i] ||
+          (replacement_size[i] && !replacement[i]))
         {
-          err = EINVAL;
-          break;
+          return EINVAL;
         }
 
         replacement_seq.emplace_back(
@@ -547,7 +548,7 @@ size_t dsv_parser_num_escape_field_escapes(dsv_parser_t _parser, size_t pairi)
 }
 
 size_t dsv_parser_get_escaped_field_escape_expression(dsv_parser_t _parser,
-    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize)
+    size_t pairi, size_t idx, char *buff, size_t buffsize)
 {
   assert(_parser.p);
 
@@ -585,7 +586,7 @@ size_t dsv_parser_get_escaped_field_escape_expression(dsv_parser_t _parser,
 
 
 size_t dsv_parser_get_escaped_field_escape_replacement(dsv_parser_t _parser,
-    size_t pairi, size_t idx,  unsigned char *buff, size_t buffsize)
+    size_t pairi, size_t idx, char *buff, size_t buffsize)
 {
   assert(_parser.p);
 

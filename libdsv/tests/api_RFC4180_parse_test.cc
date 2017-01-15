@@ -1,7 +1,38 @@
+/*
+  Copyright (c) 2014-2017, Mike Tegtmeyer All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  1. Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+
+  3. Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include <boost/test/unit_test.hpp>
 
 #include <dsv_parser.h>
-#include "test_detail.h"
+#include "api_detail.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,10 +50,6 @@
 
 
 
-namespace dsv {
-namespace test {
-
-
 namespace fs=boost::filesystem;
 namespace d=detail;
 
@@ -32,6 +59,17 @@ namespace d=detail;
 
 BOOST_AUTO_TEST_SUITE( RFC4180_parse_suite )
 
+BOOST_AUTO_TEST_CASE( check_parse )
+{
+  dsv_parser_t parser;
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
+  std::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
+
+}
+
+
+
+#if 0
 
 /** \test Check for default RFC4180 parser object settings
  */
@@ -1000,9 +1038,6 @@ BOOST_AUTO_TEST_CASE( parse_multi_header_emptyrecord_rfc4180_charset_crlf )
   d::check_compliance(parser,headers,{},logs,file_contents,
     "parse_multi_header_singlerecord_rfc4180_charset_crlf",-1);
 }
-
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
-
-}
-}

@@ -17,14 +17,7 @@ AC_PROG_INSTALL
 AC_LIBTOOL_DLOPEN
 
 AC_PROG_LIBTOOL
-dnl Configure libltdl                                                           
-AM_PROG_LEX
-if test "x$LEX" != xflex; then
-   LEX="$SHELL $missing_dir/missing flex"
-   AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
-   AC_SUBST([LEXLIB], [''])
-fi
-
+dnl Configure libltdl
 AC_PROG_YACC
 AC_PROG_LN_S
 
@@ -33,6 +26,10 @@ BOOST_REQUIRE([1.43])
 BOOST_TEST
 BOOST_SYSTEM
 BOOST_FILESYSTEM
+
+# Use SYSTEM_BOOST_CPPFLAGS to add includes with -isystem instead of -I
+# to suppress boost compiler warnings
+AC_SUBST([SYSTEM_BOOST_CPPFLAGS], [`echo $BOOST_CPPFLAGS | sed -e 's|^-I|-isystem |g' -e 's|[[:space:]]\{1,\}-I| -isystem |g'`])
 
 # Checks for libraries.
 
@@ -54,9 +51,9 @@ AC_ARG_WITH([single-testsuite],
 [case "${withval}" in
   yes) ;;
   no) ;;
-  *) AC_MSG_ERROR([bad value ${withval} for --with-single-testsuite]) ;; 
-esac],[with_single_testsuite=no]) 
-AM_CONDITIONAL([SINGLE_TESTSUITE], [test "x$with_single_testsuite" == xyes]) 
+  *) AC_MSG_ERROR([bad value ${withval} for --with-single-testsuite]) ;;
+esac],[with_single_testsuite=no])
+AM_CONDITIONAL([SINGLE_TESTSUITE], [test "x$with_single_testsuite" == xyes])
 
 
 
