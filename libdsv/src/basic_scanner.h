@@ -93,8 +93,6 @@ class basic_scanner {
     void cache_clear(void);
     void cache_erase(size_type n);
 
-    int cache_id(int id) const;
-
   private:
     typedef std::allocator_traits<Allocator> allocator_traits;
 
@@ -114,8 +112,6 @@ class basic_scanner {
 
     size_type _read_size;
     bool _should_close;
-
-    int _cache_id;
 
     bool refill(void);
 };
@@ -268,7 +264,6 @@ bool basic_scanner<CharT,Allocator>::refill(void)
 
   return _read_offset != _end_offset;
 }
-
 
 
 

@@ -387,6 +387,15 @@ BOOST_AUTO_TEST_CASE( field_escapes_check )
 
   BOOST_REQUIRE(sresult == exp_seq.size());
 
+  // CHECK FOR EXLUSIVE PAIR SETTING AND GETTING
+  iresult = dsv_parser_get_field_escape_exclusiveflag(parser);
+  BOOST_REQUIRE(iresult == 1);
+
+  dsv_parser_set_field_escape_exclusiveflag(parser,0);
+
+  iresult = dsv_parser_get_field_escape_exclusiveflag(parser);
+  BOOST_REQUIRE(iresult == 0);
+
   // CHECK FOR CONTENTS
   std::size_t exp_size;
   std::vector<char> buff;

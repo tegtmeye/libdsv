@@ -103,7 +103,7 @@ class parser {
 
   public:
     typedef CharT char_type;
-    typedef std::vector<char_type> char_sequence_type;
+    typedef std::vector<char_type> char_sequence;
     typedef std::basic_string<char_type> expression_type;
     typedef std::basic_regex<char_type> regex_type;
 
@@ -139,8 +139,8 @@ class parser {
     void record_delimiters(const expression_type &exp);
     const expression_type & record_delimiters(void) const;
     const regex_type & record_delimiters_regex(void) const;
-    void exclusive_record_delimiter(const char_sequence_type &seq);
-    const char_sequence_type & exclusive_record_delimiter(void) const;
+    void exclusive_record_delimiter(const char_sequence &seq);
+    const char_sequence & exclusive_record_delimiter(void) const;
 
     void exclusive_record_delimiter_flag(bool flag);
     bool exclusive_record_delimiter_flag(void) const;
@@ -149,8 +149,8 @@ class parser {
     void field_delimiters(const expression_type &exp);
     const expression_type & field_delimiters(void) const;
     const regex_type & field_delimiters_regex(void) const;
-    void exclusive_field_delimiter(const char_sequence_type &seq);
-    const char_sequence_type & exclusive_field_delimiter(void) const;
+    void exclusive_field_delimiter(const char_sequence &seq);
+    const char_sequence & exclusive_field_delimiter(void) const;
 
     void exclusive_field_delimiter_flag(bool flag);
     bool exclusive_field_delimiter_flag(void) const;
@@ -180,8 +180,8 @@ class parser {
         Regex searches for field and record delimiters and open field escapes
     */
     const regex_type & free_field_regex(void) const;
-    std::size_t field_subexp_idx(void) const;
     std::size_t record_subexp_idx(void) const;
+    std::size_t field_subexp_idx(void) const;
     // return value corresponds to each of the field escape pairs. That is,
     // if the ith subexpression is returned and it is the jth element of the
     // return value, then the jth pair was opened.
@@ -233,13 +233,13 @@ class parser {
     // RECORD DELIMITERS
     expression_type _record_delimiters;
     regex_type _record_delimiters_regex;
-    char_sequence_type _exclusive_record_delimiter;
+    char_sequence _exclusive_record_delimiter;
     bool _exclusive_record_delimiter_flag;
 
     // FIELD DELIMITERS
     expression_type _field_delimiters;
     regex_type _field_delimiters_regex;
-    char_sequence_type _exclusive_field_delimiter;
+    char_sequence _exclusive_field_delimiter;
     bool _exclusive_field_delimiter_flag;
 
     // FIELD ESCAPES
@@ -249,27 +249,34 @@ class parser {
     // FIELD COLUMN MANAGEMENT
     std::size_t _restrict_field_columns;
     std::size_t _effective_field_columns;
+
+    regex_type _free_field_regex;
+    std::size_t _record_subexp_idx;
+    std::size_t _field_subexp_idx;
+    std::vector<std::size_t> _open_field_escape_subexp_idx;
+
+    void recompile_free_field_regex(void);
 };
 
 template<typename CharT>
 class parser<CharT>::escaped_replacement_desc {
   public:
     escaped_replacement_desc(const expression_type &exp,
-      const char_sequence_type &rep);
+      const char_sequence &rep);
 
     const expression_type & expression(void) const;
     const regex_type & regex(void) const;
-    const char_sequence_type & replacement(void) const;
+    const char_sequence & replacement(void) const;
 
   private:
     expression_type _expression;
     regex_type _regex;
-    char_sequence_type _replacement;
+    char_sequence _replacement;
 };
 
 template<typename CharT>
 inline parser<CharT>::escaped_replacement_desc::escaped_replacement_desc(
-  const expression_type &exp, const char_sequence_type &rep) :_expression(exp),
+  const expression_type &exp, const char_sequence &rep) :_expression(exp),
     _regex(exp), _replacement(rep)
 {
 }
@@ -289,7 +296,7 @@ parser<CharT>::escaped_replacement_desc::regex(void) const
 }
 
 template<typename CharT>
-inline const typename parser<CharT>::char_sequence_type &
+inline const typename parser<CharT>::char_sequence &
 parser<CharT>::escaped_replacement_desc::replacement(void) const
 {
   return _replacement;
@@ -305,14 +312,14 @@ class parser<CharT>::escaped_field_desc {
 
     const expression_type & open_expression(void) const;
     const regex_type & open_regex(void) const;
-    const char_sequence_type & open_exclusive_seq(void) const;
-    void open_exclusive_seq(const char_sequence_type &seq);
+    const char_sequence & open_exclusive_seq(void) const;
+    void open_exclusive_seq(const char_sequence &seq);
     bool open_exclusive(void) const;
 
     const expression_type & close_expression(void) const;
     const regex_type & close_regex(void) const;
-    const char_sequence_type & close_exclusive_seq(void) const;
-    void close_exclusive_seq(const char_sequence_type &seq);
+    const char_sequence & close_exclusive_seq(void) const;
+    void close_exclusive_seq(const char_sequence &seq);
     bool close_exclusive(void) const;
 
     const escaped_replacement_desc_seq & replacement_desc_seq(void) const;
@@ -321,12 +328,12 @@ class parser<CharT>::escaped_field_desc {
   private:
     expression_type _open_expression;
     regex_type _open_regex;
-    char_sequence_type _open_exclusive_seq;
+    char_sequence _open_exclusive_seq;
     bool _open_exclusive;
 
     expression_type _close_expression;
     regex_type _close_regex;
-    char_sequence_type _close_exclusive_seq;
+    char_sequence _close_exclusive_seq;
     bool _close_exclusive;
 
     escaped_replacement_desc_seq _replacement_desc_seq;
@@ -357,7 +364,7 @@ parser<CharT>::escaped_field_desc::open_regex(void) const
 }
 
 template<typename CharT>
-inline const typename parser<CharT>::char_sequence_type &
+inline const typename parser<CharT>::char_sequence &
 parser<CharT>::escaped_field_desc::open_exclusive_seq(void) const
 {
   return _open_exclusive_seq;
@@ -365,7 +372,7 @@ parser<CharT>::escaped_field_desc::open_exclusive_seq(void) const
 
 template<typename CharT>
 inline void parser<CharT>::escaped_field_desc::open_exclusive_seq(
-  const char_sequence_type &seq)
+  const char_sequence &seq)
 {
   _open_exclusive_seq = seq;
 }
@@ -391,7 +398,7 @@ parser<CharT>::escaped_field_desc::close_regex(void) const
 }
 
 template<typename CharT>
-inline const typename parser<CharT>::char_sequence_type &
+inline const typename parser<CharT>::char_sequence &
 parser<CharT>::escaped_field_desc::close_exclusive_seq(void) const
 {
   return _close_exclusive_seq;
@@ -399,7 +406,7 @@ parser<CharT>::escaped_field_desc::close_exclusive_seq(void) const
 
 template<typename CharT>
 inline void parser<CharT>::escaped_field_desc::close_exclusive_seq(
-  const char_sequence_type &seq)
+  const char_sequence &seq)
 {
   _close_exclusive_seq = seq;
 }
@@ -516,6 +523,7 @@ inline void parser<CharT>::record_delimiters(const expression_type &exp)
   std::swap(_record_delimiters_regex,tmp_regex);
 
   // trigger recompile of derived
+  recompile_free_field_regex();
 }
 
 template<typename CharT>
@@ -534,13 +542,13 @@ parser<CharT>::record_delimiters_regex(void) const
 
 template<typename CharT>
 inline void
-parser<CharT>::exclusive_record_delimiter(const char_sequence_type &seq)
+parser<CharT>::exclusive_record_delimiter(const char_sequence &seq)
 {
   _exclusive_record_delimiter = seq;
 }
 
 template<typename CharT>
-inline const typename parser<CharT>::char_sequence_type &
+inline const typename parser<CharT>::char_sequence &
 parser<CharT>::exclusive_record_delimiter(void) const
 {
   return _exclusive_record_delimiter;
@@ -569,6 +577,7 @@ inline void parser<CharT>::field_delimiters(const expression_type &exp)
   std::swap(_field_delimiters_regex,tmp_regex);
 
   // trigger recompile of derived
+  recompile_free_field_regex();
 }
 
 template<typename CharT>
@@ -587,13 +596,13 @@ parser<CharT>::field_delimiters_regex(void) const
 
 template<typename CharT>
 inline void
-parser<CharT>::exclusive_field_delimiter(const char_sequence_type &seq)
+parser<CharT>::exclusive_field_delimiter(const char_sequence &seq)
 {
   _exclusive_field_delimiter = seq;
 }
 
 template<typename CharT>
-inline const typename parser<CharT>::char_sequence_type &
+inline const typename parser<CharT>::char_sequence &
 parser<CharT>::exclusive_field_delimiter(void) const
 {
   return _exclusive_field_delimiter;
@@ -618,6 +627,9 @@ template<typename CharT>
 inline void parser<CharT>::field_escapes(const escaped_field_desc_seq &seq)
 {
   _field_escapes = seq;
+
+  // trigger recompile of derived
+  recompile_free_field_regex();
 }
 
 template<typename CharT>
@@ -666,7 +678,94 @@ inline void parser<CharT>::restrict_field_columns(std::size_t n)
   _restrict_field_columns = n;
 }
 
+template<typename CharT>
+inline const typename parser<CharT>::regex_type &
+parser<CharT>::free_field_regex(void) const
+{
+  return _free_field_regex;
+}
 
+template<typename CharT>
+inline std::size_t parser<CharT>::record_subexp_idx(void) const
+{
+  return _record_subexp_idx;
+}
+
+template<typename CharT>
+inline std::size_t parser<CharT>::field_subexp_idx(void) const
+{
+  return _field_subexp_idx;
+}
+
+template<typename CharT>
+inline const std::vector<std::size_t> &
+parser<CharT>::open_field_escape_subexp_idx(void) const
+{
+  return _open_field_escape_subexp_idx;
+}
+
+
+
+
+
+template<typename CharT>
+void parser<CharT>::recompile_free_field_regex(void)
+{
+  expression_type combined;
+
+  if(!_record_delimiters.empty())
+    combined += expression_type("(") + _record_delimiters +
+      expression_type(")");
+
+  if(!_field_delimiters.empty()) {
+    if(!combined.empty())
+      combined += "|";
+    combined += expression_type("(") + _field_delimiters + expression_type(")");
+  }
+
+  std::size_t record_count = _record_delimiters_regex.mark_count();
+  std::size_t field_count = _field_delimiters_regex.mark_count();
+  std::vector<std::size_t> open_count;
+
+  typename escaped_field_desc_seq::const_iterator cur = _field_escapes.begin();
+  while(cur != _field_escapes.end()) {
+    open_count.push_back(cur->open_regex().mark_count());
+    if(!combined.empty())
+      combined += "|";
+    combined += expression_type("(");
+    combined += cur->open_expression();
+    combined += expression_type(")");
+    ++cur;
+  }
+
+  std::cerr << "Combined regex: '" << combined << "'\n";
+
+  _free_field_regex = regex_type(combined);
+
+  std::size_t record_idx = 1;
+  std::size_t field_idx = record_idx + record_count + 1;
+
+  std::vector<std::size_t> open_subidx;
+
+  if(!open_count.empty()) {
+    open_subidx.push_back(field_idx+field_count+1);
+
+    for(std::size_t i=1; i<open_count.size(); ++i)
+      open_subidx.push_back(open_subidx.back() + open_count[i-1] + 1);
+  }
+
+  // set last in case of errors
+  _record_subexp_idx = record_idx;
+  _field_subexp_idx = field_idx;
+  std::swap(_open_field_escape_subexp_idx,open_subidx);
+
+  std::cerr << "record idx: " << _record_subexp_idx << "\n";
+  std::cerr << "field idx: " << _field_subexp_idx << "\n";
+  for(std::size_t i=0; i<_open_field_escape_subexp_idx.size(); ++i)
+    std::cerr << "Open #" << i << " " << _open_field_escape_subexp_idx[i]
+      << "\n";
+
+}
 
 
 

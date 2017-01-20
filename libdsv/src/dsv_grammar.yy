@@ -43,10 +43,48 @@
 
   #include <iostream>
 
+
+  namespace detail {
+
+  template<typename CharT>
+  struct basic_lex_state {
+    typedef basic_scanner<CharT> scanner_type;
+    typedef detail::basic_scanner_iterator<CharT> scanner_iterator;
+
+    typedef typename scanner_type::size_type size_type;
+
+    scanner_type scanner;
+    std::match_results<scanner_iterator> results;
+
+    size_type token_size;
+    int lookahead_id;
+
+    basic_lex_state(const char *path, FILE *in=0) :scanner(path,in),
+      lookahead_id(0) {}
+  };
+
+  typedef detail::basic_scanner<char> scanner_type;
+  typedef detail::parser<scanner_type::char_type> parser_type;
+  typedef detail::basic_lex_state<scanner_type::char_type> lex_state_type;
+
+  int parse_file(const char *location_str, FILE *stream, parser_type &parser,
+    const detail::parse_operations &operations);
+
+  }
+
   // Change me with bison version > 3
   struct YYSTYPE {
-    // use vectors of unsigned characters instead of std::string so that we
-    // can store 0s
+    typedef detail::parser_type::char_sequence char_sequence;
+
+    typedef std::shared_ptr<char_sequence> char_sequence_ptr;
+
+
+
+    std::pair<detail::scanner_type::const_pointer,
+      detail::scanner_type::const_pointer> token;
+
+
+
     typedef std::vector<unsigned char> char_buff_type;
     typedef std::shared_ptr<char_buff_type> char_buff_ptr_type;
     typedef std::shared_ptr<const char_buff_type> const_char_buff_ptr_type;
@@ -61,8 +99,6 @@
     char_buff_vec_ptr_type char_buf_vec_ptr;
   };
 
-  typedef detail::parser<char> parser_type;
-  typedef detail::basic_scanner<char> scanner_type;
 
 }
 
@@ -73,16 +109,39 @@
   #include <sstream>
   #include <iomanip>
 
+  namespace detail {
+
+    int parse_file(const char *location_str, FILE *stream, parser_type &parser,
+      const detail::parse_operations &operations)
+    {
+      lex_state_type lex_state(location_str,stream);
+      std::unique_ptr<scanner_type> base_ctx;
+
+      return parser_parse(lex_state,parser,operations,base_ctx);
+    }
+
+  }
+
+
+
+
+
+
+
+
+
+
   /**
    *  Error reporting function as required by Bison
    *  These are always errors
    */
   void parser_error(YYLTYPE *llocp,
-    const scanner_type &scanner, parser_type &parser,
+    detail::lex_state_type &lex_state, detail::parser_type &parser,
     const detail::parse_operations &operations,
-    const std::unique_ptr<scanner_type> &context,
+    const std::unique_ptr<detail::scanner_type> &context,
     const char *s)
   {
+#if 0
     log_callback_t logger = parser.log_callback();
     if((parser.log_level() & dsv_log_error) && logger) {
       std::string first_line = std::to_string(llocp->first_line);
@@ -102,9 +161,12 @@
       logger(dsv_syntax_error,dsv_log_error,fields,
         sizeof(fields)/sizeof(const char *),parser.log_context());
     }
+#endif
   }
 
-  bool column_count_message(const YYLTYPE &llocp, const scanner_type &scanner,
+#if 0
+  bool column_count_message(const YYLTYPE &llocp,
+    const basic_lex_state<char> &lex_state,
     parser_type &parser, std::size_t rec_cols, dsv_log_level level)
   {
 //     std::cerr << "Generating column_count_message: LOG LEVEL: "
@@ -148,7 +210,7 @@
   }
 
   bool unexpected_binary(const YYLTYPE &llocp,
-    const scanner_type &scanner, parser_type &parser,
+    const basic_lex_state<char> &lex_state, parser_type &parser,
     const YYSTYPE::char_buff_type &char_buf, dsv_log_level level)
   {
     bool result = !(level & dsv_log_error);
@@ -196,13 +258,13 @@
 
     return result;
   }
-
+#endif
 
   /**
       Forward declaration of lexer
   */
-  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, scanner_type &scanner,
-    parser_type &parser);
+  int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
+    detail::lex_state_type &lex_state, detail::parser_type &parser);
 
   /**
    *  Use namespaces here to avoid multiple symbol name clashes
@@ -212,7 +274,7 @@
      *  convenience declares
      */
     bool check_or_update_column_count(const YYLTYPE &llocp,
-      const scanner_type &scanner, parser_type &parser,
+      const basic_lex_state<char> &lex_state, parser_type &parser,
       const YYSTYPE::char_buff_vec_ptr_type &char_buf_vec_ptr)
     {
 #if 0
@@ -306,12 +368,6 @@
 
       return out.str();
     }
-
-
-    static const YYSTYPE::const_char_buff_ptr_type empty_buf(
-      new YYSTYPE::char_buff_type());
-    static const YYSTYPE::char_buff_vec_ptr_type empty_vec(
-      new YYSTYPE::const_char_buff_vec_type());
   }
 
 }
@@ -322,13 +378,13 @@
 %debug
 %error-verbose
 
-%lex-param {scanner_type &scanner}
-%lex-param {parser_type &parser}
+%lex-param {detail::lex_state_type &lex_state}
+%lex-param {detail::parser_type &parser}
 
-%parse-param {scanner_type &scanner}
-%parse-param {parser_type &parser}
-%parse-param {detail::parse_operations &operations}
-%parse-param {const std::unique_ptr<scanner_type> &context}
+%parse-param {detail::lex_state_type &lex_state}
+%parse-param {detail::parser_type &parser}
+%parse-param {const detail::parse_operations &operations}
+%parse-param {const std::unique_ptr<detail::scanner_type> &context}
 
 %token END 0 "end-of-file"
 %token <char_buf_ptr> FIELD_DELIMITER "field delimiter"
@@ -363,60 +419,58 @@ file:
 empty_header:
     RECORD_DELIMITER {
       // RECORD_DELIMITER means no header. Check to see if empty records are allowed
-//       std::cerr << "HERE!!!!!!!!!!!!!!\n";
-      if(!detail::check_or_update_column_count(@1,scanner,parser,
-        detail::empty_vec))
-      {
-//         std::cerr << "ABORTING!!!!!!!!!!!!!!\n";
-        YYABORT;
-      }
-
-      // do manual process header cause we know it is empty
-      if(operations.header_callback &&
-        !operations.header_callback(0,0,0,operations.header_context))
-      {
-        YYABORT;
-      }
+//       if(!detail::check_or_update_column_count(@1,scanner,parser,
+//         detail::empty_vec))
+//       {
+//         YYABORT;
+//       }
+//
+//       // do manual process header cause we know it is empty
+//       if(operations.header_callback &&
+//         !operations.header_callback(0,0,0,operations.header_context))
+//       {
+//         YYABORT;
+//       }
     }
   ;
 
 header_block:
   field_list {
-      if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
-        YYABORT;
-
-      if(!detail::process_header($1,operations))
-        YYABORT;
+//       if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
+//         YYABORT;
+//
+//       if(!detail::process_header($1,operations))
+//         YYABORT;
     }
 //   | delimited_header_list
   ;
 
 field_list:
     field {
-      $$.reset(new YYSTYPE::const_char_buff_vec_type());
-      $$->push_back($1);
+//       $$.reset(new YYSTYPE::const_char_buff_vec_type());
+//       $$->push_back($1);
     }
   | FIELD_DELIMITER {
-      $$.reset(new YYSTYPE::const_char_buff_vec_type());
-      $$->push_back(detail::empty_buf);
-      $$->push_back(detail::empty_buf);
+//       $$.reset(new YYSTYPE::const_char_buff_vec_type());
+//       $$->push_back(detail::empty_buf);
+//       $$->push_back(detail::empty_buf);
     }
   | FIELD_DELIMITER field {
-      $$.reset(new YYSTYPE::const_char_buff_vec_type());
-      $$->push_back(detail::empty_buf);
-      $$->push_back($2);
+//       $$.reset(new YYSTYPE::const_char_buff_vec_type());
+//       $$->push_back(detail::empty_buf);
+//       $$->push_back($2);
     }
   | field_list FIELD_DELIMITER {
-      $$.reset(new YYSTYPE::const_char_buff_vec_type());
-      $$->reserve($1->size()+1);
-      $$->assign($1->begin(),$1->end());
-      $$->push_back(detail::empty_buf);
+//       $$.reset(new YYSTYPE::const_char_buff_vec_type());
+//       $$->reserve($1->size()+1);
+//       $$->assign($1->begin(),$1->end());
+//       $$->push_back(detail::empty_buf);
     }
   | field_list FIELD_DELIMITER field {
-      $$.reset(new YYSTYPE::const_char_buff_vec_type());
-      $$->reserve($1->size()+1);
-      $$->assign($1->begin(),$1->end());
-      $$->push_back($3);
+//       $$.reset(new YYSTYPE::const_char_buff_vec_type());
+//       $$->reserve($1->size()+1);
+//       $$->assign($1->begin(),$1->end());
+//       $$->push_back($3);
     }
   ;
 
@@ -435,12 +489,12 @@ escaped_textdata_list:
     escaped_textdata { $$ = $1; }
   | escaped_textdata_list escaped_textdata {
       // need to aggregate so must use unique vector
-      YYSTYPE::char_buff_ptr_type tmp(new YYSTYPE::char_buff_type());
-      tmp->reserve($1->size()+$2->size());
-      tmp->assign($1->begin(),$1->end());
-      tmp->insert($$->end(),$2->begin(),$2->end());
+//       YYSTYPE::char_buff_ptr_type tmp(new YYSTYPE::char_buff_type());
+//       tmp->reserve($1->size()+$2->size());
+//       tmp->assign($1->begin(),$1->end());
+//       tmp->insert($$->end(),$2->begin(),$2->end());
 
-      $$ = tmp;
+//       $$ = tmp;
     }
   ;
 
@@ -456,16 +510,16 @@ non_escaped_field:
 record_block:
     RECORD_DELIMITER {  // A single RECORD_DELIMITER means an empty record block
       // check to see if empty records are allowed
-      if(!detail::check_or_update_column_count(@1,scanner,parser,
-        detail::empty_vec))
-      {
-        YYABORT;
-      }
+//       if(!detail::check_or_update_column_count(@1,scanner,parser,
+//         detail::empty_vec))
+//       {
+//         YYABORT;
+//       }
 
       // manual process record cause we know it is empty, the return value
       // doesn't matter
-      if(operations.record_callback)
-        operations.record_callback(0,0,0,operations.record_context);
+//       if(operations.record_callback)
+//         operations.record_callback(0,0,0,operations.record_context);
 
     }
   | record
@@ -477,29 +531,29 @@ record_list:
     record RECORD_DELIMITER
   | record_list RECORD_DELIMITER {
       // Single RECORD_DELIMITER means empty record
-      if(!detail::check_or_update_column_count(@2,scanner,parser,
-        detail::empty_vec))
-      {
-        YYABORT;
-      }
-
-      // do manual process record cause we know it is empty
-      if(operations.record_callback &&
-        !operations.record_callback(0,0,0,operations.record_context))
-      {
-        YYABORT;
-      }
+//       if(!detail::check_or_update_column_count(@2,scanner,parser,
+//         detail::empty_vec))
+//       {
+//         YYABORT;
+//       }
+//
+//       // do manual process record cause we know it is empty
+//       if(operations.record_callback &&
+//         !operations.record_callback(0,0,0,operations.record_context))
+//       {
+//         YYABORT;
+//       }
     }
   | record_list record RECORD_DELIMITER
   ;
 
 record:
     field_list {
-      if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
-        YYABORT;
-
-      if(!detail::process_record($1,operations))
-        YYABORT;
+//       if(!detail::check_or_update_column_count(@1,scanner,parser,$1))
+//         YYABORT;
+//
+//       if(!detail::process_record($1,operations))
+//         YYABORT;
     }
   ;
 
@@ -594,11 +648,12 @@ std::string ascii(int c)
 /**
 
  */
-int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, scanner_type &scanner,
-  parser_type &parser)
+int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp,
+  detail::lex_state_type &lex_state, detail::parser_type &parser)
 {
-  typedef detail::basic_scanner_iterator<scanner_type::char_type>
-    scanner_iterator;
+  typedef detail::lex_state_type::scanner_iterator scanner_iterator;
+
+  detail::lex_state_type::scanner_type &scanner = lex_state.scanner;
 
   if(scanner.eof())
     return 0;
@@ -606,62 +661,84 @@ int parser_lex(YYSTYPE *lvalp, YYLTYPE *llocp, scanner_type &scanner,
   llocp->first_line = llocp->last_line;
   // last_column is always 1-past as is C
   llocp->first_column = llocp->last_column;
+//
+//   lex_state.scanner.cache_erase(lex_state.token_size());
+//
+//   if(lex_state.scanner.cache_size()) {
+//     // lookahead exists, copy it to lvalp
+//     scanner.token_size(scanner.cache_size());
+//     llocp->last_column += scanner.cache_size();
+//     int token_id = scanner.lookahead_id();
+//     scanner.lookahead_id(-1); // shouldnt be necessary
+//     lvalp->token = std::make_pair(scanner.cache_begin(),scanner.cache_end());
+//
+//     return token_id;
+//   }
 
-  if(scanner.cache_size()) {
-    // lookahead exists, copy it to lvalp, clear the cache, and return the ID
-    lvalp->char_buf_ptr->assign(scanner.cache_begin(),scanner.cache_end());
-    llocp->last_column += scanner.cache_size();
-    scanner.cache_clear();
-
-    return scanner.cache_id(0);
-  }
-
-
-  std::match_results<scanner_iterator> results;
-
+  scanner_iterator first(scanner);
 
   if(false /*parser.escaped_field()*/) {
 
   }
-  else {
-    // we are starting or in a field
-    // FREE FIELD SEARCHING
-    if(std::regex_search(scanner_iterator(scanner),scanner_iterator(),
-      results,parser.free_field_regex()))
-    {
+std::cerr << "HERE!!!!!!!!!!!!!!!!!\n";
+  // FREE FIELD SEARCHING - we are starting or in a field
+  if(std::regex_search(scanner_iterator(scanner),scanner_iterator(),
+    lex_state.results,parser.free_field_regex()))
+  {
+std::cerr << "DONE SEARCH!!!!!!!!!!!!!!!!!\n";
+    std::size_t lookahead = 0;
+
+    // Case 1: prefix is nonempty. Set the lookahead to the match and then
+    // return the prefix as FIELDDATA
+    // Case 2: prefix is empty. Make sure lookahead is empty and return the
+    // match as whatever did
+    if(lex_state.results[parser.field_subexp_idx()].matched) {
+      lookahead = std::distance(first,
+        lex_state.results[parser.field_subexp_idx()].first);
+      std::cerr << "Lookahead = " << lookahead << ":" <<
+        std::distance(first,scanner_iterator(scanner))
+        << "\n";
+      std::cerr << "Cache size: " << lex_state.scanner.cache_size() << "\n";
+    }
+    else if(lex_state.results[parser.record_subexp_idx()].matched) {
+
+    }
+
+    if(lex_state.results.prefix().matched) {
+
+    }
+
 #if 0
-      // prefix holds normal textdata
-      for(std::size_t i=0; i<results.size(); ++i) {
-        if(results[i].matched()) {
-          /*
-            find which subexpression matched and then push into lookahead
-          */
-          if(matched was an field_escape opening) {
-            parser.selected_exclusive_field_escape(matched open pair id);
-          }
-
-          if(results.prefix().matched()) {
-            parser.push_lookahead(std::make_pair(ID,SEQ));
-            // set lvalp to prefix data
-            return TEXTDATA;
-          }
-
-          // no prefix, set lvalp to prefix data
-          return WHICHEVER WAS THE MATCH;
+    for(std::size_t i=0; i<results.size(); ++i) {
+      if(results[i].matched()) {
+        /*
+          find which subexpression matched and then push into lookahead
+        */
+        if(matched was an field_escape opening) {
+          parser.selected_exclusive_field_escape(matched open pair id);
         }
 
+        if(results.prefix().matched()) {
+          parser.push_lookahead(std::make_pair(ID,SEQ));
+          // set lvalp to prefix data
+          return TEXTDATA;
+        }
+
+        // no prefix, set lvalp to prefix data
+        return WHICHEVER WAS THE MATCH;
       }
-#endif
-    }
-#if 0
-    // no matches---all is regular textdata, should be at EOF
-    if(we actually read something) {
-      // set lvalp to input
-      return TEXTDATA;
+
     }
 #endif
-    return 0; // EOF
   }
+
+  // Nothing was found. Copy the cache
+  lex_state.token_size = scanner.cache_size();
+  llocp->last_column += scanner.cache_size();
+  lex_state.lookahead_id = 0;
+  lvalp->token = std::make_pair(scanner.cache_begin(),scanner.cache_end());
+
+  return FIELDDATA;
 }
 
 

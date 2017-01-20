@@ -32,16 +32,15 @@
 #include <boost/test/unit_test.hpp>
 
 #include <dsv_parser.h>
-#include "test_detail.h"
+#include "api_detail.h"
 
-
+#include <cstdlib>
 
 /** \file
  *  \brief Unit tests for the default settings for the different parsers
  */
 
 namespace fs=boost::filesystem;
-namespace d=detail;
 
 
 BOOST_AUTO_TEST_SUITE( api_defaults_parse_suite )
@@ -68,17 +67,17 @@ BOOST_AUTO_TEST_CASE( parser_create_and_destroy )
   BOOST_REQUIRE_MESSAGE(result == 0,
     "obj_parser_destroy failed with exit code: " << result);
 }
-#if 0
+
 /** \test Attempt to parse a unnamed file with a zero stream
  */
 BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
-  assert(dsv_operations_create(&operations) == 0);
+  BOOST_REQUIRE(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t>
     operations_sentry(&operations,detail::operations_destroy);
 
@@ -106,11 +105,11 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_file_with_zero_stream )
 BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
-  assert(dsv_operations_create(&operations) == 0);
+  BOOST_REQUIRE(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t>
     operations_sentry(&operations,detail::operations_destroy);
 
@@ -130,11 +129,11 @@ BOOST_AUTO_TEST_CASE( parse_named_nonexistent_file_with_zero_stream )
 BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   dsv_operations_t operations;
-  assert(dsv_operations_create(&operations) == 0);
+  BOOST_REQUIRE(dsv_operations_create(&operations) == 0);
   std::shared_ptr<dsv_operations_t>
     operations_sentry(&operations,detail::operations_destroy);
 
@@ -165,12 +164,13 @@ BOOST_AUTO_TEST_CASE( parse_unnamed_empty_file_with_stream )
   fs::remove(filepath);
 }
 
+
 /** \test Attempt to parse an empty file
  */
 BOOST_AUTO_TEST_CASE( parse_empty_file )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
   detail::check_compliance(parser,{},{},{},{},"parse_empty_file",0);
@@ -183,33 +183,80 @@ BOOST_AUTO_TEST_CASE( parse_empty_file )
 BOOST_AUTO_TEST_CASE( parse_random_data_file )
 {
   dsv_parser_t parser;
-  assert(dsv_parser_create(&parser) == 0);
+  BOOST_REQUIRE(dsv_parser_create(&parser) == 0);
   boost::shared_ptr<dsv_parser_t> parser_sentry(&parser,detail::parser_destroy);
 
-  fs::path filepath(detail::random_data_file);
-  BOOST_REQUIRE_MESSAGE(fs::exists(filepath) && fs::is_regular_file(filepath),
-    detail::missing_random_data_file_msg);
+//testing... remove me
+BOOST_REQUIRE(dsv_parser_set_record_delimiters(parser,"hello",5,1)==0);
+BOOST_REQUIRE(dsv_parser_set_field_delimiters(parser,"m",1,1)==0);
 
-  FILE *rfile = std::fopen(filepath.c_str(),"rb");
+std::vector<std::pair<std::string,std::string> > exp_seq = {
+  {"open1","close1"},{"open2","close2"},{"open3","close3"},{"open4","close4"}
+};
 
-  d::field_storage_type field;
 
-  int c;
-  while ((c = std::fgetc(rfile)) != EOF)
-     field.push_back(c);
+std::string open_expr1("(open_expression1)|(fo(o)?)(bar)*");
+std::string close_expr1("close_expression1");
+std::string open_expr2("open_expression2");
+std::string close_expr2("close_expression2");
+std::string open_expr3("open_expression3");
+std::string close_expr3("close_expression3");
 
-  std::vector<std::vector<d::field_storage_type> > records{
-    {field}
+const char * open_seq[] =
+  {open_expr1.data(),open_expr2.data(),open_expr3.data()};
+std::size_t open_size[] =
+  {open_expr1.size(),open_expr2.size(),open_expr3.size()};
+int open_excl[] = {1,1,1};
+const char * close_seq[] =
+  {close_expr1.data(),close_expr2.data(),close_expr3.data()};
+std::size_t close_size[] =
+  {close_expr1.size(),close_expr2.size(),close_expr3.size()};
+int close_excl[] = {1,1,1};
+
+int iresult = dsv_parser_set_field_escape_pair(parser,
+  open_seq,open_size,open_excl,close_seq,close_size,close_excl,3,0);
+
+
+  dsv_operations_t operations;
+  BOOST_REQUIRE(dsv_operations_create(&operations) == 0);
+  std::shared_ptr<dsv_operations_t>
+    operations_sentry(&operations,detail::operations_destroy);
+
+  detail::logging_context log_context;
+  dsv_set_logger_callback(detail::logger,&log_context,dsv_log_all,parser);
+
+  srand(1);
+
+  detail::field_storage_type data;
+  std::cerr << "Making datafile of " << (2<<8) << " bytes\n";
+//  for(std::size_t i=0; i<(2<<16); ++i)
+  for(std::size_t i=0; i<(2<<8); ++i)
+    data.push_back(char(rand()%94+32));
+
+
+  std::vector<detail::field_storage_type> file_contents{data};
+
+
+  std::vector<std::vector<detail::field_storage_type> > records{
+    {data}
   };
 
-  BOOST_REQUIRE_MESSAGE(!std::ferror(rfile),
-    "I/O error when reading '" << detail::random_data_file << "'");
+  fs::path filepath = detail::gen_testfile(file_contents,
+    "parse_random_data_file");
 
-  std::fclose(rfile);
+  std::unique_ptr<std::FILE,int(*)(std::FILE *)>
+    in(std::fopen(filepath.c_str(),"rb"),&std::fclose);
+
+  BOOST_REQUIRE_MESSAGE(in.get() != 0,
+    "Unit test failure: could not open unit test data file \"" << filepath
+      << "\"");
+
 
   detail::check_file_compliance(parser,{},records,{},filepath,
     "parse_random_data_file",0);
+
+
+  fs::remove(filepath);
 }
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -68,14 +68,6 @@ namespace fs=boost::filesystem;
 typedef std::vector<char> field_storage_type;
 
 
-static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
-static const std::string random_data_file(QUOTEME(RANDOM_DATA_FILENAME));
-
-static const std::string missing_random_data_file_msg =
-  "Missing random data file '" QUOTEME(RANDOM_DATA_FILENAME) "'. You can "
-  "generate a new one by compiling and running '" QUOTEME(RANDOM_DATA_FILENAME)
-  ".cc' in this directory.";
-
 // 0x0A = LF
 // 0x0D = CR
 // 0x22 = "

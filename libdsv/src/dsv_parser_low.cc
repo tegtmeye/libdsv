@@ -51,7 +51,6 @@ namespace bs = boost::system;
 extern "C" {
 
 typedef detail::parser<char> parser_type;
-typedef detail::basic_scanner<char> scanner_type;
 
 int dsv_parser_create(dsv_parser_t *_parser)
 {
@@ -286,6 +285,7 @@ int dsv_parser_set_field_escape_pair(dsv_parser_t _parser,
     }
 
     parser.field_escapes(escaped_field_seq);
+    parser.exclusive_field_escape(pair_exclusiveflag);
   }
   catch(std::bad_alloc &) {
     err = ENOMEM;
@@ -502,7 +502,7 @@ int dsv_parser_set_escape_field_escapes(dsv_parser_t _parser,
         replacement_seq.emplace_back(
           parser_type::escaped_replacement_desc(
             parser_type::expression_type(utf8_regex[i],regex_size[i]),
-            parser_type::char_sequence_type(replacement[i],
+            parser_type::char_sequence(replacement[i],
               replacement[i]+replacement_size[i]))
           );
       }
@@ -846,11 +846,17 @@ int dsv_parse(const char *location_str, FILE *stream, dsv_parser_t _parser,
   try {
     //parser_debug = 1;
 
-    scanner_type scanner(location_str,stream);
-    std::unique_ptr<scanner_type> base_ctx;
+    int err = parse_file(location_str,stream,parser,operations);
 
-    parser.reset();
-    int err = parser_parse(scanner,parser,operations,base_ctx);
+//     std::shared_ptr<scanner_type> scanner_ptr(
+//       new scanner_type(location_str,stream));
+//
+//     scanner_state_type scan_state(scanner_ptr);
+//
+//     std::unique_ptr<scanner_type> base_ctx;
+//
+//     parser.reset();
+//     int err = parser_parse(scan_state,parser,operations,base_ctx);
     if(err != 0) {
       if(err == 2)
         throw std::system_error(ENOMEM,std::system_category());

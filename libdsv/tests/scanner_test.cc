@@ -420,6 +420,8 @@ BOOST_AUTO_TEST_CASE( scanner_constant_cache_test )
 
   BOOST_REQUIRE_MESSAGE(scanner.cache_size() == 0,
     "cache_size: scanner did not return a cache_size of 0");
+
+  fs::remove(filepath);
 }
 
 

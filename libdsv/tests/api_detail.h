@@ -50,6 +50,8 @@ namespace detail {
 
 namespace fs=boost::filesystem;
 
+static const std::string testdatadir(QUOTEME(TESTDATA_DIR));
+
 
 
 inline void parser_destroy(dsv_parser_t *p)
@@ -149,6 +151,10 @@ void check_compliance(dsv_parser_t parser,
   const std::vector<log_msg> &log_msgs,
   const std::vector<field_storage_type> &contents,
   const std::string &label, int expected_result);
+
+
+std::string make_random_datafile(void);
+
 
 }
 
