@@ -44,6 +44,8 @@
 //#define NDEBUG
 #include <cassert>
 
+#include <iostream>
+
 #ifndef DEFAULT_SCANNER_READ_SIZE
 #define DEFAULT_SCANNER_READ_SIZE 2048
 #endif
@@ -133,8 +135,8 @@ basic_scanner<CharT,Allocator>::basic_scanner(const char *str, FILE *in,
 
   if(!in) {
     errno = 0;
-    in = fopen(str,"rb");
-    if(!in) {
+    _stream = fopen(str,"rb");
+    if(!_stream) {
       throw std::system_error(errno,std::system_category());
     }
   }
@@ -199,6 +201,16 @@ inline typename basic_scanner<CharT,Allocator>::const_reference
 basic_scanner<CharT,Allocator>::at_cache(size_type n) const
 {
   assert(n < (_read_offset-_start_offset));
+
+//   std::cerr << "at_cache() _start_offset: " << _start_offset
+//     << " _read_offset: " << _read_offset
+//     << " _end_offset: " << _end_offset << "\n";
+
+//   std::cerr << "Cache contains: ";
+//   for(std::size_t i=_start_offset; i<_read_offset; ++i)
+//     std::cerr << "'" << _buff[i] << "' ";
+//   std::cerr << "\nReturning: _buff[" << _start_offset << "+" << n << "]"
+//     << _buff[_start_offset+n] << "\n";
 
   return _buff[_start_offset+n];
 }
@@ -286,14 +298,44 @@ class basic_scanner_iterator
     typedef typename scanner_type::size_type        size_type;
 
     basic_scanner_iterator(void);
-    basic_scanner_iterator(basic_scanner<CharT,Allocator> &scanner);
+    /*
+      \c cache_offset must be either less than \c scanner.cache_size() OR
+      be equal to EOF
+    */
+    basic_scanner_iterator(basic_scanner<CharT,Allocator> &scanner,
+      size_type cache_offset = 0);
+
+    basic_scanner_iterator(const basic_scanner_iterator &rhs);
+
+    basic_scanner_iterator & operator=(const basic_scanner_iterator &rhs);
 
     const CharT & dereference(void) const;
 
     bool equal(const basic_scanner_iterator<CharT,Allocator> &rhs) const;
 
+    /*
+      If this points to the last element of scanner's cache and another
+      byte, is available for reading, increase the scanner's cache by 1
+      and set the value if this to be the newly read value. If no
+      additional bytes are available for reading, this now references
+      EOF. That is:
+
+        basic_scanner<char> s; //assume s has the value 'a'
+        basic_scanner_iterator<char> iter(s);
+        bool result = (*iter == 'a'); // is true
+        ++iter; // iter now references EOF
+        result = (iter == basic_scanner_iterator<char>(s,EOF)); // is true
+    */
     void increment(void);
 
+    /*
+      If the iterator references the scanner EOF, then reset the
+      iterator to point to the last cached value. If the cache is empty,
+      the call is undefined. Otherwise the iterator will reference the
+      cached value immediately prior to the currently cached value. If
+      the iterator references the first cached value prior to the call,
+      the results are undefined.
+    */
     void decrement(void);
 
   private:
@@ -304,25 +346,47 @@ class basic_scanner_iterator
 
 template<typename CharT, typename Allocator>
 inline basic_scanner_iterator<CharT,Allocator>::basic_scanner_iterator(void)
-  :_scanner(0), _offset(0), _value(0)
+  :_scanner(0), _offset(0), _value(-1)
 {
 }
 
 template<typename CharT, typename Allocator>
 inline basic_scanner_iterator<CharT,Allocator>::basic_scanner_iterator(
-  basic_scanner<CharT,Allocator> &scanner) :_scanner(&scanner), _offset(0),
-    _value(0)
+  basic_scanner<CharT,Allocator> &scanner, size_type cache_offset)
+    :_scanner(&scanner), _offset(cache_offset), _value(-2)
 {
-  if(!(_scanner->cache_size() == 0 && _scanner->getc() == EOF)) {
-    _offset = _scanner->cache_size()-1;
+  if(_offset == _scanner->cache_size() && _scanner->getc() == EOF)
+    _offset = static_cast<size_type>(EOF);
+
+  if(_offset != static_cast<size_type>(EOF))
     _value = _scanner->at_cache(_offset);
-  }
 }
+
+template<typename CharT, typename Allocator>
+inline basic_scanner_iterator<CharT,Allocator>::
+  basic_scanner_iterator(const basic_scanner_iterator &rhs)
+  :_scanner(rhs._scanner), _offset(rhs._offset), _value(rhs._value)
+{
+}
+
+template<typename CharT, typename Allocator>
+inline basic_scanner_iterator<CharT,Allocator> &
+basic_scanner_iterator<CharT,Allocator>::
+  operator=(const basic_scanner_iterator &rhs)
+{
+  _scanner = rhs._scanner;
+  _offset = rhs._offset;
+  _value = rhs._value;
+
+  return *this;
+}
+
 
 template<typename CharT, typename Allocator>
 inline const CharT &
 basic_scanner_iterator<CharT,Allocator>::dereference(void) const
 {
+// assert(_value == 'l');
   return _value;
 }
 
@@ -330,35 +394,49 @@ template<typename CharT, typename Allocator>
 inline bool basic_scanner_iterator<CharT,Allocator>::equal(
   const basic_scanner_iterator<CharT,Allocator> &rhs) const
 {
-  bool val = ((_scanner == rhs._scanner) && (_offset == rhs._offset)) ||
-    (_scanner == 0 && rhs._offset >= rhs._scanner->cache_size()) ||
-    (rhs._scanner == 0 && _offset >= _scanner->cache_size());
-
-  return val;
+  return ((_scanner == rhs._scanner) && (_offset == rhs._offset));
 }
 
 /*
-    if the advanced iterator references a cached value in \c scanner,
-    then set _value to the cached value in scanner. If the advanced
-    iterator references one past the last cached value, then call \c
-    _scanner->getc() to try and get the next value. If it is EOF, then
-    mark the iterator to compare equal to the end-of-file
-    scanner_iterator, otherwise set \c _value to the new scanner value.
+  If the advanced iterator references a cached value in \c scanner,
+  then set _value to the cached value in scanner. If the advanced
+  iterator references one past the last cached value, then call \c
+  _scanner->getc() to try and get the next value. If it is EOF, then
+  mark the iterator to compare equal to the end-of-file
+  scanner_iterator, otherwise set \c _value to the new scanner value.
 
-    Dereferencing or incrementing the iterator once it equals the
-    end-of-stream iterator invokes undefined behavior
+  Dereferencing or incrementing the iterator once it equals the
+  end-of-stream iterator invokes undefined behavior
 */
 template<typename CharT, typename Allocator>
 inline void basic_scanner_iterator<CharT,Allocator>::increment(void)
 {
-  if(!(++_offset >= _scanner->cache_size() && _scanner->getc() == EOF))
+  // increment on iterator pointing to EOF is undefined
+  if(++_offset >= _scanner->cache_size() && _scanner->getc() == EOF)
+    _offset = EOF;
+  else
     _value = _scanner->at_cache(_offset);
 }
 
 template<typename CharT, typename Allocator>
 inline void basic_scanner_iterator<CharT,Allocator>::decrement(void)
 {
+//   std::cerr << "Dec _offset pre: " << _offset
+//     << " value: '" << _value << "'\n";
+assert(_offset == EOF);
+  if(_offset == static_cast<size_type>(EOF)) {
+//     std::cerr << "Setting _offset to " << _scanner->cache_size() << "\n";
+    _offset = _scanner->cache_size();
+  }
+// assert(_offset == 0);
+assert(_offset == 12);
+assert(_value == -2);
   _value = _scanner->at_cache(--_offset);
+assert(_offset == 11);
+// assert(_value == 'l');
+//
+//   std::cerr << "Dec _offset post: " << _offset
+//     << " value: '" << _value << "'\n";
 }
 
 

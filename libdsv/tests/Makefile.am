@@ -32,7 +32,7 @@
 master_suite=$(top_srcdir)/tests/master_suite.cc
 
 additional_test_cppflags= \
-	-arch x86_64 -std=c++11 -Wall -Wextra \
+	-arch x86_64 -std=c++11 -Wall -Wextra --save-temps \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/libdsv/src \
 	-DTESTDATA_DIR='$(srcdir)/data' \

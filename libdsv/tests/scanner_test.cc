@@ -60,8 +60,9 @@ namespace fs=boost::filesystem;
 typedef d::basic_scanner<char> scanner_type;
 typedef d::basic_scanner_iterator<char> scanner_iterator;
 
-
 BOOST_AUTO_TEST_SUITE( scanner_test_suite )
+
+#if 0
 
 /**
     \test Check for proper handling of empty file by filename
@@ -892,22 +893,16 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_object_test )
 
   scanner_type scanner(0,in.get(),8);
 
-  scanner_iterator iter1(scanner);
-  scanner_iterator iter2(scanner);
+  scanner_iterator iter1_first(scanner);
+  scanner_iterator iter1_last(scanner,EOF);
+  scanner_iterator iter2_first(scanner);
+  scanner_iterator iter2_last(scanner,EOF);
 
-  BOOST_REQUIRE(iter1 == iter2);
-  BOOST_REQUIRE(iter1 == scanner_iterator());
+  BOOST_REQUIRE(iter1_first == iter2_first);
+  BOOST_REQUIRE(iter1_last == iter2_last);
+  BOOST_REQUIRE(iter1_first == iter1_last);
+  BOOST_REQUIRE(iter2_first == iter2_last);
   BOOST_REQUIRE(scanner_iterator() == scanner_iterator());
-
-  scanner_iterator iter1_copy(iter1);
-  BOOST_REQUIRE(iter1_copy == iter2);
-  BOOST_REQUIRE(iter1_copy == scanner_iterator());
-
-  scanner_iterator iter2_copy;
-  iter2_copy = iter2;
-  BOOST_REQUIRE(iter2 == iter2_copy);
-  BOOST_REQUIRE(iter1 == iter2_copy);
-  BOOST_REQUIRE(iter2_copy == scanner_iterator());
 
   fs::remove(filepath);
 }
@@ -929,30 +924,32 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_object_test2 )
 
   scanner_type scanner(0,in.get(),8);
 
-  scanner_iterator iter1(scanner);
+  scanner_iterator iter1_first(scanner);
+  scanner_iterator iter1_last(scanner,EOF);
 
   BOOST_REQUIRE(scanner.cache_size() == 1);
   BOOST_REQUIRE(!scanner.eof());
 
-  scanner_iterator iter2(scanner);
+  scanner_iterator iter2_first(scanner);
+  scanner_iterator iter2_last(scanner,EOF);
   BOOST_REQUIRE(!scanner.eof());
 
-  BOOST_REQUIRE(iter1 == iter2);
-  BOOST_REQUIRE(iter1 != scanner_iterator());
-  BOOST_REQUIRE(scanner_iterator() == scanner_iterator());
+  BOOST_REQUIRE(iter1_first == iter2_first);
+  BOOST_REQUIRE(*iter1_first == *iter2_first);
+  BOOST_REQUIRE(iter1_first != iter1_last);
 
-  scanner_iterator iter1_copy(iter1);
-  BOOST_REQUIRE(iter1_copy == iter2);
-  BOOST_REQUIRE(iter1_copy != scanner_iterator());
-
-  scanner_iterator iter2_copy;
-  iter2_copy = iter2;
-  BOOST_REQUIRE(iter2 == iter2_copy);
-  BOOST_REQUIRE(iter1 == iter2_copy);
-  BOOST_REQUIRE(iter2_copy != scanner_iterator());
+  scanner_iterator iter_copy(iter1_first);
+  BOOST_REQUIRE(iter_copy == iter1_first);
+  BOOST_REQUIRE(iter_copy == iter2_first);
+  BOOST_REQUIRE(iter_copy != iter1_last);
+  BOOST_REQUIRE(iter_copy != iter2_last);
 
   fs::remove(filepath);
 }
+#endif
+
+
+
 
 /**
     \test Check for basic iterator object traversal functionality
@@ -972,9 +969,10 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_traversal_test )
   scanner_type scanner(0,in.get(),8);
 
   scanner_iterator iter(scanner);
+  scanner_iterator iter_last(scanner,EOF);
 
   std::vector<unsigned char>::iterator first = contents.begin();
-  while(iter != scanner_iterator() && first != contents.end()) {
+  while(iter != iter_last && first != contents.end()) {
     BOOST_REQUIRE_MESSAGE(*iter == *first,
       "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
         << *first << "'");
@@ -985,33 +983,47 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_traversal_test )
   // incremented iter and therefore hit EOF
   BOOST_REQUIRE(first == contents.end());
   BOOST_REQUIRE(scanner.eof());
-  BOOST_REQUIRE(iter == scanner_iterator());
+  BOOST_REQUIRE(iter == iter_last);
 
-  std::vector<unsigned char>::reverse_iterator rfirst = contents.rbegin();
-  while(rfirst != contents.rend()) {
-    BOOST_REQUIRE_MESSAGE(*(--iter) == *rfirst,
-      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
-        << *rfirst << "'");
+  // CHECK REVERSE TRAVERSAL
+  std::vector<unsigned char>::reverse_iterator rcfirst = contents.rbegin();
+  std::vector<unsigned char>::reverse_iterator rclast = contents.rend();
 
-    BOOST_REQUIRE(iter != scanner_iterator());
-    ++rfirst;
+  iter = scanner_iterator(scanner);
+  iter_last = scanner_iterator(scanner,EOF);
+
+  std::reverse_iterator<scanner_iterator> rifirst(iter_last);
+  std::reverse_iterator<scanner_iterator> rilast(iter);
+
+//     BOOST_REQUIRE_MESSAGE(*rcfirst == *rifirst,
+//       "iterator: unexpected '" << detail::ascii(*rifirst) << "', expected '"
+//         << detail::ascii(*rcfirst) << "'");
+
+  assert(*rcfirst == *rifirst);
+
+// std::cerr << "HERE!!!!!!!!!!!!\n";
+  while(rcfirst != rclast && rifirst != rilast) {
+    std::cerr << "Loop start\n";
+    BOOST_REQUIRE_MESSAGE(*rcfirst == *rifirst,
+      "iterator: unexpected '" << detail::ascii(*rifirst) << "', expected '"
+        << detail::ascii(*rcfirst) << "'");
+    std::cerr << "Loop decrement\n";
+    ++rifirst;
+    ++rcfirst;
   }
 
-  first = contents.begin();
-  while(iter != scanner_iterator() && first != contents.end()) {
-    BOOST_REQUIRE_MESSAGE(*iter == *first,
-      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
-        << *first << "'");
-    ++iter;
-    ++first;
-  }
-
-  BOOST_REQUIRE(first == contents.end());
+  BOOST_REQUIRE(rcfirst == rclast);
+  BOOST_REQUIRE(rifirst == rilast);
   BOOST_REQUIRE(scanner.eof());
-  BOOST_REQUIRE(iter == scanner_iterator());
 
   fs::remove(filepath);
 }
+
+
+
+
+
+#if 0
 
 /**
     \test Check for basic iterator distance check
@@ -1030,21 +1042,32 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_distance_test )
 
   scanner_type scanner(0,in.get(),8);
 
-  scanner_iterator cur(scanner);
-  scanner_iterator first(scanner);
+  scanner_iterator iter(scanner);
+  scanner_iterator iter_last(scanner,EOF);
 
-  for(std::size_t i=0; i<10; ++i) {
-    BOOST_REQUIRE(cur != scanner_iterator());
-    BOOST_REQUIRE(*cur == contents[i]);
-    ++cur;
+  std::vector<unsigned char>::iterator first = contents.begin();
+  while(iter != iter_last && first != contents.end()) {
+    BOOST_REQUIRE_MESSAGE(*iter == *first,
+      "iterator: unexpected '" << detail::ascii(*iter) << "', expected '"
+        << *first << "'");
+    ++iter;
+    ++first;
   }
 
-  BOOST_REQUIRE(cur != scanner_iterator());
-  BOOST_REQUIRE(std::distance(first,cur) == 10);
+  // incremented iter and therefore hit EOF
+  BOOST_REQUIRE(first == contents.end());
+  BOOST_REQUIRE(scanner.eof());
+  BOOST_REQUIRE(iter == iter_last);
+
+  scanner_iterator start(scanner);
+
+  std::iterator_traits<scanner_iterator>::difference_type n =
+    std::distance(start,iter);
+
+  BOOST_REQUIRE(n>0 && std::size_t(n) == contents.size());
 
   fs::remove(filepath);
 }
-
 
 
 /**
@@ -1067,14 +1090,14 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_regex_test )
 
   scanner_type scanner(0,in.get(),8);
 
-  scanner_iterator iter(scanner);
+  scanner_iterator first(scanner);
+  scanner_iterator last(scanner,EOF);
 
   std::regex expression("REGULAR EXPRESSIONS",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
   auto search_begin =
-      std::regex_iterator<scanner_iterator>(iter,scanner_iterator(),
-        expression);
+      std::regex_iterator<scanner_iterator>(first,last,expression);
   auto search_end = std::regex_iterator<scanner_iterator>();
 
   BOOST_REQUIRE(std::distance(search_begin, search_end) == 1);
@@ -1107,13 +1130,13 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
   scanner_type scanner(0,in.get(),8);
 
   scanner_iterator first(scanner);
+  scanner_iterator last(scanner,EOF);
 
   std::regex expression("(foo)|(bar)",
     std::regex_constants::ECMAScript);
 
   auto search_begin =
-      std::regex_iterator<scanner_iterator>(scanner_iterator(scanner),
-        scanner_iterator(),expression);
+      std::regex_iterator<scanner_iterator>(first,last,expression);
   auto search_end = std::regex_iterator<scanner_iterator>();
 
   // 3 matches, "foo", "foo", and "bar"
@@ -1135,8 +1158,8 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
   out = std::string(match[1].first,match[1].second);
   BOOST_REQUIRE(out == "foo");
 
-  BOOST_REQUIRE(match[2].first == scanner_iterator());
-  BOOST_REQUIRE(match[2].second == scanner_iterator());
+  BOOST_REQUIRE(match[2].first == last);
+  BOOST_REQUIRE(match[2].second == last);
 
   // match second "foo"
   match = *(++search_begin);
@@ -1154,8 +1177,8 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
   out = std::string(match[1].first,match[1].second);
   BOOST_REQUIRE(out == "foo");
 
-  BOOST_REQUIRE(match[2].first == scanner_iterator());
-  BOOST_REQUIRE(match[2].second == scanner_iterator());
+  BOOST_REQUIRE(match[2].first == last);
+  BOOST_REQUIRE(match[2].second == last);
 
 
   // match "bar"
@@ -1169,8 +1192,8 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
   out = std::string(match[0].first,match[0].second);
   BOOST_REQUIRE(out == "bar");
 
-  BOOST_REQUIRE(match[1].first == scanner_iterator());
-  BOOST_REQUIRE(match[1].second == scanner_iterator());
+  BOOST_REQUIRE(match[1].first == last);
+  BOOST_REQUIRE(match[1].second == last);
 
   BOOST_REQUIRE(std::distance(scanner_iterator(first),match[2].first) == 6);
   BOOST_REQUIRE(std::distance(scanner_iterator(first),match[2].second) == 9);
@@ -1179,7 +1202,7 @@ BOOST_AUTO_TEST_CASE( basic_scanner_iterator_complex_regex_test )
 
   fs::remove(filepath);
 }
-
+#endif
 BOOST_AUTO_TEST_SUITE_END()
 
 }
